@@ -77,6 +77,7 @@ struct GalleryTabButton: View {
         Label {
             Text(tab.title)
                 .lineLimit(2)
+                .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .center)
                 .fixedSize(horizontal: false, vertical: true)
         } icon: {
             Image(systemName: tab.symbol)
