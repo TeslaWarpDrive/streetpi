@@ -125,6 +125,8 @@ extension HouseGroup {
         case .internet: "globe"
         case .piHealth: "cpu"
         case .backups: "externaldrive"
+        case .monitors: "list.bullet.rectangle"
+        case .address: "network"
         }
     }
 }
