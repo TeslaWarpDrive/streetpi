@@ -12,10 +12,11 @@ public struct DNSRoute: Sendable, Equatable {
     }
 }
 
-/// Pi-hole v6 paths. Reads stay. The only writes are blocking, deny, and allow.
+/// Pi-hole v6 paths. Reads stay. Writes are blocking, deny, allow, and gravity.
 /// No host, and nothing here opens a connection.
 public enum DNSAPI {
     public static let routes: [DNSRoute] = [
+        DNSRoute(method: "GET", path: "/api/info/login", needsConfigAccess: false),
         DNSRoute(method: "POST", path: "/api/auth", needsConfigAccess: false),
         DNSRoute(method: "DELETE", path: "/api/auth", needsConfigAccess: false),
         DNSRoute(method: "GET", path: "/api/stats/summary", needsConfigAccess: false),
@@ -28,13 +29,17 @@ public enum DNSAPI {
         DNSRoute(method: "GET", path: "/api/logs/dnsmasq", needsConfigAccess: false),
         DNSRoute(method: "GET", path: "/api/clients", needsConfigAccess: false),
         DNSRoute(method: "GET", path: "/api/groups", needsConfigAccess: false),
+        DNSRoute(method: "GET", path: "/api/domains/deny", needsConfigAccess: false),
         DNSRoute(method: "GET", path: "/api/domains/deny/exact", needsConfigAccess: false),
         DNSRoute(method: "POST", path: "/api/domains/deny/exact", needsConfigAccess: false),
+        DNSRoute(method: "GET", path: "/api/domains/allow", needsConfigAccess: false),
         DNSRoute(method: "GET", path: "/api/domains/allow/exact", needsConfigAccess: false),
         DNSRoute(method: "POST", path: "/api/domains/allow/exact", needsConfigAccess: false),
+        DNSRoute(method: "POST", path: "/api/action/gravity", needsConfigAccess: false),
         DNSRoute(method: "GET", path: "/api/lists", needsConfigAccess: false),
         DNSRoute(method: "GET", path: "/api/config/dns/hosts", needsConfigAccess: false),
         DNSRoute(method: "GET", path: "/api/config/dns/cnameRecords", needsConfigAccess: false),
+        DNSRoute(method: "GET", path: "/api/config/dns/queryLogging", needsConfigAccess: false),
     ]
 
     public static var writePaths: [String] {

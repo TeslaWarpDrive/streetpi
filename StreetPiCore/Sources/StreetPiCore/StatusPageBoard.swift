@@ -323,7 +323,7 @@ enum SectionRollup {
     }
 }
 
-enum StatusMonitorTile {
+private enum StatusMonitorTile {
     static func make(
         sections: [StatusSection],
         history: StatusHistory,
@@ -401,7 +401,7 @@ enum AddressTile {
     }
 }
 
-enum StatusBackupTile {
+private enum StatusBackupTile {
     static func make(
         sections: [StatusSection],
         history: StatusHistory,

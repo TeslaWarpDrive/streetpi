@@ -11,10 +11,16 @@ struct AppShell: View {
     var machine: MachineDesk = .houseFixture
     var machinePage: MachinePage?
     var pendingAction: HouseholdAction?
+    var actionNotice: ActionNotice?
     var passwordSaved: Bool = true
     var showsSetup: Bool = false
     var dnsProblem: PiholeProblem?
     var sessionActive: Bool = false
+    var trustNote: String?
+    var offersSetup = false
+    var onTrustNewCertificate: () -> Void = {}
+    var onKeepSavedPin: () -> Void = {}
+    var onSettingsSaved: () -> Void = {}
     var onDNSPage: (DNSPage?) -> Void = { _ in }
     var onMachinePage: (MachinePage?) -> Void = { _ in }
     var onPending: (HouseholdAction?) -> Void = { _ in }
@@ -27,7 +33,8 @@ struct AppShell: View {
     var hostNote: String?
     var onCommitHost: () -> Void = {}
     var piNotice: String?
-    var statusBoard: HouseStatusBoard? = nil
+    var machineReading: MachineReading?
+    var statusBoard: HouseStatusBoard?
     var statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString
     var statusSlug: String = "house"
     var onStatusPage: (String, String) -> Void = { _, _ in }
@@ -47,10 +54,16 @@ struct AppShell: View {
         machine: MachineDesk = .houseFixture,
         machinePage: MachinePage? = nil,
         pendingAction: HouseholdAction? = nil,
+        actionNotice: ActionNotice? = nil,
         passwordSaved: Bool = true,
         showsSetup: Bool = false,
         dnsProblem: PiholeProblem? = nil,
         sessionActive: Bool = false,
+        trustNote: String? = nil,
+        offersSetup: Bool = false,
+        onTrustNewCertificate: @escaping () -> Void = {},
+        onKeepSavedPin: @escaping () -> Void = {},
+        onSettingsSaved: @escaping () -> Void = {},
         onDNSPage: @escaping (DNSPage?) -> Void = { _ in },
         onMachinePage: @escaping (MachinePage?) -> Void = { _ in },
         onPending: @escaping (HouseholdAction?) -> Void = { _ in },
@@ -63,6 +76,7 @@ struct AppShell: View {
         hostNote: String? = nil,
         onCommitHost: @escaping () -> Void = {},
         piNotice: String? = nil,
+        machineReading: MachineReading? = nil,
         statusBoard: HouseStatusBoard? = nil,
         statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString,
         statusSlug: String = "house",
@@ -77,10 +91,16 @@ struct AppShell: View {
         self.machine = machine
         self.machinePage = machinePage
         self.pendingAction = pendingAction
+        self.actionNotice = actionNotice
         self.passwordSaved = passwordSaved
         self.showsSetup = showsSetup
         self.dnsProblem = dnsProblem
         self.sessionActive = sessionActive
+        self.trustNote = trustNote
+        self.offersSetup = offersSetup
+        self.onTrustNewCertificate = onTrustNewCertificate
+        self.onKeepSavedPin = onKeepSavedPin
+        self.onSettingsSaved = onSettingsSaved
         self.onDNSPage = onDNSPage
         self.onMachinePage = onMachinePage
         self.onPending = onPending
@@ -93,6 +113,7 @@ struct AppShell: View {
         self.hostNote = hostNote
         self.onCommitHost = onCommitHost
         self.piNotice = piNotice
+        self.machineReading = machineReading
         self.statusBoard = statusBoard
         self.statusAddress = statusAddress
         self.statusSlug = statusSlug
@@ -103,9 +124,6 @@ struct AppShell: View {
     private var theme: StreetTheme { .house }
 
     private var groups: [GroupBrief] {
-        if let statusBoard {
-            return statusBoard.tiles.map(\.brief)
-        }
         guard let snapshot = screen.snapshot else { return [] }
         return HouseGuide.groups(in: snapshot)
     }
@@ -168,7 +186,6 @@ struct AppShell: View {
                     .toolbar(.hidden, for: .tabBar)
                     .safeAreaInset(edge: .leading, spacing: 0) {
                         AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: false)
-                            .frame(width: 340)
                     }
             } else {
                 tabs(wide: wide)
@@ -255,7 +272,7 @@ struct AppShell: View {
     }
 
     private func pauseBlocker() {
-        let board = HouseBoard.make(screen: screen, desk: desk, now: now)
+        let board = HouseBoard.make(screen: screen, desk: desk, now: now, piNotice: piNotice)
         guard board.blocker.canPause else { return }
         onPending(.pauseAdBlocking(.thirtySeconds))
     }
@@ -311,6 +328,11 @@ struct AppShell: View {
                     sessionActive: sessionActive,
                     showsSetup: showsSetup,
                     problem: dnsProblem,
+                    trustNote: trustNote,
+                    offersSetup: offersSetup,
+                    onTrustNewCertificate: onTrustNewCertificate,
+                    onKeepSavedPin: onKeepSavedPin,
+                    actionNotice: actionNotice,
                     onPage: onDNSPage,
                     onPending: onPending,
                     onSavePassword: onSavePassword,
@@ -335,7 +357,7 @@ struct AppShell: View {
                     splits: splitsDesk,
                     desk: machine,
                     page: machinePage,
-                    machine: screen.snapshot?.machine,
+                    machine: machineReading ?? screen.snapshot?.machine,
                     theme: theme,
                     piNotice: piNotice,
                     onPage: onMachinePage
@@ -354,6 +376,7 @@ struct AppShell: View {
                 piHost: piHost,
                 hostNote: hostNote,
                 onCommitHost: onCommitHost,
+                onSaved: onSettingsSaved,
                 statusAddress: statusAddress,
                 statusSlug: statusSlug,
                 onStatusPage: onStatusPage

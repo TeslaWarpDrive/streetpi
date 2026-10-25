@@ -43,7 +43,7 @@ public enum DNSPage: String, CaseIterable, Sendable, Equatable, Identifiable, Co
         case .domains: "Names to block or allow."
         case .lists: "Lists the filter uses."
         case .localNames: "Names that stay inside the house."
-        case .upkeep: "What the filter is doing. Nothing here changes the Pi."
+        case .upkeep: "Update the block lists. Other settings on the Pi stay as they are."
         }
     }
 

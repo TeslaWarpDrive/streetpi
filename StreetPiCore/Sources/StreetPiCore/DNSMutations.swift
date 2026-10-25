@@ -12,8 +12,25 @@ extension DNSDesk {
             copy.upsert(name, detail: "Blocked")
         case .allowDomain(let name):
             copy.upsert(name, detail: "Allowed")
+        case .updateBlockLists:
+            copy.listsUpdatedAt = .streetFixtureNow
         case .refresh, .signOutOfAdBlocker:
             break
+        }
+        return copy
+    }
+
+    /// Applies what the Pi reported. A failed call must not use this.
+    public func adopting(_ receipt: ActionReceipt) -> DNSDesk {
+        var copy = self
+        if let blocking = receipt.blocking {
+            copy.blocking = blocking
+        }
+        if let name = receipt.domainName, let detail = receipt.domainDetail {
+            copy.upsert(name, detail: detail)
+        }
+        if let updated = receipt.listsUpdatedAt {
+            copy.listsUpdatedAt = updated
         }
         return copy
     }

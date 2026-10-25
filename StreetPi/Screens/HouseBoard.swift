@@ -12,8 +12,19 @@ enum HouseBoard {
             headline: screen.status(now: now).headline,
             now: now
         )
-        if let piNotice, snapshot?.machine == nil {
+        if snapshot?.machine == nil, let piNotice, piNotice.isEmpty == false {
             board.pi.line = piNotice
+        }
+        if snapshot?.dns == nil, let spoken = desk.spokenLine, spoken.isEmpty == false {
+            board.headline = spoken
+            board.blocker = BlockerTile(
+                stateWord: "Quiet",
+                percentText: "—",
+                fraction: 0,
+                fractionLine: spoken,
+                explainer: spoken,
+                canPause: false
+            )
         }
         return board
     }

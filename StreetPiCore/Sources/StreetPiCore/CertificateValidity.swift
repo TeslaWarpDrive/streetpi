@@ -18,6 +18,20 @@ public enum CertificateValidity {
         guard times.skip() else { return nil }
         return times.time()
     }
+
+    /// SubjectPublicKeyInfo bytes, tag included. This is the SPKI a pin hashes.
+    public static func subjectPublicKeyInfo(der: Data) -> Data? {
+        var certificate = DERReader(der)
+        guard let certificateBody = certificate.sequenceContents() else { return nil }
+        var certificateFields = DERReader(certificateBody)
+        guard let tbs = certificateFields.sequenceContents() else { return nil }
+        var fields = DERReader(tbs)
+        if fields.peek == 0xA0 {
+            guard fields.skip() else { return nil }
+        }
+        guard fields.skip(), fields.skip(), fields.skip(), fields.skip(), fields.skip() else { return nil }
+        return fields.element()
+    }
 }
 
 private struct DERReader {
@@ -40,8 +54,13 @@ private struct DERReader {
     }
 
     mutating func skip() -> Bool {
-        guard skipTag(), let count = length(), take(count) != nil else { return false }
-        return true
+        element() != nil
+    }
+
+    mutating func element() -> Data? {
+        let start = index
+        guard skipTag(), let count = length(), take(count) != nil else { return nil }
+        return Data(bytes[start..<index])
     }
 
     mutating func time() -> Date? {
