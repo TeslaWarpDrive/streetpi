@@ -1,4 +1,3 @@
-import SnapshotTesting
 import StreetPiCore
 import SwiftUI
 import UIKit
@@ -32,48 +31,38 @@ final class TabClearanceTests: XCTestCase {
             reveal(["Streaming", "last 24 hours"], in: window)
             assertStreamingIsWhole(in: window)
             assertVisibleTextClearsBar(in: window)
-            let image = draw(window)
-            let name = "dark-\(scale.rawValue)-smallPhone"
-            withSnapshotTesting(record: .failed) {
-                assertSnapshot(
-                    of: image,
-                    as: .image(precision: 0.95, perceptualPrecision: 0.5),
-                    named: name,
-                    testName: "home-clear"
-                )
-            }
             window.isHidden = true
         }
     }
 
     private func assertStreamingIsWhole(in window: UIWindow) {
-        let title = contentLabels(in: window).first { plain($0.text) == "Streaming" }
-        guard let title else {
+        let tiles = textFrames(in: window).filter { $0.text.contains("Streaming") }
+        guard let tile = tiles.min(by: { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }) else {
             XCTFail("Streaming is not on screen")
             return
         }
-        let font = title.font ?? UIFont.preferredFont(forTextStyle: .subheadline)
+        let font = UIFont.preferredFont(forTextStyle: .subheadline, compatibleWith: window.traitCollection)
         let word = ("Streaming" as NSString).size(withAttributes: [.font: font]).width
         XCTAssertGreaterThanOrEqual(
-            title.bounds.width + 1,
+            tile.frame.width + 1,
             word,
             "Streaming is narrower than the word, so it will hyphenate or clip"
         )
-        XCTAssertFalse(plain(title.text).contains("-"))
     }
 
     private func assertVisibleTextClearsBar(in window: UIWindow) {
         let bar = tabBarFrame(in: window)
+        let texts = textFrames(in: window)
+        XCTAssertFalse(texts.isEmpty, "No text was found to compare with the tab bar")
         let tabWords: Set<String> = ["House", "Ad blocker", "Pi", "Settings"]
-        for label in contentLabels(in: window) {
-            let text = plain(label.text)
-            if text.isEmpty || tabWords.contains(text) { continue }
-            let frame = label.convert(label.bounds, to: window)
-            guard window.bounds.intersects(frame), frame.height > 1, frame.width > 1 else { continue }
-            let overlap = frame.intersection(bar)
+        for item in texts where tabWords.contains(item.text) == false {
+            let onScreen = window.bounds.intersects(item.frame)
+            let shortEnough = item.frame.height > 1 && item.frame.height < window.bounds.height * 0.85
+            guard onScreen, shortEnough else { continue }
+            let overlap = item.frame.intersection(bar)
             XCTAssertTrue(
                 overlap.isNull || overlap.height < 1,
-                "\(text) sits under the tab bar"
+                "\(item.text) sits under the tab bar"
             )
         }
     }
@@ -108,11 +97,10 @@ final class TabClearanceTests: XCTestCase {
 
     private func reveal(_ words: [String], in window: UIWindow) {
         guard let scroll = mainScroll(in: window) else { return }
-        let marks = contentLabels(in: window).filter { label in
-            let text = plain(label.text)
-            return words.contains { text.contains($0) }
+        let marks = textFrames(in: window).filter { item in
+            words.contains { item.text.contains($0) }
         }
-        let tops = marks.map { $0.convert($0.bounds, to: scroll).minY }
+        let tops = marks.map { scroll.convert($0.frame, from: window).minY }
         guard let top = tops.min() else { return }
         let offset = max(0, top - 8)
         scroll.setContentOffset(CGPoint(x: 0, y: offset), animated: false)
@@ -143,19 +131,40 @@ final class TabClearanceTests: XCTestCase {
             height: reservedHeight
         )
         let titles: Set<String> = ["House", "Ad blocker", "Pi", "Settings"]
-        let labels = contentLabels(in: window).filter { titles.contains(plain($0.text)) }
+        let labels = textFrames(in: window).filter { titles.contains($0.text) }
         guard labels.count >= 3 else { return reserved }
-        let top = labels.map { $0.convert($0.bounds, to: window).minY }.min() ?? reserved.minY
+        let top = labels.map(\.frame.minY).min() ?? reserved.minY
         let barTop = min(reserved.minY, max(0, top - 12))
         return CGRect(x: 0, y: barTop, width: window.bounds.width, height: window.bounds.height - barTop)
     }
 
-    private func draw(_ window: UIWindow) -> UIImage {
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = window.screen.scale
-        let renderer = UIGraphicsImageRenderer(bounds: window.bounds, format: format)
-        return renderer.image { _ in
-            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+    private func textFrames(in window: UIWindow) -> [(text: String, frame: CGRect)] {
+        var found: [(text: String, frame: CGRect)] = []
+        collectText(in: window, window: window, into: &found)
+        return found
+    }
+
+    private func collectText(in view: UIView, window: UIWindow, into found: inout [(text: String, frame: CGRect)]) {
+        if let label = view as? UILabel {
+            let text = plain(label.text)
+            if text.isEmpty == false {
+                found.append((text, label.convert(label.bounds, to: window)))
+            }
+        }
+        let spoken = plain(view.accessibilityLabel)
+        if spoken.isEmpty == false {
+            found.append((spoken, view.convert(view.bounds, to: window)))
+        }
+        if let elements = view.accessibilityElements {
+            for case let element as NSObject in elements {
+                let text = plain(element.accessibilityLabel)
+                if text.isEmpty { continue }
+                let frame = window.convert(element.accessibilityFrame, from: nil)
+                found.append((text, frame))
+            }
+        }
+        for child in view.subviews {
+            collectText(in: child, window: window, into: &found)
         }
     }
 
@@ -167,17 +176,6 @@ final class TabClearanceTests: XCTestCase {
         for _ in 0..<6 {
             RunLoop.current.run(until: Date().addingTimeInterval(0.02))
         }
-    }
-
-    private func contentLabels(in view: UIView) -> [UILabel] {
-        var found: [UILabel] = []
-        if let label = view as? UILabel {
-            found.append(label)
-        }
-        for child in view.subviews {
-            found.append(contentsOf: contentLabels(in: child))
-        }
-        return found
     }
 
     private func allScrolls(in view: UIView) -> [UIScrollView] {

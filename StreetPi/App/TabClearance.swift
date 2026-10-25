@@ -21,7 +21,7 @@ private struct PhoneTabClearance: ViewModifier {
         if wide {
             content
         } else {
-            content.safeAreaPadding(.bottom, TabClearance.phoneBar)
+            content.padding(.bottom, TabClearance.phoneBar)
         }
     }
 }
