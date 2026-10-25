@@ -61,6 +61,10 @@ struct HouseRooms: View {
             "cpu"
         case .backups:
             "externaldrive.badge.timemachine"
+        case .monitors:
+            "list.bullet.rectangle"
+        case .address:
+            "network"
         }
     }
 

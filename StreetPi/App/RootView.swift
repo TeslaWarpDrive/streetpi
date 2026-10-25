@@ -296,9 +296,11 @@ struct RootView: View {
         }
         return merged
     }
+}
 
+private extension RootView {
     /// The house tiles come from the status page. A miss does not invent fixture monitors.
-    private func pumpStatus() async {
+    func pumpStatus() async {
         var failures = 0
         while !Task.isCancelled {
             do {
