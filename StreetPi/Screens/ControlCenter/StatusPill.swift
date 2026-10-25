@@ -40,9 +40,11 @@ struct StatusPill: View {
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(Array(tokens.enumerated()), id: \.offset) { _, token in
                     styled(token)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             WordFlow(spacing: 8) {
                 ForEach(Array(tokens.enumerated()), id: \.offset) { _, token in
@@ -59,12 +61,12 @@ struct StatusPill: View {
     @ViewBuilder
     private func styled(_ token: String) -> some View {
         if isAccent(token) {
-            SheenWord(text: token)
+            SheenWord(text: token, minimumScale: dynamicTypeSize.isAccessibilitySize ? 0.3 : 0.5)
         } else {
             Text(token)
                 .foregroundStyle(palette.ink)
                 .lineLimit(1)
-                .minimumScaleFactor(0.5)
+                .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 0.3 : 0.5)
                 .accessibilityHidden(true)
         }
     }

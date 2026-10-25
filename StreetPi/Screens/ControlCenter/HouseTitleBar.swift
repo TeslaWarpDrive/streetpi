@@ -7,8 +7,17 @@ struct HouseTitleBar: View {
     var onSettings: () -> Void
 
     @Environment(\.afterglowPalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            accessible
+        } else {
+            regular
+        }
+    }
+
+    private var regular: some View {
         ViewThatFits(in: .horizontal) {
             HStack(alignment: .center, spacing: AfterglowShape.line) {
                 title(wraps: false)
@@ -18,6 +27,31 @@ struct HouseTitleBar: View {
             VStack(alignment: .leading, spacing: AfterglowShape.line) {
                 title(wraps: true)
                 controls
+            }
+        }
+    }
+
+    private var accessible: some View {
+        VStack(alignment: .leading, spacing: AfterglowShape.line) {
+            Text("Pi Stats")
+                .font(.largeTitle.bold())
+                .foregroundStyle(palette.ink)
+                .lineLimit(2)
+                .minimumScaleFactor(0.5)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityAddTraits(.isHeader)
+            controlsFitting
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var controlsFitting: some View {
+        ViewThatFits(in: .horizontal) {
+            controls
+                .fixedSize(horizontal: true, vertical: true)
+            VStack(alignment: .leading, spacing: AfterglowShape.line) {
+                SettingsChromeButton(action: onSettings)
+                AlertsBell(alertCount: alertCount, action: onAlerts)
             }
         }
     }

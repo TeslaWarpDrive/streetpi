@@ -19,8 +19,11 @@ struct HouseHome: View {
 
     var body: some View {
         ScrollView {
-            column
-                .frame(maxWidth: .infinity, alignment: .leading)
+            FitOfferedWidth(maxWidth: wide ? 880 : nil) {
+                column
+                    .padding(.horizontal, AfterglowShape.page)
+                    .padding(.vertical, pageInset)
+            }
         }
         .scrollIndicators(.hidden)
         .refreshable {
@@ -70,9 +73,10 @@ struct HouseHome: View {
             }
             HouseFooter()
         }
-        .padding(.horizontal, AfterglowShape.page)
-        .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? AfterglowShape.line : AfterglowShape.block)
-        .frame(maxWidth: wide ? 880 : .infinity, alignment: .leading)
+    }
+
+    private var pageInset: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? AfterglowShape.line : AfterglowShape.block
     }
 
     private func refresh() async {
