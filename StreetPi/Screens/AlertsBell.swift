@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The House bell. The count sits beside the icon, so it never covers the symbol.
 struct AlertsBell: View {
-    var count: Int
+    var alertCount: Int
     var action: () -> Void
 
     @Environment(\.afterglowPalette) private var palette
@@ -26,7 +26,7 @@ struct AlertsBell: View {
     }
 
     private var spoken: String {
-        count == 0 ? "Alerts" : "Alerts, \(count)"
+        alertCount == 0 ? "Alerts" : "Alerts, \(alertCount)"
     }
 
     private var button: some View {
@@ -58,8 +58,8 @@ struct AlertsBell: View {
 
     @ViewBuilder
     private var countLabel: some View {
-        if count > 0 {
-            Text("\(count)")
+        if alertCount > 0 {
+            Text("\(alertCount)")
                 .font(.body.monospacedDigit())
                 .foregroundStyle(palette.ground)
                 .padding(.horizontal, 8)

@@ -127,14 +127,40 @@ struct AppShell: View {
     }
 
     private func shell(wide: Bool) -> some View {
-        tabView(wide: wide)
+        styledTabs(wide: wide)
             .environment(\.horizontalSizeClass, wide ? .regular : .compact)
-            .modifier(HouseTabChrome(wide: wide, selection: tabBinding))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(theme.background)
     }
 
-    private func tabView(wide: Bool) -> some View {
+    /// The system bar at ordinary sizes. At accessibility sizes, our own strip.
+    /// Styles stay on the `TabView` itself. A modifier around the whole shell
+    /// makes the type checker give up.
+    @ViewBuilder
+    private func styledTabs(wide: Bool) -> some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            if wide {
+                tabs(wide: wide)
+                    .tabViewStyle(.tabBarOnly)
+                    .toolbar(.hidden, for: .tabBar)
+                    .safeAreaInset(edge: .leading, spacing: 0) {
+                        AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: false)
+                    }
+            } else {
+                tabs(wide: wide)
+                    .tabViewStyle(.tabBarOnly)
+                    .toolbar(.hidden, for: .tabBar)
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: true)
+                    }
+            }
+        } else {
+            tabs(wide: wide)
+                .tabViewStyle(.sidebarAdaptable)
+        }
+    }
+
+    private func tabs(wide: Bool) -> some View {
         TabView(selection: tabBinding) {
             Tab(HouseTab.house.title, systemImage: HouseTab.house.symbol, value: HouseTab.house) {
                 house(wide: wide)
@@ -288,27 +314,6 @@ struct AppShell: View {
     private var lines: [String] {
         guard let snapshot = screen.snapshot, snapshot.isEmptyHouse == false else { return [] }
         return HouseholdVoice.porchLines(snapshot)
-    }
-}
-
-/// Native tab bar at ordinary sizes. At the largest sizes, a strip that can wrap or scroll.
-private struct HouseTabChrome: ViewModifier {
-    var wide: Bool
-    var selection: Binding<HouseTab>
-
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    func body(content: Content) -> some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            content
-                .tabViewStyle(.tabBarOnly)
-                .toolbar(.hidden, for: .tabBar)
-                .safeAreaInset(edge: wide ? .leading : .bottom, spacing: 0) {
-                    AccessibleTabStrip(selection: selection, scrollsHorizontally: wide == false)
-                }
-        } else {
-            content.tabViewStyle(.sidebarAdaptable)
-        }
     }
 }
 

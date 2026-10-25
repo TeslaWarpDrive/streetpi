@@ -86,19 +86,19 @@ private struct WordFlow: Layout {
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         let lines = rows(maxWidth: bounds.width, subviews: subviews)
-        var y = bounds.minY
+        var originY = bounds.minY
         for line in lines {
-            var x = bounds.minX
+            var originX = bounds.minX
             for index in line.indexes {
                 let width = line.widths[index] ?? 0
                 subviews[index].place(
-                    at: CGPoint(x: x, y: y),
+                    at: CGPoint(x: originX, y: originY),
                     anchor: .topLeading,
                     proposal: ProposedViewSize(width: width, height: nil)
                 )
-                x += width + spacing
+                originX += width + spacing
             }
-            y += line.height + lineGap
+            originY += line.height + lineGap
         }
     }
 

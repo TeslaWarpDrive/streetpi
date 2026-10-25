@@ -45,13 +45,13 @@ struct HouseHome: View {
             HStack(alignment: .center, spacing: AfterglowShape.line) {
                 heading
                 Spacer(minLength: AfterglowShape.line)
-                AlertsBell(count: alertCount, action: onAlerts)
+                AlertsBell(alertCount: alertCount, action: onAlerts)
             }
             VStack(alignment: .leading, spacing: AfterglowShape.line) {
                 HStack(alignment: .center, spacing: AfterglowShape.line) {
                     KickerLabel(text: "Raspberry Pi Stats")
                     Spacer(minLength: AfterglowShape.line)
-                    AlertsBell(count: alertCount, action: onAlerts)
+                    AlertsBell(alertCount: alertCount, action: onAlerts)
                 }
                 StatusChip(title: status.linkLine, tone: status.tone, symbol: "house.fill")
             }
