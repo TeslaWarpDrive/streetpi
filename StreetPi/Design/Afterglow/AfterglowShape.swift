@@ -10,6 +10,8 @@ enum AfterglowShape {
     static let panelPadding: CGFloat = 16
     static let tilePadding: CGFloat = 16
     static let plateInset: CGFloat = 5
+    /// Narrowest a ring or room card stays readable. Large text uses the full width instead.
+    static let cardFloor: CGFloat = 120
     static let ring: CGFloat = 108
     static let arcWidth: CGFloat = 8
 }

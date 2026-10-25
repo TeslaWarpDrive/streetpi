@@ -52,7 +52,7 @@ struct BriefingSample: View {
 
     private var heading: some View {
         VStack(alignment: .leading, spacing: AfterglowShape.tight) {
-            KickerLabel(text: "StreetPi")
+            KickerLabel(text: "Raspberry Pi Stats")
             HStack(alignment: .center, spacing: AfterglowShape.tight) {
                 StatusDot(tone: .calm)
                 Text("Home network")

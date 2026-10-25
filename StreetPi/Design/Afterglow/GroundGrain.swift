@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Static film grain for the dark ground. Light mode leaves this off.
+/// Static film grain for the Aurora ground.
 struct GroundGrain: View {
     var body: some View {
         Canvas { context, size in

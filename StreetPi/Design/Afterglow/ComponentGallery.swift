@@ -14,19 +14,13 @@ struct ComponentGallery: View {
 
 #Preview("Dark") {
     ComponentGallery()
-        .environment(\.colorScheme, .dark)
-        .environment(\.streetPiStill, true)
-}
-
-#Preview("Daylight") {
-    ComponentGallery()
-        .environment(\.colorScheme, .light)
+        .preferredColorScheme(.dark)
         .environment(\.streetPiStill, true)
 }
 
 #Preview("Largest type") {
     ComponentGallery()
-        .environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark)
         .environment(\.dynamicTypeSize, .accessibility5)
         .environment(\.streetPiStill, true)
 }

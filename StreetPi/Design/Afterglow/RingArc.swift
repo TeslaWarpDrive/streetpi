@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Glowing ring arc. Dark uses the Aurora stops. Light stays a solid accent.
+/// Glowing ring arc. The stroke uses the Aurora stops.
 struct RingArc: View {
     var fraction: Double
 
@@ -31,12 +31,8 @@ struct RingArc: View {
             .rotationEffect(.degrees(-90))
     }
 
-    private var strokeColor: AnyShapeStyle {
-        if palette.ringsUseGradient {
-            AnyShapeStyle(ringGradient)
-        } else {
-            AnyShapeStyle(palette.accent)
-        }
+    private var strokeColor: LinearGradient {
+        ringGradient
     }
 
     private var ringGradient: LinearGradient {
@@ -49,9 +45,9 @@ struct RingArc: View {
 
     private var cap: some View {
         Circle()
-            .fill(palette.ringsUseGradient ? Color.white.opacity(0.92) : palette.accent)
+            .fill(Color.white.opacity(0.92))
             .frame(width: 6, height: 6)
-            .shadow(color: palette.auraBlue.opacity(palette.ringsUseGradient ? 0.9 : 0.35), radius: 4)
+            .shadow(color: palette.auraBlue.opacity(0.9), radius: 4)
             .offset(x: capPoint.x, y: capPoint.y)
     }
 

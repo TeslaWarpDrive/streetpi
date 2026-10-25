@@ -45,11 +45,11 @@ struct AlertsScreen: View {
             if alerts.isEmpty {
                 EmptyNote(
                     title: "No alarms are raised.",
-                    detail: "These stay in the app. StreetPi does not send push notifications.",
+                    detail: "These stay in the app. Raspberry Pi Stats does not send push notifications.",
                     theme: theme
                 )
             } else {
-                Text("These stay in the app. StreetPi does not send push notifications.")
+                Text("These stay in the app. Raspberry Pi Stats does not send push notifications.")
                     .font(.body)
                     .foregroundStyle(theme.secondary)
                     .fixedSize(horizontal: false, vertical: true)

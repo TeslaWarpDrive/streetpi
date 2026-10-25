@@ -1,30 +1,6 @@
 import StreetPiCore
 import SwiftUI
 
-enum AppearancePreference: String, CaseIterable, Identifiable {
-    case system
-    case dark
-    case light
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .system: "System"
-        case .dark: "Dark"
-        case .light: "Light"
-        }
-    }
-
-    var colorScheme: ColorScheme? {
-        switch self {
-        case .system: nil
-        case .dark: .dark
-        case .light: .light
-        }
-    }
-}
-
 enum HouseScreen: Equatable {
     case ready(HouseholdSnapshot)
     case empty
@@ -64,10 +40,6 @@ enum AppSection: Hashable {
     case group(HouseGroup)
     case alerts
     case settings
-}
-
-enum PreferenceKey {
-    static let appearance = "streetpi.appearance"
 }
 
 private struct StreetStillKey: EnvironmentKey {
