@@ -42,7 +42,7 @@ struct DNSPageBody: View {
                 onAllow: { _ in }
             )
         case .services:
-            DNSServices(services: desk.services, theme: theme, wide: wide)
+            DNSServices(theme: theme, wide: wide)
         case .clients:
             ReadOnlyRows(
                 title: page.title,

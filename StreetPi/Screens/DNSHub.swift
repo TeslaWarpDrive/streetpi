@@ -12,45 +12,62 @@ struct DNSHub: View {
     var onSignOut: () -> Void
 
     var body: some View {
-        DeskScroll(wide: wide) {
-            VStack(alignment: .leading, spacing: Rhythm.tight) {
-                Text("Ad blocker & DNS")
-                    .font(.system(.largeTitle, design: .rounded))
-                    .foregroundStyle(theme.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityAddTraits(.isHeader)
-                Text(desk.blockingLine)
-                    .font(.title3)
-                    .foregroundStyle(theme.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+        ControlScreen(wide: wide) {
+            ControlTitle(title: "Ad blocker", line: desk.blockingLine, theme: theme)
+            ControlGrid {
+                NumberTile(
+                    label: "Queries",
+                    number: desk.queriesToday.formatted(),
+                    line: "Lookups the house made today.",
+                    theme: theme
+                )
+                NumberTile(
+                    label: "Blocked",
+                    number: desk.blockedToday.formatted(),
+                    line: "Turned away before they loaded.",
+                    theme: theme
+                )
+                NumberTile(
+                    label: "Devices",
+                    number: desk.knownClients.formatted(),
+                    line: "Devices the house knows.",
+                    theme: theme
+                )
+                NumberTile(
+                    label: "Lists",
+                    number: desk.listCount.formatted(),
+                    line: "Lists the filter uses.",
+                    theme: theme
+                )
             }
-            passwordRow
+            phoneTile
             ForEach(DNSShelf.allCases) { shelf in
-                VStack(alignment: .leading, spacing: Rhythm.line) {
-                    Text(shelf.title)
-                        .font(.headline)
-                        .foregroundStyle(theme.ink)
-                        .accessibilityAddTraits(.isHeader)
-                    ForEach(shelf.pages) { page in
-                        DeskLink(
-                            title: page.title,
-                            blurb: page.blurb,
-                            symbol: page.symbolName,
-                            theme: theme
-                        ) {
-                            onPage(page)
-                        }
-                    }
+                shelfBlock(shelf)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func shelfBlock(_ shelf: DNSShelf) -> some View {
+        let pages = shelf.pages.filter { $0 != .services }
+        if pages.isEmpty == false {
+            ControlSection(title: shelf.title, theme: theme)
+            ControlGrid {
+                ForEach(pages) { page in
+                    LinkTile(
+                        title: page.title,
+                        line: page.blurb,
+                        symbol: page.symbolName,
+                        theme: theme,
+                        action: { onPage(page) }
+                    )
                 }
             }
         }
     }
 
-    private var passwordRow: some View {
+    private var phoneTile: some View {
         VStack(alignment: .leading, spacing: Rhythm.line) {
-            Text("This phone")
-                .font(.headline)
-                .foregroundStyle(theme.ink)
             Text(passwordSaved ? "The app password is saved on this phone." : "Not set up on this phone yet.")
                 .font(.subheadline)
                 .foregroundStyle(theme.secondary)
@@ -68,12 +85,7 @@ struct DNSHub: View {
                     .frame(minHeight: 44, alignment: .leading)
             }
         }
-        .padding(Rhythm.line)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(theme.hairline, lineWidth: 1)
-        }
+        .controlPlate(theme: theme)
+        .accessibilityElement(children: .contain)
     }
 }

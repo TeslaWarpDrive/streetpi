@@ -10,33 +10,15 @@ struct MachineListScreen: View {
     var wide: Bool
 
     var body: some View {
-        DeskScroll(wide: wide) {
-            Text(title)
-                .font(.system(.largeTitle, design: .rounded))
-                .foregroundStyle(theme.ink)
-                .accessibilityAddTraits(.isHeader)
-            Text(intro)
-                .font(.body)
-                .foregroundStyle(theme.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+        ControlScreen(wide: wide) {
+            ControlTitle(title: title, line: intro, theme: theme)
             if let note {
-                Text(note)
-                    .font(.body)
-                    .foregroundStyle(theme.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(LiveReadCopy.tryAgain)
-                    .font(.subheadline)
-                    .foregroundStyle(theme.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                PlainTile(title: note, line: LiveReadCopy.tryAgain, theme: theme)
             }
-            ForEach(rows) { row in
-                VStack(alignment: .leading, spacing: Rhythm.tight) {
-                    Text(row.name).font(.headline).foregroundStyle(theme.ink)
-                    Text(row.detail).font(.subheadline).foregroundStyle(theme.secondary)
+            ControlGrid {
+                ForEach(rows) { row in
+                    PlainTile(title: row.name, line: row.detail, theme: theme)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(Rhythm.line)
-                .background(theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             }
         }
     }

@@ -42,32 +42,29 @@ struct SettingsView: View {
         _slug = State(initialValue: statusSlug)
     }
 
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Rhythm.block) {
-                Text("Settings")
-                    .font(.system(.largeTitle, design: .rounded))
-                    .foregroundStyle(theme.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityAddTraits(.isHeader)
-                Text("Raspberry Pi Stats is the same app for everyone in the house. Nothing here is tied to a person.")
-                    .font(.body)
-                    .foregroundStyle(theme.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                adBlocker
-                piAddress
-                statusPage
-                Text(versionLine)
-                    .font(.subheadline)
-                    .foregroundStyle(theme.secondary)
-                    .accessibilityLabel(versionLine)
+        ControlScreen(wide: sizeClass == .regular) {
+            ControlTitle(
+                title: "Settings",
+                line: "Raspberry Pi Stats is the same app for everyone in the house.",
+                theme: theme
+            )
+            ControlGrid {
+                NumberTile(
+                    label: "House",
+                    number: "1",
+                    line: "Nothing here is tied to a person.",
+                    theme: theme
+                )
+                PlainTile(title: "Version", line: versionLine, theme: theme)
             }
-            .padding(.horizontal, Rhythm.page)
-            .padding(.bottom, Rhythm.page)
-            .frame(maxWidth: 680, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            adBlocker
+                .controlPlate(theme: theme)
+            piAddress
+            statusPage
         }
-        .scrollIndicators(.hidden)
         .onAppear {
             let hosts = LiveHostStore()
             address = hosts.piholeText()
@@ -185,8 +182,8 @@ struct SettingsView: View {
                 Text("Save address")
                     .font(.body)
                     .foregroundStyle(theme.ink)
-                    .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
+                    .frame(minHeight: 44, alignment: .leading)
                     .padding(.horizontal, Rhythm.line)
                     .padding(.vertical, 10)
                     .background { Capsule().fill(theme.surface) }
@@ -236,8 +233,8 @@ struct SettingsView: View {
                 Text("Save status page")
                     .font(.body)
                     .foregroundStyle(theme.ink)
-                    .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
+                    .frame(minHeight: 44, alignment: .leading)
                     .padding(.horizontal, Rhythm.line)
                     .padding(.vertical, 10)
                     .background { Capsule().fill(theme.surface) }

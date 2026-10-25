@@ -10,40 +10,19 @@ struct ReadOnlyRows: View {
     var wide: Bool
 
     var body: some View {
-        DeskScroll(wide: wide) {
-            heading
+        ControlScreen(wide: wide) {
+            ControlTitle(title: title, line: intro, theme: theme)
             if let notice {
                 Text(notice)
                     .font(.subheadline)
                     .foregroundStyle(theme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            ForEach(rows) { row in
-                DeskCard(theme: theme) {
-                    Text(row.name)
-                        .font(.headline)
-                        .foregroundStyle(theme.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(row.detail)
-                        .font(.subheadline)
-                        .foregroundStyle(theme.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+            ControlGrid {
+                ForEach(rows) { row in
+                    PlainTile(title: row.name, line: row.detail, theme: theme)
                 }
             }
-        }
-    }
-
-    private var heading: some View {
-        VStack(alignment: .leading, spacing: Rhythm.tight) {
-            Text(title)
-                .font(.system(.largeTitle, design: .rounded))
-                .foregroundStyle(theme.ink)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
-            Text(intro)
-                .font(.body)
-                .foregroundStyle(theme.secondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -57,24 +36,15 @@ struct DomainScreen: View {
     @State private var draft = ""
 
     var body: some View {
-        DeskScroll(wide: wide) {
-            Text("Domains")
-                .font(.system(.largeTitle, design: .rounded))
-                .foregroundStyle(theme.ink)
-                .accessibilityAddTraits(.isHeader)
-            Text("Block one name, or allow one name, for the whole house.")
-                .font(.body)
-                .foregroundStyle(theme.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            ForEach(domains) { row in
-                DeskCard(theme: theme) {
-                    Text(row.name)
-                        .font(.headline)
-                        .foregroundStyle(theme.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(row.detail)
-                        .font(.subheadline)
-                        .foregroundStyle(theme.secondary)
+        ControlScreen(wide: wide) {
+            ControlTitle(
+                title: "Domains",
+                line: "Block one name, or allow one name, for the whole house.",
+                theme: theme
+            )
+            ControlGrid {
+                ForEach(domains) { row in
+                    PlainTile(title: row.name, line: row.detail, theme: theme)
                 }
             }
             editor
@@ -86,7 +56,7 @@ struct DomainScreen: View {
     }
 
     private var editor: some View {
-        DeskCard(theme: theme) {
+        VStack(alignment: .leading, spacing: Rhythm.line) {
             TextField("A domain name", text: $draft)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -97,14 +67,17 @@ struct DomainScreen: View {
             }
             .font(.body.weight(.semibold))
             .foregroundStyle(trimmed.isEmpty ? theme.tertiary : theme.accent)
+            .frame(minHeight: 44, alignment: .leading)
             .disabled(trimmed.isEmpty)
             Button("Allow") {
                 submit(blocked: false)
             }
             .font(.body.weight(.semibold))
             .foregroundStyle(trimmed.isEmpty ? theme.tertiary : theme.accent)
+            .frame(minHeight: 44, alignment: .leading)
             .disabled(trimmed.isEmpty)
         }
+        .controlPlate(theme: theme)
     }
 
     private func submit(blocked: Bool) {
@@ -126,36 +99,20 @@ struct LocalNamesScreen: View {
     var wide: Bool
 
     var body: some View {
-        DeskScroll(wide: wide) {
-            Text("Local names")
-                .font(.system(.largeTitle, design: .rounded))
-                .foregroundStyle(theme.ink)
-                .accessibilityAddTraits(.isHeader)
-            Text(DNSCopy.localNamesNote)
-                .font(.body)
-                .foregroundStyle(theme.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            section("Addresses", rows: hosts)
-            section("Other names", rows: cnames)
+        ControlScreen(wide: wide) {
+            ControlTitle(title: "Local names", line: DNSCopy.localNamesNote, theme: theme)
+            nameSection("Addresses", rows: hosts)
+            nameSection("Other names", rows: cnames)
         }
     }
 
-    private func section(_ title: String, rows: [NamedRow]) -> some View {
-        VStack(alignment: .leading, spacing: Rhythm.line) {
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(theme.ink)
-                .accessibilityAddTraits(.isHeader)
-            ForEach(rows) { row in
-                DeskCard(theme: theme) {
-                    Text(row.name)
-                        .font(.headline)
-                        .foregroundStyle(theme.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(row.detail)
-                        .font(.subheadline)
-                        .foregroundStyle(theme.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+    @ViewBuilder
+    private func nameSection(_ title: String, rows: [NamedRow]) -> some View {
+        if rows.isEmpty == false {
+            ControlSection(title: title, theme: theme)
+            ControlGrid {
+                ForEach(rows) { row in
+                    PlainTile(title: row.name, line: row.detail, theme: theme)
                 }
             }
         }
@@ -168,23 +125,20 @@ struct ListScreen: View {
     var wide: Bool
 
     var body: some View {
-        DeskScroll(wide: wide) {
-            Text("Block lists")
-                .font(.system(.largeTitle, design: .rounded))
-                .foregroundStyle(theme.ink)
-                .accessibilityAddTraits(.isHeader)
-            Text("Lists the filter uses. This phone does not add, remove, or turn them off.")
-                .font(.body)
-                .foregroundStyle(theme.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            ForEach(lists) { list in
-                DeskCard(theme: theme) {
-                    Text(list.name)
-                        .font(.headline)
-                        .foregroundStyle(theme.ink)
-                    Text("\(list.host) · \(list.statusWord)")
-                        .font(.subheadline)
-                        .foregroundStyle(theme.secondary)
+        ControlScreen(wide: wide) {
+            ControlTitle(
+                title: "Block lists",
+                line: "Lists the filter uses. This phone does not add, remove, or turn them off.",
+                theme: theme
+            )
+            ControlGrid {
+                ForEach(lists) { list in
+                    NumberTile(
+                        label: list.name,
+                        number: list.statusWord,
+                        line: list.host,
+                        theme: theme
+                    )
                 }
             }
         }
@@ -199,17 +153,8 @@ struct DNSUpkeep: View {
     var onAction: (HouseholdAction) -> Void
 
     var body: some View {
-        DeskScroll(wide: wide) {
-            Text("Upkeep")
-                .font(.system(.largeTitle, design: .rounded))
-                .foregroundStyle(theme.ink)
-                .accessibilityAddTraits(.isHeader)
-            if desk.listsUpdateKnown {
-                Text("Lists updated \(AgePhrase.english(from: desk.listsUpdatedAt, to: now)).")
-                    .font(.body)
-                    .foregroundStyle(theme.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+        ControlScreen(wide: wide) {
+            ControlTitle(title: "Upkeep", line: titleLine, theme: theme)
             Text(desk.upkeepNote ?? DNSCopy.upkeepDetail)
                 .font(.body)
                 .foregroundStyle(theme.secondary)
@@ -234,56 +179,40 @@ struct DNSUpkeep: View {
             .accessibilityLabel("Update block lists")
             if desk.textLogKnown {
                 if let note = desk.textLogReadNote {
-                    Text(note)
-                        .font(.body)
-                        .foregroundStyle(theme.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(LiveReadCopy.tryAgain)
-                        .font(.subheadline)
-                        .foregroundStyle(theme.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    PlainTile(title: note, line: LiveReadCopy.tryAgain, theme: theme)
                 }
+                NumberTile(
+                    label: "Text log file",
+                    number: desk.textLogFileEnabled ? "On" : "Off",
+                    line: "Lookups are still kept.",
+                    theme: theme
+                )
                 if desk.textLogFileEnabled {
                     Text(fileLine)
                         .font(.body)
                         .foregroundStyle(theme.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                fileCard
             } else if let note = desk.textLogReadNote {
-                Text(note)
-                    .font(.body)
-                    .foregroundStyle(theme.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(LiveReadCopy.tryAgain)
-                    .font(.subheadline)
-                    .foregroundStyle(theme.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                PlainTile(title: note, line: LiveReadCopy.tryAgain, theme: theme)
             } else {
-                Text("The text log will show here once this phone can read it.")
-                    .font(.body)
-                    .foregroundStyle(theme.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                PlainTile(
+                    title: "Text log",
+                    line: "The text log will show here once this phone can read it.",
+                    theme: theme
+                )
             }
-            if !desk.textLogLines.isEmpty {
+            if desk.textLogLines.isEmpty == false {
                 textLog
             }
         }
     }
 
-    private var fileCard: some View {
-        DeskCard(theme: theme) {
-            Text("Text log file")
-                .font(.headline)
-                .foregroundStyle(theme.ink)
-            Text(desk.textLogFileEnabled ? "On" : "Off")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(theme.ink)
-            Text("Lookups are still kept.")
-                .font(.subheadline)
-                .foregroundStyle(theme.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+    private var titleLine: String {
+        guard desk.listsUpdateKnown else {
+            return "The filter's lists and the text log."
         }
+        return "Lists updated \(AgePhrase.english(from: desk.listsUpdatedAt, to: now))."
     }
 
     private var fileLine: String {
@@ -294,17 +223,19 @@ struct DNSUpkeep: View {
     }
 
     private var textLog: some View {
-        DeskCard(theme: theme) {
+        VStack(alignment: .leading, spacing: Rhythm.line) {
             Text("Text log")
                 .font(.headline)
                 .foregroundStyle(theme.ink)
+                .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
             ForEach(Array(desk.textLogLines.enumerated()), id: \.offset) { _, line in
-                Text(line)
+                Text(line.replacingOccurrences(of: ".", with: ".\u{200B}"))
                     .font(.subheadline)
                     .foregroundStyle(theme.ink)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .controlPlate(theme: theme)
     }
 }

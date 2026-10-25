@@ -7,36 +7,38 @@ struct DNSStatistics: View {
     var wide: Bool
 
     var body: some View {
-        DeskScroll(wide: wide) {
-            Text("Statistics")
-                .font(.system(.largeTitle, design: .rounded))
-                .foregroundStyle(theme.ink)
-                .accessibilityAddTraits(.isHeader)
+        ControlScreen(wide: wide) {
+            ControlTitle(
+                title: "Statistics",
+                line: "The busiest names and devices.",
+                theme: theme
+            )
             if desk.topClients.isEmpty && desk.topDomains.isEmpty && desk.blockedDomains.isEmpty {
-                EmptyNote(title: DNSCopy.emptyTopsTitle, detail: DNSCopy.emptyTopsDetail, theme: theme)
+                PlainTile(
+                    title: DNSCopy.emptyTopsTitle,
+                    line: DNSCopy.emptyTopsDetail,
+                    theme: theme
+                )
             } else {
-                countSection("Busiest devices", rows: desk.topClients)
-                countSection("Busiest names", rows: desk.topDomains)
-                countSection("Most often blocked", rows: desk.blockedDomains)
+                countSection("Busiest devices", rows: desk.topClients, line: "Lookups from this device.")
+                countSection("Busiest names", rows: desk.topDomains, line: "Times this name was looked up.")
+                countSection("Most often blocked", rows: desk.blockedDomains, line: "Times this name was turned away.")
             }
         }
     }
 
-    private func countSection(_ title: String, rows: [DNSCount]) -> some View {
-        VStack(alignment: .leading, spacing: Rhythm.line) {
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(theme.ink)
-                .accessibilityAddTraits(.isHeader)
-            ForEach(rows) { row in
-                DeskCard(theme: theme) {
-                    Text(row.name)
-                        .font(.headline)
-                        .foregroundStyle(theme.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("\(row.count)")
-                        .font(.subheadline)
-                        .foregroundStyle(theme.secondary)
+    @ViewBuilder
+    private func countSection(_ title: String, rows: [DNSCount], line: String) -> some View {
+        if rows.isEmpty == false {
+            ControlSection(title: title, theme: theme)
+            ControlGrid {
+                ForEach(rows) { row in
+                    NumberTile(
+                        label: row.name,
+                        number: row.count.formatted(),
+                        line: line,
+                        theme: theme
+                    )
                 }
             }
         }
@@ -56,17 +58,13 @@ struct DNSLogScreen: View {
     var onAllow: (String) -> Void
 
     var body: some View {
-        DeskScroll(wide: wide) {
-            Text(title)
-                .font(.system(.largeTitle, design: .rounded))
-                .foregroundStyle(theme.ink)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
+        ControlScreen(wide: wide) {
+            ControlTitle(title: title, line: logLine, theme: theme)
             if queries.isEmpty {
                 if let failureNote {
-                    EmptyNote(title: failureNote, detail: LiveReadCopy.tryAgain, theme: theme)
+                    PlainTile(title: failureNote, line: LiveReadCopy.tryAgain, theme: theme)
                 } else {
-                    EmptyNote(title: emptyTitle, detail: emptyDetail, theme: theme)
+                    PlainTile(title: emptyTitle, line: emptyDetail, theme: theme)
                 }
             } else {
                 ForEach(queries) { query in
@@ -76,8 +74,12 @@ struct DNSLogScreen: View {
         }
     }
 
+    private var logLine: String {
+        offersAllow ? "Lookups the Pi has kept." : "Lookups as they happen."
+    }
+
     private func queryRow(_ query: DNSQuery) -> some View {
-        DeskCard(theme: theme) {
+        VStack(alignment: .leading, spacing: Rhythm.line) {
             Text(query.domain)
                 .font(.headline)
                 .foregroundStyle(theme.ink)
@@ -96,44 +98,22 @@ struct DNSLogScreen: View {
                 .accessibilityLabel("Allow \(query.domain)")
             }
         }
+        .controlPlate(theme: theme)
+        .accessibilityElement(children: .contain)
     }
 }
 
 struct DNSServices: View {
-    var services: [DNSServiceChoice]
     var theme: StreetTheme
     var wide: Bool
 
     var body: some View {
-        DeskScroll(wide: wide) {
-            Text("Services")
-                .font(.system(.largeTitle, design: .rounded))
-                .foregroundStyle(theme.ink)
-                .accessibilityAddTraits(.isHeader)
-            Text("Kinds of sites the house refuses. This phone does not change them.")
-                .font(.body)
-                .foregroundStyle(theme.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            if services.isEmpty {
-                Text("This phone does not list site categories.")
-                    .font(.body)
-                    .foregroundStyle(theme.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            ForEach(services) { service in
-                DeskCard(theme: theme) {
-                    Text(service.name)
-                        .font(.headline)
-                        .foregroundStyle(theme.ink)
-                    Text(service.detail)
-                        .font(.subheadline)
-                        .foregroundStyle(theme.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(service.blocked ? "Blocked" : "Allowed")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(theme.ink)
-                }
-            }
+        ControlScreen(wide: wide) {
+            ControlTitle(
+                title: "Ad blocker",
+                line: "Ads are blocked for the whole house.",
+                theme: theme
+            )
         }
     }
 }
