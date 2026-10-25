@@ -211,6 +211,24 @@ final class DesignSnapshotTests: XCTestCase {
         assertMatrix(section: .settings, screen: .ready(house), testName: "settings")
     }
 
+    func testStatusNotSetUp() {
+        assertMatrix(
+            section: .home,
+            screen: .ready(.emptyFixture),
+            testName: "status-not-set-up",
+            board: .notSetUp()
+        )
+    }
+
+    func testStatusReady() {
+        assertMatrix(
+            section: .home,
+            screen: .ready(StatusPageFixture.previewSnapshot(now: now)),
+            testName: "status-ready",
+            board: StatusPageFixture.previewBoard(now: now)
+        )
+    }
+
     func testPiUnreachable() {
         var quiet = house
         quiet.machine = nil
@@ -291,7 +309,8 @@ final class DesignSnapshotTests: XCTestCase {
         pending: HouseholdAction? = nil,
         showsSetup: Bool = false,
         dnsProblem: PiholeProblem? = nil,
-        piNotice: String? = nil
+        piNotice: String? = nil,
+        board: HouseStatusBoard? = nil
     ) {
         for size in SnapshotScale.allCases {
             for device in SnapshotDevice.allCases {
@@ -306,7 +325,8 @@ final class DesignSnapshotTests: XCTestCase {
                     pendingAction: pending,
                     showsSetup: showsSetup,
                     dnsProblem: dnsProblem,
-                    piNotice: piNotice
+                    piNotice: piNotice,
+                    statusBoard: board
                 )
                 .preferredColorScheme(.dark)
                 .environment(\.colorScheme, .dark)
@@ -330,7 +350,7 @@ final class DesignSnapshotTests: XCTestCase {
         named: String,
         testName: String = #function
     ) {
-        withSnapshotTesting(record: .failed) {
+        withSnapshotTesting(record: .never) {
             assertSnapshot(
                 of: view,
                 as: .image(layout: .device(config: layout), traits: traits(size: size)),
@@ -347,7 +367,7 @@ final class DesignSnapshotTests: XCTestCase {
         named: String,
         testName: String
     ) {
-        withSnapshotTesting(record: .failed) {
+        withSnapshotTesting(record: .never) {
             assertSnapshot(
                 of: view,
                 as: .image(layout: .sizeThatFits, traits: traits(size: size)),

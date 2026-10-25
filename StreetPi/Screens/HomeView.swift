@@ -9,6 +9,7 @@ struct HomeView: View {
     var groups: [GroupBrief]
     var wide: Bool
     var piNotice: String?
+    var showsBriefing: Bool = true
     var onGroup: (HouseGroup) -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -16,14 +17,16 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Rhythm.block) {
-                statusCard
+                if showsBriefing {
+                    statusCard
+                }
                 readings
                 if !groups.isEmpty {
                     groupGrid
                 }
             }
             .padding(.horizontal, Rhythm.page)
-            .padding(.vertical, Rhythm.block)
+            .padding(.vertical, showsBriefing ? Rhythm.block : Rhythm.line)
             .frame(maxWidth: wide ? 880 : 560)
             .frame(maxWidth: .infinity)
         }
@@ -94,12 +97,14 @@ struct HomeView: View {
     }
 
     private var groupGrid: some View {
-        let columns = wide && !dynamicTypeSize.isAccessibilitySize
+        let twoColumns = !dynamicTypeSize.isAccessibilitySize && (wide || showsBriefing == false)
+        let columns = twoColumns
             ? [GridItem(.flexible(), spacing: Rhythm.line), GridItem(.flexible(), spacing: Rhythm.line)]
             : [GridItem(.flexible())]
-        return LazyVGrid(columns: columns, alignment: .leading, spacing: Rhythm.line) {
+        let compact = showsBriefing == false
+        return LazyVGrid(columns: columns, alignment: .leading, spacing: compact ? Rhythm.tight : Rhythm.line) {
             ForEach(groups) { group in
-                GroupCard(group: group, theme: theme) {
+                GroupCard(group: group, theme: theme, compact: compact) {
                     onGroup(group.id)
                 }
             }

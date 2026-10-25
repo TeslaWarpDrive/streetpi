@@ -8,6 +8,8 @@ public enum HouseGroup: String, Sendable, Equatable, Codable, CaseIterable, Iden
     case internet
     case piHealth
     case backups
+    case monitors
+    case address
 
     public var id: String { rawValue }
 
@@ -20,6 +22,8 @@ public enum HouseGroup: String, Sendable, Equatable, Codable, CaseIterable, Iden
         case .internet: "Internet"
         case .piHealth: "Pi health"
         case .backups: "Backups"
+        case .monitors: "Monitors"
+        case .address: "Address"
         }
     }
 }
@@ -88,6 +92,8 @@ public enum HouseGuide {
 
     public static func brief(_ group: HouseGroup, in snapshot: HouseholdSnapshot) -> GroupBrief? {
         switch group {
+        case .monitors, .address:
+            return nil
         case .piHealth:
             guard snapshot.machine != nil else { return nil }
             return GroupBrief(
@@ -158,6 +164,10 @@ public enum HouseGuide {
             return "The weekly copy succeeded."
         case .piHealth:
             return piSummary(snapshot)
+        case .monitors:
+            return "No monitors yet."
+        case .address:
+            return "No recent news about the home address."
         }
     }
 

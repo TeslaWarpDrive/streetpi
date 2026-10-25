@@ -26,6 +26,10 @@ struct AppShell: View {
     var hostNote: String?
     var onCommitHost: () -> Void = {}
     var piNotice: String?
+    var statusBoard: HouseStatusBoard? = nil
+    var statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString
+    var statusSlug: String = "house"
+    var onStatusPage: (String, String) -> Void = { _, _ in }
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -40,10 +44,16 @@ struct AppShell: View {
     }
 
     private var status: PlainEnglishStatus {
-        screen.status(now: now)
+        if let statusBoard {
+            return statusBoard.briefing
+        }
+        return screen.status(now: now)
     }
 
     private var groups: [GroupBrief] {
+        if let statusBoard {
+            return statusBoard.tiles.map(\.brief)
+        }
         guard let snapshot = screen.snapshot else { return [] }
         return HouseGuide.groups(in: snapshot)
     }
@@ -264,6 +274,7 @@ struct AppShell: View {
                 groups: groups,
                 wide: wide,
                 piNotice: piNotice,
+                showsBriefing: statusBoard?.isMissing != false,
                 onGroup: { onSection(.group($0)) }
             )
         case .alerts:
@@ -322,11 +333,20 @@ struct AppShell: View {
                 )
             }
         case .settings:
-            SettingsView(theme: theme, piHost: piHost, hostNote: hostNote, onCommitHost: onCommitHost)
+            SettingsView(
+                theme: theme,
+                piHost: piHost,
+                hostNote: hostNote,
+                onCommitHost: onCommitHost,
+                statusAddress: statusAddress,
+                statusSlug: statusSlug,
+                onStatusPage: onStatusPage
+            )
         }
     }
 
     private var lines: [String] {
+        if statusBoard != nil { return [] }
         guard let snapshot = screen.snapshot, !snapshot.isEmptyHouse else { return [] }
         return HouseholdVoice.porchLines(snapshot)
     }
