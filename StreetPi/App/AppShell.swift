@@ -168,6 +168,7 @@ struct AppShell: View {
                     .toolbar(.hidden, for: .tabBar)
                     .safeAreaInset(edge: .leading, spacing: 0) {
                         AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: false)
+                            .frame(width: 340)
                     }
             } else {
                 tabs(wide: wide)
