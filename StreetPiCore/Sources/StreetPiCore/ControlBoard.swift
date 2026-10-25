@@ -294,7 +294,7 @@ public enum ControlBoardBuilder {
     }
 
     private static func squares(services: [ServiceHealth], paused: Bool) -> [ServiceSquare] {
-        squarePlan.map { plan in
+        SquarePlan.all.map { plan in
             let members = services.filter { $0.kind.houseGroup == plan.group }
             let state = squareState(group: plan.group, members: members, paused: paused)
             return ServiceSquare(
@@ -392,10 +392,16 @@ public enum ControlBoardBuilder {
         }
     }
 
-    private static let squarePlan: [(id: String, title: String, group: HouseGroup)] = [
-        ("streaming", "Streaming", .streaming),
-        ("remote", "Remote", .remoteHelp),
-        ("dns", "DNS", .adBlockerAndDNS),
-        ("address", "Address", .internet),
-    ]
+    private struct SquarePlan {
+        var id: String
+        var title: String
+        var group: HouseGroup
+
+        static let all: [SquarePlan] = [
+            SquarePlan(id: "streaming", title: "Streaming", group: .streaming),
+            SquarePlan(id: "remote", title: "Remote", group: .remoteHelp),
+            SquarePlan(id: "dns", title: "DNS", group: .adBlockerAndDNS),
+            SquarePlan(id: "address", title: "Address", group: .internet),
+        ]
+    }
 }

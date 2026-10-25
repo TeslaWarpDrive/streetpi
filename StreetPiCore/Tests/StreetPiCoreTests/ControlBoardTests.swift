@@ -99,7 +99,7 @@ final class ControlBoardTests: XCTestCase {
         )
         XCTAssertEqual(board.squares.first { $0.id == "dns" }?.word, "Down" as String?)
         XCTAssertEqual(board.blocker.percentText, "—")
-        XCTAssertFalse(board.blocker.canPause)
+        XCTAssertTrue(board.blocker.canPause)
         XCTAssertEqual(board.devices.figure, "—")
 
         let empty = ControlBoardBuilder.make(
@@ -110,6 +110,7 @@ final class ControlBoardTests: XCTestCase {
             now: .streetFixtureNow
         )
         XCTAssertEqual(empty.checkedLine, "Not checked yet")
+        XCTAssertFalse(empty.blocker.canPause)
         XCTAssertEqual(empty.squares.map(\.word), ["Quiet", "Quiet", "Quiet", "Quiet"])
         XCTAssertEqual(empty.monitors.figure, "None")
         XCTAssertEqual(empty.pi.line, "No reading from the Pi yet.")

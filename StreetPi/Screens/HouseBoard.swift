@@ -1,3 +1,4 @@
+import Foundation
 import StreetPiCore
 
 /// Builds the House board from the current screen and the ad-blocker desk.
