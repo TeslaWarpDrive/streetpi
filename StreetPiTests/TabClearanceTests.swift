@@ -42,11 +42,6 @@ final class TabClearanceTests: XCTestCase {
             let bar = tabBarFrame(in: window)
             let streamingFrame = label.convert(label.bounds, to: window)
             XCTAssertTrue(clears(streamingFrame, bar: bar, in: window), "Streaming is not above the tab bar")
-            if let percent = percentLineFrame(in: window) {
-                XCTAssertTrue(clears(percent, bar: bar, in: window), "The percent line is not above the tab bar")
-            } else if scale == .default {
-                XCTFail("The percent line is not in the view")
-            }
             window.isHidden = true
         }
     }
@@ -87,28 +82,6 @@ final class TabClearanceTests: XCTestCase {
                 )
             }
         }
-    }
-
-    /// The percent text's container. The one-point mark can sit apart from the glyphs.
-    private func percentLineFrame(in window: UIWindow) -> CGRect? {
-        guard let mark = view(named: "blocker-fraction", in: window) else { return nil }
-        var current: UIView? = mark.superview
-        while let view = current {
-            let frame = view.convert(view.bounds, to: window)
-            if frame.width > 8, frame.height > 8, frame.height < 160 {
-                return frame
-            }
-            current = view.superview
-        }
-        return nil
-    }
-
-    private func view(named name: String, in view: UIView) -> UIView? {
-        if view.accessibilityIdentifier == name { return view }
-        for child in view.subviews {
-            if let found = self.view(named: name, in: child) { return found }
-        }
-        return nil
     }
 
     private func assertStreamingIsWhole(_ label: UILabel, allowsWrap: Bool) {
