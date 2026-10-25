@@ -3,7 +3,6 @@ import StreetPiCore
 
 struct HomeView: View {
     var theme: StreetTheme
-    var scheme: ColorScheme
     var snapshot: HouseholdSnapshot?
     var status: PlainEnglishStatus
     var lines: [String]
@@ -28,10 +27,11 @@ struct HomeView: View {
             .frame(maxWidth: .infinity)
         }
         .scrollIndicators(.hidden)
+        .scrollContentBackground(.hidden)
     }
 
     private var statusCard: some View {
-        StatusCard(theme: theme, scheme: scheme) {
+        StatusCard(theme: theme) {
             VStack(alignment: .leading, spacing: Rhythm.line) {
                 StatusLinkRow(text: status.linkLine, tone: status.tone, theme: theme, pulsing: status.tone == .calm)
                 Text(status.headline)
@@ -129,7 +129,6 @@ private struct StatusLinkRow: View {
 
 private struct StatusCard<Content: View>: View {
     var theme: StreetTheme
-    var scheme: ColorScheme
     @Environment(\.streetPiStill) private var still
     @ViewBuilder var content: Content
 
@@ -144,11 +143,11 @@ private struct StatusCard<Content: View>: View {
     @ViewBuilder
     private var plate: some View {
         let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
-        if #available(iOS 26, *), scheme == .dark, !still {
+        if #available(iOS 26, *), !still {
             shape
                 .fill(theme.surface)
                 .glassEffect(.regular.tint(theme.accent.opacity(0.22)), in: .rect(cornerRadius: 28))
-        } else if scheme == .dark, !still {
+        } else if !still {
             shape.fill(.ultraThinMaterial)
         } else {
             shape

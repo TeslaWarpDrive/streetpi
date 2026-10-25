@@ -11,7 +11,7 @@ struct RoomsSample: View {
                 GlassGroup(spacing: AfterglowShape.line) {
                     AfterglowTileGrid(
                         spacing: AfterglowShape.line,
-                        minimumColumnWidth: dynamicTypeSize.isAccessibilitySize ? 10_000 : 180,
+                        minimumColumnWidth: dynamicTypeSize.isAccessibilitySize ? 10_000 : AfterglowShape.cardFloor,
                         maximumColumns: 3
                     ) {
                         ForEach(rooms) { room in

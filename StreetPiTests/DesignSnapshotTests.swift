@@ -1,3 +1,4 @@
+import AVFoundation
 import SnapshotTesting
 import StreetPiCore
 import SwiftUI
@@ -210,36 +211,63 @@ final class DesignSnapshotTests: XCTestCase {
         assertMatrix(section: .settings, screen: .ready(house), testName: "settings")
     }
 
+    func testSplashFinal() throws {
+        let url = try XCTUnwrap(
+            Bundle.main.url(forResource: SplashFilm.posterName, withExtension: "png")
+        )
+        let image = try XCTUnwrap(UIImage(contentsOfFile: url.path))
+        assertSplash(image, testName: "splash-final")
+    }
+
+    func testSplashMid() async throws {
+        let url = try XCTUnwrap(
+            Bundle.main.url(forResource: SplashFilm.videoName, withExtension: "mp4")
+        )
+        let asset = AVURLAsset(url: url)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        let (cgImage, _) = try await generator.image(at: CMTime(seconds: 3, preferredTimescale: 600))
+        assertSplash(UIImage(cgImage: cgImage), testName: "splash-mid")
+    }
+
     func testComponentGallery() {
-        for scheme in [ColorScheme.dark, ColorScheme.light] {
-            for size in SnapshotScale.allCases {
-                for device in SnapshotDevice.allCases {
-                    let width = device.config.size?.width ?? 320
-                    let board = AfterglowScope {
-                        ComponentBoard()
-                    }
-                    .frame(width: width)
-                    .environment(\.colorScheme, scheme)
-                    .environment(\.dynamicTypeSize, size.dynamicType)
-                    .environment(\.streetPiStill, true)
-                    recordFitting(
-                        of: board,
-                        scheme: scheme,
-                        size: size,
-                        named: "\(name(scheme))-\(size.rawValue)-\(device.rawValue)",
-                        testName: "component-gallery"
-                    )
+        for size in SnapshotScale.allCases {
+            for device in SnapshotDevice.allCases {
+                let width = device.config.size?.width ?? 320
+                let board = AfterglowScope {
+                    ComponentBoard()
                 }
+                .frame(width: width)
+                .environment(\.colorScheme, .dark)
+                .environment(\.dynamicTypeSize, size.dynamicType)
+                .environment(\.streetPiStill, true)
+                recordFitting(
+                    of: board,
+                    size: size,
+                    named: "dark-\(size.rawValue)-\(device.rawValue)",
+                    testName: "component-gallery"
+                )
             }
         }
     }
 
-    func testSplashOpening() throws {
-        try assertSplash(SplashFixture.opening(), testName: "splash-opening")
-    }
-
-    func testSplashClosing() throws {
-        try assertSplash(SplashFixture.closing(), testName: "splash-closing")
+    private func assertSplash(_ image: UIImage, testName: String) {
+        for size in SnapshotScale.allCases {
+            for device in SnapshotDevice.allCases {
+                let view = LaunchOverlay(frame: image)
+                    .preferredColorScheme(.dark)
+                    .environment(\.colorScheme, .dark)
+                    .environment(\.dynamicTypeSize, size.dynamicType)
+                    .environment(\.streetPiStill, true)
+                recordSnapshot(
+                    of: view,
+                    layout: device.config,
+                    size: size,
+                    named: "dark-\(size.rawValue)-\(device.rawValue)",
+                    testName: testName
+                )
+            }
+        }
     }
 
     private func assertMatrix(
@@ -253,35 +281,31 @@ final class DesignSnapshotTests: XCTestCase {
         showsSetup: Bool = false,
         dnsProblem: PiholeProblem? = nil
     ) {
-        for scheme in [ColorScheme.dark, ColorScheme.light] {
-            for size in SnapshotScale.allCases {
-                for device in SnapshotDevice.allCases {
-                    let view = AppShell(
-                        section: section,
-                        appearance: scheme == .dark ? .dark : .light,
-                        screen: screen,
-                        now: now,
-                        onSection: { _ in },
-                        onAppearance: { _ in },
-                        desk: desk,
-                        dnsPage: dnsPage,
-                        machinePage: machinePage,
-                        pendingAction: pending,
-                        showsSetup: showsSetup,
-                        dnsProblem: dnsProblem
-                    )
-                    .environment(\.colorScheme, scheme)
-                    .environment(\.dynamicTypeSize, size.dynamicType)
-                    .environment(\.streetPiStill, true)
-                    recordSnapshot(
-                        of: view,
-                        layout: device.config,
-                        scheme: scheme,
-                        size: size,
-                        named: "\(name(scheme))-\(size.rawValue)-\(device.rawValue)",
-                        testName: testName
-                    )
-                }
+        for size in SnapshotScale.allCases {
+            for device in SnapshotDevice.allCases {
+                let view = AppShell(
+                    section: section,
+                    screen: screen,
+                    now: now,
+                    onSection: { _ in },
+                    desk: desk,
+                    dnsPage: dnsPage,
+                    machinePage: machinePage,
+                    pendingAction: pending,
+                    showsSetup: showsSetup,
+                    dnsProblem: dnsProblem
+                )
+                .preferredColorScheme(.dark)
+                .environment(\.colorScheme, .dark)
+                .environment(\.dynamicTypeSize, size.dynamicType)
+                .environment(\.streetPiStill, true)
+                recordSnapshot(
+                    of: view,
+                    layout: device.config,
+                    size: size,
+                    named: "dark-\(size.rawValue)-\(device.rawValue)",
+                    testName: testName
+                )
             }
         }
     }
@@ -289,7 +313,6 @@ final class DesignSnapshotTests: XCTestCase {
     private func recordSnapshot<V: View>(
         of view: V,
         layout: ViewImageConfig,
-        scheme: ColorScheme,
         size: SnapshotScale,
         named: String,
         testName: String = #function
@@ -297,38 +320,16 @@ final class DesignSnapshotTests: XCTestCase {
         withSnapshotTesting(record: .never) {
             assertSnapshot(
                 of: view,
-                as: .image(layout: .device(config: layout), traits: traits(scheme: scheme, size: size)),
+                as: .image(layout: .device(config: layout), traits: traits(size: size)),
                 named: named,
                 testName: testName
             )
         }
     }
 
-    private func assertSplash(_ poster: UIImage, testName: String) {
-        for scheme in [ColorScheme.dark, ColorScheme.light] {
-            for size in SnapshotScale.allCases {
-                for device in SnapshotDevice.allCases {
-                    let view = IntroView(poster: poster) {}
-                        .environment(\.colorScheme, scheme)
-                        .environment(\.dynamicTypeSize, size.dynamicType)
-                        .environment(\.streetPiStill, true)
-                    recordSnapshot(
-                        of: view,
-                        layout: device.config,
-                        scheme: scheme,
-                        size: size,
-                        named: "\(name(scheme))-\(size.rawValue)-\(device.rawValue)",
-                        testName: testName
-                    )
-                }
-            }
-        }
-    }
-
     /// Full gallery height at the device width. A scroll view would clip the lower components.
     private func recordFitting<V: View>(
         of view: V,
-        scheme: ColorScheme,
         size: SnapshotScale,
         named: String,
         testName: String
@@ -336,22 +337,18 @@ final class DesignSnapshotTests: XCTestCase {
         withSnapshotTesting(record: .never) {
             assertSnapshot(
                 of: view,
-                as: .image(layout: .sizeThatFits, traits: traits(scheme: scheme, size: size)),
+                as: .image(layout: .sizeThatFits, traits: traits(size: size)),
                 named: named,
                 testName: testName
             )
         }
     }
 
-    private func traits(scheme: ColorScheme, size: SnapshotScale) -> UITraitCollection {
+    private func traits(size: SnapshotScale) -> UITraitCollection {
         UITraitCollection(traitsFrom: [
-            UITraitCollection(userInterfaceStyle: scheme == .dark ? .dark : .light),
+            UITraitCollection(userInterfaceStyle: .dark),
             UITraitCollection(preferredContentSizeCategory: size.category),
         ])
-    }
-
-    private func name(_ scheme: ColorScheme) -> String {
-        scheme == .dark ? "dark" : "light"
     }
 }
 

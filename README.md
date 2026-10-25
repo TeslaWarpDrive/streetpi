@@ -1,6 +1,6 @@
-# StreetPi
+# Raspberry Pi Stats
 
-StreetPi is a native iPhone and iPad app for the Street house. One app, one experience. It says what the house is doing in plain English.
+Raspberry Pi Stats is a native iPhone and iPad app for the Street house. Under the icon the name is Pi Stats, because the full name truncates. One app, one experience. It says what the house is doing in plain English. The GitHub repository stays `streetpi`. The code modules stay `StreetPi` and `StreetPiCore`.
 
 The screen is drawn from fake fixtures. It does not talk to the Pi, the router, or any other host. Version 1.0.0 is the first sideload. See `RELEASE-NOTES.md`.
 
@@ -10,9 +10,11 @@ Pi health is look-only. It shows the processor, temperature, memory, disk, and u
 
 ## Look
 
-Aurora. Dark is designed first. Light mode is Daylight, and it is a real design. Home is a Briefing and ring gauges for Processor, Temperature, Memory, and Disk. The Porch card and the Lampblack bar meters are retired. The only gradient is the Aurora glow family: the Home aura, the ring arcs, and the headline accent word. The video splash stays. Its end tint is the Aurora ground.
+Aurora, dark only. There is no light palette and no appearance switch. Home is a Briefing and ring gauges for Processor, Temperature, Memory, and Disk. The Porch card and the Lampblack bar meters are retired. The only gradient is the Aurora glow family: the Home aura, the ring arcs, and the headline accent word. The launch film is `StreetPi/Resources/launch-film.mp4`, silent and full-screen on the Aurora ground. Tap to skip. It fades into the Home aura. Reduce Motion shows the poster, then fades, and does not play the video. Replace that one file to change the film. Do not add a second video. `LaunchOverlay` is the seam.
 
-Tabs are House, Ad blocker, Pi, and Settings. The iPad uses a sidebar. Settings has Appearance: System, Dark, Light.
+Keep Home compact and good-looking. A vertical stack is fine when the content fits. When a screen has a lot of data, many stat cards, graphs, or other dense information, do not make it a long one-card column. Choose the arrangement that looks best for that amount of content. There is no fixed column count. Large text must wrap or scroll, and nothing truncates or overlaps. The Home screen follows this when it is built.
+
+Tabs are House, Ad blocker, Pi, and Settings. The iPad uses a sidebar.
 
 Closed decisions are in `docs/project-context.md`. The rules are in `AGENTS.md`. Version 1.0.0 still draws the earlier porch screens, in Aurora colors. This section is the rule from 2026-10-24.
 
@@ -30,4 +32,4 @@ Secrets go in the iOS Keychain (`KeychainSecretStore`). Tests use `MemorySecretS
 
 GitHub Actions runs the core tests on Ubuntu and, on a standard `macos-26` runner, the snapshot matrix plus an unsigned `StreetPi-unsigned.ipa`. Do not move that job to a large or extra-large runner.
 
-Snapshots cover Home, the ad blocker pages, the machine pages, alerts, Settings, and the opening film, in dark and light, default and largest Dynamic Type, on a small iPhone, a large iPhone, and an iPad.
+Snapshots cover Home, the ad blocker pages, the machine pages, alerts, Settings, and the component gallery, in dark, default and largest Dynamic Type, on a small iPhone, a large iPhone, and an iPad.

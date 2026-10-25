@@ -1,8 +1,8 @@
 import StreetPiCore
 import SwiftUI
 
-/// Aurora, dark first. Light is the same hues on paper.
-/// Text and status colors are the Catppuccin Mocha / Latte pairs from COLORS.md (MIT).
+/// Aurora, dark only.
+/// Text and status colors are the Catppuccin Mocha pair from COLORS.md (MIT).
 /// The glow stops are rebuilt in SwiftUI. No shader source is included.
 struct AfterglowPalette: Equatable {
     var ground: Color
@@ -22,10 +22,6 @@ struct AfterglowPalette: Equatable {
     var auraBlue: Color
     var auraViolet: Color
     var auraPink: Color
-    /// 1 in the dark. Light washes the same hues to about 35% on paper.
-    var auraOpacity: Double
-    /// Dark rings carry the glow. Light rings stay a solid accent.
-    var ringsUseGradient: Bool
 
     func tone(_ tone: PlainEnglishStatus.Tone) -> Color {
         switch tone {
@@ -42,22 +38,14 @@ struct AfterglowPalette: Equatable {
         [auraTeal, auraBlue, auraViolet, auraPink]
     }
 
-    /// Blob strength. A zero amount stays clear. Light mode caps the hue at the paper wash.
+    /// Blob strength. A zero amount stays clear.
     func wash(_ color: Color, amount: Double) -> Color {
         guard amount > 0 else { return color.opacity(0) }
-        if auraOpacity < 1 {
-            return color.opacity(auraOpacity)
-        }
         return color.opacity(amount)
     }
 
-    static func resolve(_ scheme: ColorScheme, contrast: ColorSchemeContrast) -> AfterglowPalette {
-        switch scheme {
-        case .light:
-            daylight(contrast: contrast)
-        default:
-            night(contrast: contrast)
-        }
+    static func resolve(contrast: ColorSchemeContrast) -> AfterglowPalette {
+        night(contrast: contrast)
     }
 
     static func night(contrast: ColorSchemeContrast) -> AfterglowPalette {
@@ -80,35 +68,7 @@ struct AfterglowPalette: Equatable {
             auraTeal: StreetColor.rgb(0x4FE3CF),
             auraBlue: StreetColor.rgb(0x8E9BFF),
             auraViolet: StreetColor.rgb(0xB78CFF),
-            auraPink: StreetColor.rgb(0xF49BDD),
-            auraOpacity: 1,
-            ringsUseGradient: true
-        )
-    }
-
-    static func daylight(contrast: ColorSchemeContrast) -> AfterglowPalette {
-        let strong = contrast == .increased
-        let ink = StreetColor.rgb(0x1E1B2E)
-        return AfterglowPalette(
-            ground: StreetColor.rgb(0xF4F3FA),
-            panel: Color.white,
-            panelRaised: Color.white,
-            hairline: ink.opacity(strong ? 0.24 : 0.10),
-            hairlineInteractive: ink.opacity(strong ? 0.28 : 0.16),
-            ink: ink,
-            secondary: StreetColor.rgb(0x4C4F69),
-            tertiary: StreetColor.rgb(0x5C5F77),
-            accent: StreetColor.rgb(0x5A4FCF),
-            accentGlow: StreetColor.rgb(0x5A4FCF),
-            calm: StreetColor.rgb(0x2B7A1F),
-            attention: StreetColor.rgb(0x8A5A00),
-            problem: StreetColor.rgb(0xB4153F),
-            auraTeal: StreetColor.rgb(0x4FE3CF),
-            auraBlue: StreetColor.rgb(0x8E9BFF),
-            auraViolet: StreetColor.rgb(0xB78CFF),
-            auraPink: StreetColor.rgb(0xF49BDD),
-            auraOpacity: 0.35,
-            ringsUseGradient: false
+            auraPink: StreetColor.rgb(0xF49BDD)
         )
     }
 }

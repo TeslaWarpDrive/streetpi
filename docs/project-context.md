@@ -1,6 +1,6 @@
-# StreetPi
+# Raspberry Pi Stats
 
-StreetPi is one iPhone and iPad app for the Street house. The repository is [https://github.com/TeslaWarpDrive/streetpi](https://github.com/TeslaWarpDrive/streetpi). The earlier owner name CryptoBrad89 is not used. This tree does not link to it.
+Raspberry Pi Stats is one iPhone and iPad app for the Street house. Under the icon the name is Pi Stats, because the full name truncates. The repository stays [https://github.com/TeslaWarpDrive/streetpi](https://github.com/TeslaWarpDrive/streetpi). The code modules stay `StreetPi` and `StreetPiCore`. The earlier owner name CryptoBrad89 is not used. This tree does not link to it.
 
 Agents follow `AGENTS.md`. This file records decisions that are already closed.
 
@@ -10,11 +10,13 @@ Bradley approved the Briefing and ring-gauge layout on 2026-10-24, then rejected
 
 Aurora replaces the Porch card and the Lampblack bar meters. Home uses a Briefing and ring gauges. Each ring keeps its label and a plain word. The word for warmth belongs with Temperature.
 
-Dark is designed first. Light mode is Daylight, and it is a real design.
+The app is dark only. There is no light palette and no appearance switch.
 
 Tabs are House, Ad blocker, Pi, and Settings. The iPad uses a sidebar.
 
-The video splash stays. Its end tint is the Aurora ground. A moving crossfade from the film into the Home aura is not built yet.
+The launch film is one file, `StreetPi/Resources/launch-film.mp4`. A new film replaces that file. There is no second video asset. It is silent and plays full-screen on the Aurora ground. Tap to skip. It fades into the Home aura. Reduce Motion shows `launch-poster.png`, then fades, and does not play the video. `LaunchOverlay` is the seam.
+
+Keep Home compact and good-looking. A vertical stack is fine when the content fits. When a screen has a lot of data, many stat cards, graphs, or other dense information, do not make it a long one-card column. Choose the arrangement that looks best for that amount of content. There is no fixed column count. Large text must wrap or scroll, and nothing truncates or overlaps. The Home screen follows this when it is built. Do not build that screen in this phase.
 
 The only gradient is the Aurora glow family: the Home aura, the ring arcs, and the headline accent word (like “good”). No gradients elsewhere. There is no stock purple AI gradient.
 

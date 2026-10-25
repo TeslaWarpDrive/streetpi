@@ -34,7 +34,7 @@ struct StreetTheme: Equatable {
 }
 
 enum StreetColor {
-    /// Aurora ground. Shared by the design system, the house theme, and the splash tint.
+    /// Aurora ground. Shared by the design system and the house theme.
     static let auroraGround: UInt32 = 0x0E0D18
 
     static func rgb(_ hex: UInt32) -> Color {
@@ -53,36 +53,19 @@ enum StreetColor {
 }
 
 extension StreetTheme {
-    static func house(_ scheme: ColorScheme) -> StreetTheme {
-        switch scheme {
-        case .light:
-            let ink = StreetColor.rgb(0x1E1B2E)
-            return StreetTheme(
-                background: StreetColor.rgb(0xF4F3FA),
-                surface: Color.white,
-                ink: ink,
-                secondary: StreetColor.rgb(0x4C4F69),
-                tertiary: StreetColor.rgb(0x5C5F77),
-                accent: StreetColor.rgb(0x5A4FCF),
-                calm: StreetColor.rgb(0x2B7A1F),
-                attention: StreetColor.rgb(0x8A5A00),
-                problem: StreetColor.rgb(0xB4153F),
-                hairline: ink.opacity(0.10)
-            )
-        default:
-            let line = Color(.sRGB, red: 205.0 / 255, green: 214.0 / 255, blue: 244.0 / 255, opacity: 1)
-            return StreetTheme(
-                background: StreetColor.rgb(StreetColor.auroraGround),
-                surface: StreetColor.rgb(0x17162A),
-                ink: StreetColor.rgb(0xE6EAFB),
-                secondary: StreetColor.rgb(0xB0B6D2),
-                tertiary: StreetColor.rgb(0x8C91B0),
-                accent: StreetColor.rgb(0xB4BEFE),
-                calm: StreetColor.rgb(0xA6E3A1),
-                attention: StreetColor.rgb(0xF9E2AF),
-                problem: StreetColor.rgb(0xF38BA8),
-                hairline: line.opacity(0.18)
-            )
-        }
+    static var house: StreetTheme {
+        let line = Color(.sRGB, red: 205.0 / 255, green: 214.0 / 255, blue: 244.0 / 255, opacity: 1)
+        return StreetTheme(
+            background: StreetColor.rgb(StreetColor.auroraGround),
+            surface: StreetColor.rgb(0x17162A),
+            ink: StreetColor.rgb(0xE6EAFB),
+            secondary: StreetColor.rgb(0xB0B6D2),
+            tertiary: StreetColor.rgb(0x8C91B0),
+            accent: StreetColor.rgb(0xB4BEFE),
+            calm: StreetColor.rgb(0xA6E3A1),
+            attention: StreetColor.rgb(0xF9E2AF),
+            problem: StreetColor.rgb(0xF38BA8),
+            hairline: line.opacity(0.18)
+        )
     }
 }

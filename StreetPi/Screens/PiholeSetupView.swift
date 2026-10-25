@@ -18,7 +18,7 @@ struct PiholeSetupView: View {
                 .foregroundStyle(theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
-            Text("The app password is entered once and saved on this phone. StreetPi does not show it again.")
+            Text("The app password is entered once and saved on this phone. Raspberry Pi Stats does not show it again.")
                 .font(.body)
                 .foregroundStyle(theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)

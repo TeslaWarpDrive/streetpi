@@ -3,11 +3,9 @@ import StreetPiCore
 
 struct AppShell: View {
     var section: AppSection
-    var appearance: AppearancePreference
     var screen: HouseScreen
     var now: Date
     var onSection: (AppSection) -> Void
-    var onAppearance: (AppearancePreference) -> Void
     var desk: DNSDesk = .houseFixture
     var dnsPage: DNSPage?
     var machine: MachineDesk = .houseFixture
@@ -25,7 +23,6 @@ struct AppShell: View {
     var onSetupSave: (String) -> Void = { _ in }
     var onSetupCancel: () -> Void = {}
 
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.streetPiStill) private var still
@@ -35,7 +32,7 @@ struct AppShell: View {
     }
 
     private var theme: StreetTheme {
-        .house(colorScheme)
+        .house
     }
 
     private var status: PlainEnglishStatus {
@@ -80,6 +77,11 @@ struct AppShell: View {
                 } detail: {
                     detail(wide: true)
                         .toolbar(.hidden, for: .navigationBar)
+                        .background {
+                            if section == .home {
+                                HomeAura(tone: status.tone)
+                            }
+                        }
                 }
                 .navigationSplitViewStyle(.balanced)
                 .environment(\.horizontalSizeClass, .regular)
@@ -92,13 +94,19 @@ struct AppShell: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(theme.background)
+        .background {
+            if section == .home {
+                HomeAura(tone: status.tone)
+            } else {
+                theme.background
+            }
+        }
     }
 
     private var sidebar: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Rhythm.line) {
-                Text("StreetPi")
+                Text("Raspberry Pi Stats")
                     .font(.system(.title3, design: .rounded))
                     .foregroundStyle(theme.ink)
                     .fixedSize(horizontal: false, vertical: true)
@@ -141,36 +149,38 @@ struct AppShell: View {
     }
 
     private var phoneChrome: some View {
-        let title = Text(chromeTitle)
-            .font(.subheadline)
-            .foregroundStyle(theme.secondary)
-            .fixedSize(horizontal: false, vertical: true)
-        return Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: Rhythm.tight) {
-                    HStack {
-                        Spacer(minLength: 0)
-                        chromeButton
-                    }
-                    title
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            } else {
-                HStack(spacing: Rhythm.line) {
-                    title
-                    Spacer(minLength: Rhythm.line)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Rhythm.line) {
+                chromeTitleText
+                Spacer(minLength: Rhythm.line)
+                chromeButton
+            }
+            VStack(alignment: .leading, spacing: Rhythm.tight) {
+                HStack {
+                    Spacer(minLength: 0)
                     chromeButton
                 }
+                chromeTitleText
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(.horizontal, Rhythm.page)
         .padding(.top, Rhythm.tight)
     }
 
+    private var chromeTitleText: some View {
+        Text(chromeTitle)
+            .font(.subheadline)
+            .foregroundStyle(theme.secondary)
+            .multilineTextAlignment(.leading)
+            .lineLimit(3)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
     private var chromeTitle: String {
         switch section {
         case .home, .settings:
-            "StreetPi"
+            "Raspberry Pi Stats"
         case .alerts:
             "Alerts"
         case .group(let group):
@@ -244,7 +254,6 @@ struct AppShell: View {
         case .home:
             HomeView(
                 theme: theme,
-                scheme: colorScheme,
                 snapshot: screen.snapshot,
                 status: status,
                 lines: lines,
@@ -293,7 +302,6 @@ struct AppShell: View {
             } else {
                 HomeView(
                     theme: theme,
-                    scheme: colorScheme,
                     snapshot: nil,
                     status: PlainEnglishStatus(
                         headline: "Nothing in \(group.title) yet.",
@@ -308,7 +316,7 @@ struct AppShell: View {
                 )
             }
         case .settings:
-            SettingsView(theme: theme, appearance: appearance, onAppearance: onAppearance)
+            SettingsView(theme: theme)
         }
     }
 

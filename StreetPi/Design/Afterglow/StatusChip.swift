@@ -7,7 +7,6 @@ struct StatusChip: View {
     var symbol: String?
 
     @Environment(\.afterglowPalette) private var palette
-    @Environment(\.colorScheme) private var colorScheme
 
     init(title: String, tone: PlainEnglishStatus.Tone, symbol: String? = nil) {
         self.title = title
@@ -28,7 +27,7 @@ struct StatusChip: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .frame(minHeight: 32)
-        .background(palette.tone(tone).opacity(colorScheme == .light ? 0.04 : 0.16), in: Capsule())
+        .background(palette.tone(tone).opacity(0.16), in: Capsule())
         .overlay {
             Capsule().strokeBorder(palette.hairline, lineWidth: 1)
         }

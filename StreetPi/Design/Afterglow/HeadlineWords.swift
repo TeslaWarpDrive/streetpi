@@ -6,7 +6,6 @@ struct HeadlineWords: View {
     var accentWord: String
 
     @Environment(\.afterglowPalette) private var palette
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
@@ -38,10 +37,7 @@ struct HeadlineWords: View {
     }
 
     private func colored(_ word: String) -> Text {
-        if colorScheme == .light {
-            return Text(word).foregroundStyle(palette.accent)
-        }
-        return Text(word).foregroundStyle(sheen)
+        Text(word).foregroundStyle(sheen)
     }
 
     private var sheen: LinearGradient {

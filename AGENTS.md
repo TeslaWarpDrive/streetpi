@@ -6,9 +6,9 @@ Every thread that changes the app inherits this rule. Do not skip a tool, swap o
 
 1. **Paul Hudson, SwiftUI Pro.** https://github.com/twostraws/SwiftUI-Agent-Skill — read `swiftui-pro/SKILL.md` and the reference that matches the change (accessibility, views, navigation, data, design) before writing or reviewing SwiftUI.
 2. **Thomas Ricouard, Liquid Glass and UI patterns.** https://github.com/Dimillian/Skills — `swiftui-liquid-glass` and `swiftui-ui-patterns`. Liquid Glass on iOS 26 and later. On older iOS, use a tasteful material fallback. Glass is for chrome and the Briefing card, not for body text.
-3. **Point-Free swift-snapshot-testing.** https://github.com/pointfreeco/swift-snapshot-testing — visual review loop. Every screen in dark and light, default and largest Dynamic Type, small iPhone, large iPhone, and iPad. Review the images and fix what looks off before calling the work done.
+3. **Point-Free swift-snapshot-testing.** https://github.com/pointfreeco/swift-snapshot-testing — visual review loop. Every screen in dark, default and largest Dynamic Type, small iPhone, large iPhone, and iPad. Review the images and fix what looks off before calling the work done.
 4. **SF Symbols 7 and native SwiftUI animation and symbol effects.** Pow (https://github.com/EmergeTools/Pow) stays optional and is unused. Do not vendor it.
-5. **Design taste.** The direction is Aurora. Ban generic defaults: no stock “AI app” gradients. The Aurora glow family is the only gradient: the Home aura, the ring arcs, and the headline accent word (like “good”). No gradients elsewhere. The splash end tint uses the same ground as that aura. No default List inside a NavigationStack where a designed screen belongs. Run the pre-ship checklist below.
+5. **Design taste.** The direction is Aurora, and the app is dark only. Ban generic defaults: no stock “AI app” gradients. The Aurora glow family is the only gradient: the Home aura, the ring arcs, and the headline accent word (like “good”). No gradients elsewhere. No default List inside a NavigationStack where a designed screen belongs. Run the pre-ship checklist below.
 
 ### SwiftUI Pro rules that always apply
 
@@ -29,14 +29,16 @@ Every thread that changes the app inherits this rule. Do not skip a tool, swap o
 
 ### Visual review matrix
 
-For every screen: dark, light, Dynamic Type `.large`, Dynamic Type `.accessibility5`, small iPhone, large iPhone, iPad. The tests live in `StreetPiTests/DesignSnapshotTests.swift`. Missing references record on the next macOS run. Look at the PNGs.
+For every screen: dark, Dynamic Type `.large`, Dynamic Type `.accessibility5`, small iPhone, large iPhone, iPad. The tests live in `StreetPiTests/DesignSnapshotTests.swift`. Missing references record on the next macOS run. Look at the PNGs.
 
 ### Pre-ship checklist
 
-- Dark was designed first. Light mode is Daylight, and it still looks intentional.
+- The app is dark only. There is no light palette and no appearance switch.
 - The look is Aurora. Home is a Briefing and ring gauges. The Porch card and the Lampblack bar meters are retired. The ad blocker opens into its own pages in that same look. Do not bring back a direction picker.
+- Keep Home compact and good-looking. A vertical stack is fine when the content fits. When a screen has a lot of data, many stat cards, graphs, or other dense information, do not make it a long one-card column. Choose the arrangement that looks best for that amount of content. There is no fixed column count. Large text must wrap or scroll, and nothing truncates or overlaps. The Home screen follows this when it is built.
 - Tabs are House, Ad blocker, Pi, and Settings. The iPad uses a sidebar.
-- The video splash stays.
+- The launch film is one file, `StreetPi/Resources/launch-film.mp4`. Replace that file to change the film. Do not add a second video. It is silent and full-screen on the Aurora ground. Tap to skip. It fades into the Home aura. Reduce Motion shows `launch-poster.png`, then fades, and does not play the video. `LaunchOverlay` is that seam.
+- The product name is Raspberry Pi Stats. Under the icon it is Pi Stats, because the full name truncates. Code modules stay `StreetPi` and `StreetPiCore`.
 - Copy is original plain English. Alerts never name a person. No text, icons, or screenshots from Open Pi or Pi-hole Remote.
 - Reduce Motion, VoiceOver labels, and Dynamic Type were considered.
 - No analytics, ads, crash reporting, or tracking SDK.

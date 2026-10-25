@@ -9,7 +9,7 @@ struct VitalsSample: View {
             KickerLabel(text: "Vitals")
             AfterglowTileGrid(
                 spacing: AfterglowShape.line,
-                minimumColumnWidth: dynamicTypeSize.isAccessibilitySize ? 10_000 : 156,
+                minimumColumnWidth: dynamicTypeSize.isAccessibilitySize ? 10_000 : AfterglowShape.cardFloor,
                 maximumColumns: 4
             ) {
                 RingGauge(

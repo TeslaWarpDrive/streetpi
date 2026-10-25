@@ -1,10 +1,9 @@
-# StreetPi 1.0.0 (2)
+# Raspberry Pi Stats 1.0.0 (2)
 
-The first sideload. One app for the house, in plain English.
+The first sideload. One app for the house, in plain English. Under the icon the name is Pi Stats. The repository stays `streetpi`.
 
-- Opening plays a short film with sound. The silent switch mutes it, and other music keeps playing. Tap anywhere to skip. Reduce Motion shows the final frame, then Home.
-
-- Dark is the main look. Light is cream. Appearance can follow the system, or stay Dark or Light.
+- Opening plays a short silent film. Tap anywhere to skip. It fades into Home. Reduce Motion shows the final frame, then fades, and does not play the video.
+- The app is dark only. There is no light look and no appearance switch.
 - This build's Home is the porch card and the meters. Each part of the house opens from its own card. Aurora, chosen on 2026-10-24, retires that card and those bars. See `docs/project-context.md`.
 - The iPad keeps a sidebar. Ad blocker and Pi health open as a list beside the page. Large text wraps.
 - Motion stays calm, and it turns off when Reduce Motion is on.
