@@ -9,8 +9,8 @@ final class HistoryAndLogTests: XCTestCase {
         let body = """
         {"result":{"labels":["time","user","idle"],"data":[[\(stamp),20,80]]}}
         """
-        let series = try NetdataDecode.series(
-            from: AgentHTTPResult(status: 200, body: Data(body.utf8)),
+        let series = try NetdataHistory.series(
+            from: NetdataReply(status: 200, body: Data(body.utf8)),
             kind: .processor,
             ending: ending
         )
@@ -25,8 +25,8 @@ final class HistoryAndLogTests: XCTestCase {
         let body = """
         {"labels":["time","free","used"],"data":[[\(stamp),75,25]]}
         """
-        let series = try NetdataDecode.series(
-            from: AgentHTTPResult(status: 200, body: Data(body.utf8)),
+        let series = try NetdataHistory.series(
+            from: NetdataReply(status: 200, body: Data(body.utf8)),
             kind: .memory,
             ending: ending
         )
@@ -34,12 +34,12 @@ final class HistoryAndLogTests: XCTestCase {
     }
 
     func testRedirectAndHTMLAreFailedReads() {
-        let redirect = AgentHTTPResult(status: 302, body: Data("{}".utf8), redirected: true)
-        XCTAssertThrowsError(try NetdataDecode.alarms(from: redirect)) { error in
-            XCTAssertEqual(error as? NetdataProblem, .notUnderstood)
+        let redirect = NetdataReply(status: 302, body: Data("{}".utf8))
+        XCTAssertThrowsError(try NetdataHistory.alarms(from: redirect)) { error in
+            XCTAssertEqual(error as? NetdataProblem, .redirected)
         }
-        let html = AgentHTTPResult(status: 200, body: Data("<html>sign in</html>".utf8))
-        XCTAssertThrowsError(try NetdataDecode.containers(from: html)) { error in
+        let html = NetdataReply(status: 200, body: Data("<html>sign in</html>".utf8))
+        XCTAssertThrowsError(try NetdataHistory.containers(from: html)) { error in
             XCTAssertEqual(error as? NetdataProblem, .notUnderstood)
         }
     }
@@ -60,10 +60,10 @@ final class HistoryAndLogTests: XCTestCase {
           }
         }}
         """
-        let rows = try NetdataDecode.containers(from: AgentHTTPResult(status: 200, body: Data(charts.utf8)))
+        let rows = try NetdataHistory.containers(from: NetdataReply(status: 200, body: Data(charts.utf8)))
         XCTAssertEqual(rows.map(\.name), ["media helper"])
         XCTAssertEqual(rows.map(\.detail), ["Running"])
-        let ids = try NetdataDecode.chartIDs(from: AgentHTTPResult(status: 200, body: Data(charts.utf8)))
+        let ids = try NetdataHistory.chartIDs(from: NetdataReply(status: 200, body: Data(charts.utf8)))
         XCTAssertEqual(ids[.processor], "system.cpu")
 
         let alarms = """
@@ -73,7 +73,7 @@ final class HistoryAndLogTests: XCTestCase {
           "system.ram.ram":{"id":3,"chart":"system.ram","status":"CLEAR"}
         }}
         """
-        let raised = try NetdataDecode.alarms(from: AgentHTTPResult(status: 200, body: Data(alarms.utf8)))
+        let raised = try NetdataHistory.alarms(from: NetdataReply(status: 200, body: Data(alarms.utf8)))
         XCTAssertEqual(raised.map(\.tone), [.problem, .attention])
         XCTAssertTrue(raised.contains { $0.sentence == "Warning. The processor is busy." })
         XCTAssertTrue(raised.contains { $0.sentence == "Critical. The disk is nearly full." })
@@ -81,15 +81,13 @@ final class HistoryAndLogTests: XCTestCase {
     }
 
     func testLocalAgentRejectsCloudAndRedirectHosts() {
-        XCTAssertNil(NetdataEndpoint(host: "app.netdata.cloud", port: 19999).url(pathAndQuery: "/api/v1/alarms"))
-        XCTAssertNil(NetdataEndpoint.house.url(pathAndQuery: "https://app.netdata.cloud/api/v1/data"))
-        XCTAssertNil(NetdataEndpoint(host: "192.168.1.78", port: 80).url(pathAndQuery: "/api/v1/alarms"))
-        let local = NetdataEndpoint.house.url(pathAndQuery: "/api/v1/alarms")
+        XCTAssertNil(NetdataEndpoint(host: "app.netdata.cloud", port: 19999).url(for: "/api/v1/alarms"))
+        XCTAssertNil(NetdataEndpoint.parsed("https://app.netdata.cloud"))
+        XCTAssertNil(NetdataEndpoint.parsed("http://registry.my-netdata.io"))
+        let local = NetdataEndpoint.houseDefault.url(for: "/api/v1/alarms")
         XCTAssertEqual(local?.scheme, "http")
         XCTAssertEqual(local?.port, 19999)
         XCTAssertFalse(NetdataHistoryAPI.chartsPath.contains("netdata.cloud"))
-        let cloud = URL(string: "https://app.netdata.cloud")
-        XCTAssertNil(cloud.flatMap { NetdataEndpoint.joining(base: $0, pathAndQuery: "/api/v1/alarms") })
         XCTAssertTrue(NetdataHistoryAPI.dataPath(chart: "disk_space._")?.contains("chart=disk_space._") == true)
         XCTAssertTrue(NetdataAPI.routes.contains { $0.path == "/api/v1/charts" })
     }
@@ -97,20 +95,20 @@ final class HistoryAndLogTests: XCTestCase {
     func testReaderSurvivesABadChartAndReadsAlarms() async {
         let ending = self.ending
         let stamp = Int(ending.timeIntervalSince1970 - 120)
-        let reader = NetdataReader(fetch: { path in
+        let reader = NetdataHistoryReader(transport: ScriptedAgent { path in
             if path == NetdataHistoryAPI.chartsPath {
                 let body = #"{"charts":{"system.cpu":{"id":"system.cpu","context":"system.cpu"}}}"#
-                return AgentHTTPResult(status: 200, body: Data(body.utf8))
+                return NetdataReply(status: 200, body: Data(body.utf8))
             }
             if path.contains("system.cpu") {
                 let body = #"{"labels":["time","idle"],"data":[[\#(stamp),50]]}"#
-                return AgentHTTPResult(status: 200, body: Data(body.utf8))
+                return NetdataReply(status: 200, body: Data(body.utf8))
             }
             if path == NetdataHistoryAPI.alarmsPath {
                 let body = #"{"alarms":{"sensors.temperature.hot":{"chart":"sensors.temperature","status":"WARNING"}}}"#
-                return AgentHTTPResult(status: 200, body: Data(body.utf8))
+                return NetdataReply(status: 200, body: Data(body.utf8))
             }
-            return AgentHTTPResult(status: 200, body: Data("<html></html>".utf8))
+            return NetdataReply(status: 200, body: Data("<html></html>".utf8))
         }, now: { ending })
         let load = await reader.load()
         XCTAssertEqual(load.series.map(\.id), ["processor"])
@@ -122,9 +120,9 @@ final class HistoryAndLogTests: XCTestCase {
     }
 
     func testOfflineReaderUsesPlainWords() async {
-        let reader = NetdataReader { _ in
+        let reader = NetdataHistoryReader(transport: ScriptedAgent { _ in
             throw NetdataProblem.offline
-        }
+        })
         let load = await reader.load()
         XCTAssertEqual(load.chartNote, LiveReadCopy.offline)
         XCTAssertEqual(load.containerNote, LiveReadCopy.offline)
@@ -198,5 +196,13 @@ final class HistoryAndLogTests: XCTestCase {
         XCTAssertThrowsError(try PiholeDecode.textLog(from: Data("not-json".utf8))) { error in
             XCTAssertEqual(error as? PiholeProblem, .notUnderstood)
         }
+    }
+}
+
+private struct ScriptedAgent: NetdataTransport {
+    var send: @Sendable (String) async throws -> NetdataReply
+
+    func get(_ path: String) async throws -> NetdataReply {
+        try await send(path)
     }
 }

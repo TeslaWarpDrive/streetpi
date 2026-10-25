@@ -25,16 +25,13 @@ public struct NetdataHistoryLoad: Sendable, Equatable {
     }
 }
 
-/// Reads history, containers, and raised alarms from the local agent only.
-public struct NetdataReader: Sendable {
-    public var fetch: @Sendable (String) async throws -> AgentHTTPResult
+/// Day charts, containers, and raised alarms from the local agent. No cloud and no login.
+public struct NetdataHistoryReader<Transport: NetdataTransport>: Sendable {
+    public var transport: Transport
     public var now: @Sendable () -> Date
 
-    public init(
-        fetch: @escaping @Sendable (String) async throws -> AgentHTTPResult,
-        now: @escaping @Sendable () -> Date = { Date() }
-    ) {
-        self.fetch = fetch
+    public init(transport: Transport, now: @escaping @Sendable () -> Date = { Date() }) {
+        self.transport = transport
         self.now = now
     }
 
@@ -54,42 +51,44 @@ public struct NetdataReader: Sendable {
         )
     }
 
-    private func pull(_ path: String) async -> Result<AgentHTTPResult, NetdataProblem> {
+    private func pull(_ path: String) async -> Result<NetdataReply, NetdataProblem> {
         do {
-            return .success(try await fetch(path))
+            return .success(try await transport.get(path))
         } catch let problem as NetdataProblem {
             return .failure(problem)
+        } catch is CancellationError {
+            return .failure(.offline)
         } catch {
             return .failure(.offline)
         }
     }
 
-    private func chartsFailedOffline(_ charts: Result<AgentHTTPResult, NetdataProblem>) -> Bool {
+    private func chartsFailedOffline(_ charts: Result<NetdataReply, NetdataProblem>) -> Bool {
         if case .failure(.offline) = charts { return true }
         return false
     }
 
     private func containerSection(
-        _ charts: Result<AgentHTTPResult, NetdataProblem>,
+        _ charts: Result<NetdataReply, NetdataProblem>,
         offline: Bool
     ) -> (rows: [NamedRow], note: String?) {
         if offline { return ([], LiveReadCopy.offline) }
-        guard case .success(let result) = charts else { return ([], LiveReadCopy.containers) }
+        guard case .success(let reply) = charts else { return ([], LiveReadCopy.containers) }
         do {
-            return (try NetdataDecode.containers(from: result), nil)
+            return (try NetdataHistory.containers(from: reply), nil)
         } catch {
             return ([], LiveReadCopy.containers)
         }
     }
 
     private func seriesSection(
-        _ charts: Result<AgentHTTPResult, NetdataProblem>,
+        _ charts: Result<NetdataReply, NetdataProblem>,
         offline: Bool
     ) async -> (series: [MetricSeries], note: String?) {
         if offline { return ([], LiveReadCopy.offline) }
         var ids: [HistoryKind: String] = [:]
-        if case .success(let result) = charts {
-            ids = (try? NetdataDecode.chartIDs(from: result)) ?? [:]
+        if case .success(let reply) = charts {
+            ids = (try? NetdataHistory.chartIDs(from: reply)) ?? [:]
         }
         var series: [MetricSeries] = []
         for kind in HistoryKind.allCases {
@@ -112,17 +111,17 @@ public struct NetdataReader: Sendable {
     }
 
     private func decodeSeries(path: String, kind: HistoryKind) async -> MetricSeries? {
-        guard case .success(let result) = await pull(path) else { return nil }
-        return try? NetdataDecode.series(from: result, kind: kind, ending: now())
+        guard case .success(let reply) = await pull(path) else { return nil }
+        return try? NetdataHistory.series(from: reply, kind: kind, ending: now())
     }
 
     private func alarmSection(offline: Bool) async -> (rows: [HouseAlert], note: String?) {
         if offline { return ([], LiveReadCopy.offline) }
-        guard case .success(let result) = await pull(NetdataHistoryAPI.alarmsPath) else {
+        guard case .success(let reply) = await pull(NetdataHistoryAPI.alarmsPath) else {
             return ([], LiveReadCopy.alarms)
         }
         do {
-            return (try NetdataDecode.alarms(from: result), nil)
+            return (try NetdataHistory.alarms(from: reply), nil)
         } catch {
             return ([], LiveReadCopy.alarms)
         }

@@ -8,6 +8,7 @@ struct MachinePageBody: View {
     var theme: StreetTheme
     var wide: Bool
     var showsDestinations: Bool = true
+    var piNotice: String?
     var onPage: (MachinePage) -> Void
 
     var body: some View {
@@ -19,6 +20,7 @@ struct MachinePageBody: View {
                 theme: theme,
                 wide: wide,
                 showsDestinations: showsDestinations,
+                piNotice: piNotice,
                 onPage: onPage
             )
         case .chart:

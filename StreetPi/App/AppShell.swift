@@ -22,6 +22,10 @@ struct AppShell: View {
     var onSavePassword: () -> Void = {}
     var onSetupSave: (String) -> Void = { _ in }
     var onSetupCancel: () -> Void = {}
+    var piHost: Binding<String> = .constant(LiveEndpoints.house.netdata.absoluteString)
+    var hostNote: String?
+    var onCommitHost: () -> Void = {}
+    var piNotice: String?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -259,6 +263,7 @@ struct AppShell: View {
                 lines: lines,
                 groups: groups,
                 wide: wide,
+                piNotice: piNotice,
                 onGroup: { onSection(.group($0)) }
             )
         case .alerts:
@@ -290,6 +295,7 @@ struct AppShell: View {
                     page: machinePage,
                     machine: screen.snapshot?.machine,
                     theme: theme,
+                    piNotice: piNotice,
                     onPage: onMachinePage
                 )
             } else if let brief = groups.first(where: { $0.id == group }) {
@@ -316,7 +322,7 @@ struct AppShell: View {
                 )
             }
         case .settings:
-            SettingsView(theme: theme)
+            SettingsView(theme: theme, piHost: piHost, hostNote: hostNote, onCommitHost: onCommitHost)
         }
     }
 

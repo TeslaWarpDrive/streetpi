@@ -211,6 +211,17 @@ final class DesignSnapshotTests: XCTestCase {
         assertMatrix(section: .settings, screen: .ready(house), testName: "settings")
     }
 
+    func testPiUnreachable() {
+        var quiet = house
+        quiet.machine = nil
+        assertMatrix(
+            section: .home,
+            screen: .ready(quiet),
+            testName: "pi-unreachable",
+            piNotice: "The Pi is not answering."
+        )
+    }
+
     func testSplashFinal() throws {
         let url = try XCTUnwrap(
             Bundle.main.url(forResource: SplashFilm.posterName, withExtension: "png")
@@ -279,7 +290,8 @@ final class DesignSnapshotTests: XCTestCase {
         machinePage: MachinePage? = nil,
         pending: HouseholdAction? = nil,
         showsSetup: Bool = false,
-        dnsProblem: PiholeProblem? = nil
+        dnsProblem: PiholeProblem? = nil,
+        piNotice: String? = nil
     ) {
         for size in SnapshotScale.allCases {
             for device in SnapshotDevice.allCases {
@@ -293,7 +305,8 @@ final class DesignSnapshotTests: XCTestCase {
                     machinePage: machinePage,
                     pendingAction: pending,
                     showsSetup: showsSetup,
-                    dnsProblem: dnsProblem
+                    dnsProblem: dnsProblem,
+                    piNotice: piNotice
                 )
                 .preferredColorScheme(.dark)
                 .environment(\.colorScheme, .dark)
@@ -317,7 +330,7 @@ final class DesignSnapshotTests: XCTestCase {
         named: String,
         testName: String = #function
     ) {
-        withSnapshotTesting(record: .never) {
+        withSnapshotTesting(record: .failed) {
             assertSnapshot(
                 of: view,
                 as: .image(layout: .device(config: layout), traits: traits(size: size)),
@@ -334,7 +347,7 @@ final class DesignSnapshotTests: XCTestCase {
         named: String,
         testName: String
     ) {
-        withSnapshotTesting(record: .never) {
+        withSnapshotTesting(record: .failed) {
             assertSnapshot(
                 of: view,
                 as: .image(layout: .sizeThatFits, traits: traits(size: size)),

@@ -1,321 +1,285 @@
 import Foundation
 
-public enum HistoryKind: String, CaseIterable, Sendable {
-    case processor
-    case memory
-    case disk
-    case temperature
+public struct NetdataPoint: Sendable, Equatable {
+    public var names: [String]
+    public var values: [Double]
 
-    public var title: String {
-        switch self {
-        case .processor: "Processor"
-        case .memory: "Memory"
-        case .disk: "Disk"
-        case .temperature: "Temperature"
-        }
-    }
-
-    public var caption: String {
-        switch self {
-        case .processor: "Share of the processor over the last day."
-        case .memory: "Share of memory over the last day."
-        case .disk: "Share of the disk over the last day."
-        case .temperature: "Degrees over the last day."
-        }
-    }
-
-    public var context: String {
-        switch self {
-        case .processor: "system.cpu"
-        case .memory: "system.ram"
-        case .disk: "disk.space"
-        case .temperature: "sensors.temperature"
-        }
-    }
-
-    public var fallbackChart: String {
-        switch self {
-        case .processor: "system.cpu"
-        case .memory: "system.ram"
-        case .disk: "disk_space._"
-        case .temperature: "sensors.temperature"
-        }
+    public init(names: [String], values: [Double]) {
+        self.names = names
+        self.values = values
     }
 }
 
-enum NetdataPayload {
-    static func value(from result: AgentHTTPResult) throws -> Any {
-        try reject(result)
-        do {
-            return try JSONSerialization.jsonObject(with: result.body)
-        } catch {
-            throw NetdataProblem.notUnderstood
-        }
+public struct NetdataChartPlan: Sendable, Equatable {
+    public var cpu: String
+    public var memory: String
+    public var disk: String
+    public var temperature: String?
+    public var uptime: String
+
+    public init(cpu: String, memory: String, disk: String, temperature: String?, uptime: String) {
+        self.cpu = cpu
+        self.memory = memory
+        self.disk = disk
+        self.temperature = temperature
+        self.uptime = uptime
     }
 
-    static func object(from result: AgentHTTPResult) throws -> [String: Any] {
-        let value = try value(from: result)
-        guard let object = value as? [String: Any] else { throw NetdataProblem.notUnderstood }
-        return object
-    }
+    public static let fallback = NetdataChartPlan(
+        cpu: "system.cpu",
+        memory: "system.ram",
+        disk: "disk_space./",
+        temperature: nil,
+        uptime: "system.uptime"
+    )
+}
 
-    static func reject(_ result: AgentHTTPResult) throws {
-        if result.redirected || (300...399).contains(result.status) {
-            throw NetdataProblem.notUnderstood
-        }
-        if result.status == 0 { throw NetdataProblem.offline }
-        guard (200...299).contains(result.status) else { throw NetdataProblem.notUnderstood }
-        if result.body.isEmpty { throw NetdataProblem.notUnderstood }
+public struct NetdataMeters: Sendable, Equatable {
+    public var hostName: String
+    public var reading: MachineReading
+
+    public init(hostName: String, reading: MachineReading) {
+        self.hostName = hostName
+        self.reading = reading
     }
 }
 
 public enum NetdataDecode {
-    public static func chartIDs(from result: AgentHTTPResult) throws -> [HistoryKind: String] {
-        let root = try NetdataPayload.object(from: result)
-        guard let charts = root["charts"] as? [String: Any] else { throw NetdataProblem.notUnderstood }
-        var found: [HistoryKind: String] = [:]
-        for (key, value) in charts {
-            guard let chart = value as? [String: Any] else { continue }
-            let context = (chart["context"] as? String) ?? ""
-            let id = (chart["id"] as? String) ?? key
-            guard let kind = historyKind(context: context, id: id) else { continue }
-            found[kind] = preferred(kind, current: found[kind], candidate: id)
+    public static let temperatureCandidates = [
+        "sensors.temperature_cpu_thermal",
+        "sensors.cpu_thermal-virtual-0_temperature",
+        "sensors.temperature_thermal_zone0_temperature",
+        "cpu.temperature",
+        "system.hw.sensor.temperature.input",
+    ]
+
+    public static let diskCandidates = [
+        "disk_space./",
+        "disk_space._",
+        "disk_space._root",
+    ]
+
+    public static func isRedirect(_ reply: NetdataReply) -> Bool {
+        (300..<400).contains(reply.status)
+    }
+
+    public static func isJSONObject(_ data: Data) -> Bool {
+        (try? object(data)) != nil
+    }
+
+    public static func hostName(from data: Data) throws -> String {
+        let root = try object(data)
+        if let name = text(root["hostname"]) {
+            return name
         }
-        return found
-    }
-
-    public static func series(from result: AgentHTTPResult, kind: HistoryKind, ending: Date) throws -> MetricSeries {
-        let value = try NetdataPayload.value(from: result)
-        guard let table = HistoryTable.find(in: value) else { throw NetdataProblem.notUnderstood }
-        let points = HourBuckets.points(table: table, kind: kind, ending: ending)
-        return MetricSeries(id: kind.rawValue, title: kind.title, caption: kind.caption, points: points)
-    }
-
-    public static func containers(from result: AgentHTTPResult) throws -> [NamedRow] {
-        let root = try NetdataPayload.object(from: result)
-        guard let charts = root["charts"] as? [String: Any] else { throw NetdataProblem.notUnderstood }
-        var rows: [String: NamedRow] = [:]
-        for (key, value) in charts {
-            guard let chart = value as? [String: Any] else { continue }
-            guard let identity = containerIdentity(chart: chart, key: key) else { continue }
-            if rows[identity.id] == nil || identity.prefersCPU {
-                rows[identity.id] = NamedRow(id: identity.id, name: identity.name, detail: "Running")
+        if let hosts = root["mirrored_hosts"] as? [Any] {
+            for host in hosts {
+                if let name = text(host) {
+                    return name
+                }
             }
         }
-        return rows.values.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        if let labels = root["labels"] as? [String: Any] {
+            if let name = text(labels["_hostname"]) ?? text(labels["hostname"]) {
+                return name
+            }
+        }
+        throw NetdataProblem.notUnderstood
     }
 
-    public static func alarms(from result: AgentHTTPResult) throws -> [HouseAlert] {
-        let root = try NetdataPayload.object(from: result)
-        guard let alarms = root["alarms"] as? [String: Any] else { throw NetdataProblem.notUnderstood }
-        return alarms.compactMap { key, value in
-            alert(key: key, value: value)
-        }.sorted { $0.id < $1.id }
+    public static func point(from data: Data) throws -> NetdataPoint {
+        let root = try object(data)
+        if root["error"] != nil {
+            throw NetdataProblem.notUnderstood
+        }
+        if let names = strings(root["dimension_names"]) {
+            if let values = numbers(root["view_latest_values"]), values.count == names.count, !values.isEmpty {
+                return NetdataPoint(names: names, values: values)
+            }
+            if let values = numbers(root["latest_values"]), values.count == names.count, !values.isEmpty {
+                return NetdataPoint(names: names, values: values)
+            }
+        }
+        let payload = root["result"] as? [String: Any] ?? root
+        guard let labels = strings(payload["labels"]),
+              let rows = payload["data"] as? [Any],
+              let row = rows.last
+        else { throw NetdataProblem.notUnderstood }
+        return try point(labels: labels, row: row)
     }
 
-    private static func historyKind(context: String, id: String) -> HistoryKind? {
-        let contextName = context.lowercased()
-        let chart = id.lowercased()
-        if contextName == "system.cpu" || chart == "system.cpu" { return .processor }
-        if contextName == "system.ram" || chart == "system.ram" { return .memory }
-        if contextName == "disk.space" || chart.hasPrefix("disk_space") { return .disk }
-        if contextName.contains("temperature") || chart.contains("temperature") { return .temperature }
+    public static func chartPlan(from data: Data?) -> NetdataChartPlan {
+        guard let data, let root = try? object(data) else { return .fallback }
+        let charts = root["charts"] as? [String: Any] ?? [:]
+        var cpu: String?
+        var memory: String?
+        var uptime: String?
+        var disk: String?
+        var bestDisk = 0
+        var temperature: String?
+        var bestTemperature = 0
+        for (key, value) in charts {
+            guard let chart = value as? [String: Any] else { continue }
+            let id = text(chart["id"]) ?? key
+            let context = text(chart["context"]) ?? ""
+            let family = text(chart["family"]) ?? ""
+            let units = text(chart["units"]) ?? ""
+            let title = text(chart["title"]) ?? ""
+            if context == "system.cpu" || id == "system.cpu" { cpu = id }
+            if context == "system.ram" || id == "system.ram" { memory = id }
+            if context == "system.uptime" || id == "system.uptime" { uptime = id }
+            if let rank = diskRank(id: id, context: context, family: family), rank > bestDisk {
+                bestDisk = rank
+                disk = id
+            }
+            if let rank = temperatureRank(id: id, context: context, family: family, units: units, title: title),
+               rank > bestTemperature {
+                bestTemperature = rank
+                temperature = id
+            }
+        }
+        return NetdataChartPlan(
+            cpu: cpu ?? NetdataChartPlan.fallback.cpu,
+            memory: memory ?? NetdataChartPlan.fallback.memory,
+            disk: disk ?? NetdataChartPlan.fallback.disk,
+            temperature: temperature,
+            uptime: uptime ?? NetdataChartPlan.fallback.uptime
+        )
+    }
+
+    public static func reading(
+        cpu: NetdataPoint?,
+        memory: NetdataPoint?,
+        disk: NetdataPoint?,
+        temperature: NetdataPoint?,
+        uptime: NetdataPoint?
+    ) -> MachineReading {
+        MachineReading(
+            cpuUsedFraction: cpu.flatMap(cpuFraction),
+            temperatureCelsius: temperature.flatMap(celsius),
+            memoryUsedFraction: memory.flatMap(shareUsed),
+            diskUsedFraction: disk.flatMap(shareUsed),
+            uptimeSeconds: uptime.flatMap(uptimeSeconds)
+        )
+    }
+
+    public static func cpuFraction(_ point: NetdataPoint) -> Double? {
+        let pairs = zip(point.names, point.values)
+        let idle = pairs.first { $0.0 == "idle" || $0.0.hasSuffix(".idle") }?.1
+        let total = point.values.reduce(0, +)
+        guard total > 0 else { return nil }
+        let used = idle.map { total - $0 } ?? total
+        return clamp(used / total)
+    }
+
+    public static func shareUsed(_ point: NetdataPoint) -> Double? {
+        guard let used = value(named: "used", in: point) else { return nil }
+        let total = point.values.reduce(0, +)
+        guard total > 0 else { return nil }
+        return clamp(used / total)
+    }
+
+    public static func celsius(_ point: NetdataPoint) -> Double? {
+        let preferred = value(named: "input", in: point)
+            ?? value(named: "temperature", in: point)
+            ?? (point.values.count == 1 ? point.values[0] : nil)
+        guard let preferred, preferred > -20, preferred < 140 else { return nil }
+        return preferred
+    }
+
+    public static func uptimeSeconds(_ point: NetdataPoint) -> Double? {
+        let seconds = value(named: "uptime", in: point) ?? (point.values.count == 1 ? point.values[0] : nil)
+        guard let seconds, seconds >= 0 else { return nil }
+        return seconds
+    }
+
+    private static func point(labels: [String], row: Any) throws -> NetdataPoint {
+        guard let cells = row as? [Any], cells.count == labels.count, !labels.isEmpty else {
+            throw NetdataProblem.notUnderstood
+        }
+        let start = labels[0] == "time" ? 1 : 0
+        var names: [String] = []
+        var values: [Double] = []
+        for index in start..<labels.count {
+            guard let number = double(cells[index]) else { throw NetdataProblem.notUnderstood }
+            names.append(labels[index])
+            values.append(number)
+        }
+        guard !names.isEmpty else { throw NetdataProblem.notUnderstood }
+        return NetdataPoint(names: names, values: values)
+    }
+
+    private static func diskRank(id: String, context: String, family: String) -> Int? {
+        let isDisk = context == "disk.space" || id.hasPrefix("disk_space.")
+        guard isDisk else { return nil }
+        if family == "/" || id == "disk_space./" { return 3 }
+        if family == "/root" || id.contains("root") { return 2 }
+        return 1
+    }
+
+    private static func temperatureRank(
+        id: String,
+        context: String,
+        family: String,
+        units: String,
+        title: String
+    ) -> Int? {
+        let blob = "\(id) \(context) \(family) \(title)".lowercased()
+        guard blob.contains("temperature"), !blob.contains("alarm") else { return nil }
+        var rank = 1
+        if blob.contains("cpu") || blob.contains("thermal") || blob.contains("rpi") || blob.contains("soc") {
+            rank += 3
+        }
+        if units.lowercased().contains("celsius") {
+            rank += 1
+        }
+        return rank
+    }
+
+    private static func value(named name: String, in point: NetdataPoint) -> Double? {
+        for (index, label) in point.names.enumerated() where label == name {
+            return point.values[index]
+        }
         return nil
     }
 
-    private static func preferred(_ kind: HistoryKind, current: String?, candidate: String) -> String {
-        guard let current else { return candidate }
-        switch kind {
-        case .disk:
-            let candidateRoot = candidate.contains("._")
-            let currentRoot = current.contains("._")
-            return candidateRoot && !currentRoot ? candidate : current
-        case .temperature:
-            let candidateCPU = candidate.lowercased().contains("cpu")
-            let currentCPU = current.lowercased().contains("cpu")
-            return candidateCPU && !currentCPU ? candidate : current
-        case .processor, .memory:
-            return current
+    private static func clamp(_ value: Double) -> Double {
+        min(1, max(0, value))
+    }
+
+    private static func object(_ data: Data) throws -> [String: Any] {
+        let value: Any
+        do {
+            value = try JSONSerialization.jsonObject(with: data)
+        } catch {
+            throw NetdataProblem.notUnderstood
         }
+        guard let root = value as? [String: Any] else { throw NetdataProblem.notUnderstood }
+        return root
     }
 
-    private struct ContainerIdentity {
-        var id: String
-        var name: String
-        var prefersCPU: Bool
+    private static func text(_ value: Any?) -> String? {
+        guard let value = value as? String else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
-    private static func containerIdentity(chart: [String: Any], key: String) -> ContainerIdentity? {
-        let context = (chart["context"] as? String) ?? ""
-        let type = (chart["type"] as? String) ?? ""
-        let id = (chart["id"] as? String) ?? key
-        let isGroup = context.hasPrefix("cgroup.") || type.hasPrefix("cgroup_") || id.hasPrefix("cgroup_")
-        guard isGroup else { return nil }
-        let cpu = context == "cgroup.cpu" || id.hasSuffix(".cpu")
-        guard cpu || context == "cgroup.docker" else { return nil }
-        let group = type.isEmpty ? id : type
-        return ContainerIdentity(id: group, name: displayName(group), prefersCPU: cpu)
+    private static func strings(_ value: Any?) -> [String]? {
+        guard let value = value as? [Any] else { return nil }
+        let names = value.compactMap { $0 as? String }
+        return names.count == value.count ? names : nil
     }
 
-    private static func displayName(_ group: String) -> String {
-        var raw = group
-        if raw.hasPrefix("cgroup_") {
-            raw.removeFirst("cgroup_".count)
-        }
-        for prefix in ["docker_", "podman_", "lxc_"] where raw.hasPrefix(prefix) {
-            raw.removeFirst(prefix.count)
-            break
-        }
-        let words = raw.replacingOccurrences(of: "_", with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
-        return words.isEmpty ? group : words
+    private static func numbers(_ value: Any?) -> [Double]? {
+        guard let value = value as? [Any] else { return nil }
+        let numbers = value.compactMap(double)
+        return numbers.count == value.count ? numbers : nil
     }
 
-    private static func alert(key: String, value: Any) -> HouseAlert? {
-        guard let alarm = value as? [String: Any] else { return nil }
-        let status = ((alarm["status"] as? String) ?? "").uppercased()
-        guard status == "WARNING" || status == "CRITICAL" else { return nil }
-        let chart = (alarm["chart"] as? String) ?? key
-        let tone: PlainEnglishStatus.Tone = status == "CRITICAL" ? .problem : .attention
-        return HouseAlert(id: key, sentence: AlarmWords.sentence(chart: chart, status: status), tone: tone)
-    }
-}
-
-enum AlarmWords {
-    static func sentence(chart: String, status: String) -> String {
-        let lead = status == "CRITICAL" ? "Critical." : "Warning."
-        return "\(lead) \(subject(chart))"
-    }
-
-    static func subject(_ chart: String) -> String {
-        let name = chart.lowercased()
-        if name.contains("cpu") { return "The processor is busy." }
-        if name.contains("ram") || name.contains("mem") { return "Memory is nearly full." }
-        if name.contains("disk") || name.contains("space") { return "The disk is nearly full." }
-        if name.contains("temp") { return "The Pi is hot." }
-        return "An alarm is raised."
-    }
-}
-
-struct HistoryTable {
-    var labels: [String]
-    var rows: [[Double]]
-
-    static func find(in value: Any) -> HistoryTable? {
-        if let rows = value as? [Any] {
-            return bare(rows)
-        }
-        guard let object = value as? [String: Any] else { return nil }
-        if let table = labeled(object) { return table }
-        if let result = object["result"] {
-            if let nested = result as? [String: Any], let table = labeled(nested) { return table }
-            if let rows = result as? [Any] { return bare(rows) }
-        }
-        return nil
-    }
-
-    private static func labeled(_ object: [String: Any]) -> HistoryTable? {
-        guard let labels = object["labels"] as? [String], let data = object["data"] as? [Any] else { return nil }
-        guard !labels.isEmpty else { return nil }
-        return HistoryTable(labels: labels, rows: data.compactMap(numberRow))
-    }
-
-    private static func bare(_ rows: [Any]) -> HistoryTable? {
-        guard let first = rows.first as? [Any] else { return nil }
-        let labels = first.compactMap { $0 as? String }
-        guard labels.count == first.count, !labels.isEmpty else { return nil }
-        return HistoryTable(labels: labels, rows: rows.dropFirst().compactMap(numberRow))
-    }
-
-    private static func numberRow(_ value: Any) -> [Double]? {
-        guard let list = value as? [Any], !list.isEmpty else { return nil }
-        if list.allSatisfy({ $0 is String }) { return nil }
-        return list.map { number($0) ?? .nan }
-    }
-
-    private static func number(_ value: Any) -> Double? {
+    private static func double(_ value: Any?) -> Double? {
         if let value = value as? Double { return value }
         if let value = value as? Int { return Double(value) }
         if let value = value as? NSNumber { return value.doubleValue }
         return nil
-    }
-}
-
-enum HourBuckets {
-    static func points(table: HistoryTable, kind: HistoryKind, ending: Date) -> [MetricPoint] {
-        let end = ending.timeIntervalSince1970
-        let start = end - 24 * 3_600
-        var sums = Array(repeating: 0.0, count: 24)
-        var counts = Array(repeating: 0, count: 24)
-        let timeIndex = table.labels.firstIndex { $0.caseInsensitiveCompare("time") == .orderedSame } ?? 0
-        for row in table.rows {
-            guard row.indices.contains(timeIndex) else { continue }
-            let stamp = normalizeTime(row[timeIndex])
-            guard stamp >= start, stamp < end else { continue }
-            guard let reading = reduce(
-                labels: table.labels,
-                row: row,
-                kind: kind,
-                timeIndex: timeIndex
-            ) else { continue }
-            let index = min(23, max(0, Int((stamp - start) / 3_600)))
-            sums[index] += reading
-            counts[index] += 1
-        }
-        return (0..<24).map { hour in
-            let value = counts[hour] > 0 ? sums[hour] / Double(counts[hour]) : 0
-            return MetricPoint(hour: hour, value: value)
-        }
-    }
-
-    private static func normalizeTime(_ stamp: Double) -> Double {
-        stamp > 10_000_000_000 ? stamp / 1_000 : stamp
-    }
-
-    private static func reduce(labels: [String], row: [Double], kind: HistoryKind, timeIndex: Int) -> Double? {
-        var pairs: [(String, Double)] = []
-        for index in labels.indices where index != timeIndex && row.indices.contains(index) {
-            let number = row[index]
-            guard number.isFinite else { continue }
-            pairs.append((labels[index].lowercased(), number))
-        }
-        guard !pairs.isEmpty else { return nil }
-        switch kind {
-        case .processor:
-            return processor(pairs)
-        case .memory, .disk:
-            return share(pairs)
-        case .temperature:
-            return average(pairs.map(\.1))
-        }
-    }
-
-    private static func processor(_ pairs: [(String, Double)]) -> Double {
-        if let idle = pairs.first(where: { $0.0 == "idle" })?.1 {
-            return remainder(idle)
-        }
-        return fraction(pairs.map(\.1).reduce(0, +))
-    }
-
-    private static func share(_ pairs: [(String, Double)]) -> Double {
-        let total = pairs.map(\.1).reduce(0, +)
-        if let used = pairs.first(where: { $0.0 == "used" })?.1, total > 0 {
-            return min(1, max(0, used / total))
-        }
-        return fraction(total)
-    }
-
-    private static func remainder(_ idle: Double) -> Double {
-        if idle <= 1.5 { return min(1, max(0, 1 - idle)) }
-        return min(1, max(0, (100 - idle) / 100))
-    }
-
-    private static func fraction(_ sum: Double) -> Double {
-        if sum <= 1.5 { return min(1, max(0, sum)) }
-        return min(1, max(0, sum / 100))
-    }
-
-    private static func average(_ values: [Double]) -> Double {
-        guard !values.isEmpty else { return 0 }
-        return values.reduce(0, +) / Double(values.count)
     }
 }

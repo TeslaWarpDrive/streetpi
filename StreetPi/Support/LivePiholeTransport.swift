@@ -7,7 +7,7 @@ struct LivePiholeTransport: PiholeTransport {
     var base: URL
 
     func send(_ request: PiholeRequest) async throws -> PiholeResponse {
-        guard !FixtureGate.isFixtureRun else { throw PiholeProblem.offline }
+        guard !LiveGate.usesFixtures else { throw PiholeProblem.offline }
         guard let url = Self.endpoint(base: base, pathAndQuery: request.path) else {
             throw PiholeProblem.notUnderstood
         }
