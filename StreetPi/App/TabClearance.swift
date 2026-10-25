@@ -18,6 +18,35 @@ extension View {
     }
 }
 
+/// A one-point mark a test can find when it scrolls a page.
+struct ScrollAnchor: UIViewRepresentable {
+    var name: String
+
+    func makeUIView(context: Context) -> ScrollAnchorView {
+        let view = ScrollAnchorView()
+        view.accessibilityIdentifier = name
+        return view
+    }
+
+    func updateUIView(_ view: ScrollAnchorView, context: Context) {
+        view.accessibilityIdentifier = name
+    }
+}
+
+final class ScrollAnchorView: UIView {
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        backgroundColor = .clear
+        isAccessibilityElement = false
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+}
+
 private struct PhoneTabClearance: ViewModifier {
     var wide: Bool
 

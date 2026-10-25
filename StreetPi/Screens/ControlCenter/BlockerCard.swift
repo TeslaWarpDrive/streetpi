@@ -30,6 +30,11 @@ struct BlockerCard: View {
                     .font(.body)
                     .foregroundStyle(palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
+                    .background(alignment: .topLeading) {
+                        ScrollAnchor(name: "blocker-fraction")
+                            .frame(width: 1, height: 1)
+                            .accessibilityHidden(true)
+                    }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

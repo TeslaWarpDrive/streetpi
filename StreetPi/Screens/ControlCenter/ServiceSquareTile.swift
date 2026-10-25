@@ -139,9 +139,29 @@ private final class PinStreamingView: UIView {
         let visible = scroll.bounds.height - scroll.adjustedContentInset.bottom
         guard visible > 1 else { return }
         let maxOffset = max(0, scroll.contentSize.height - visible)
-        let target = min(max(0, frame.maxY - visible + 8), maxOffset)
+        var target = frame.maxY - visible + 8
+        if let percentTop = anchorTop("blocker-fraction", in: scroll) {
+            let showPercent = max(0, percentTop - 12)
+            if frame.maxY - showPercent <= visible - 8 {
+                target = showPercent
+            }
+        }
+        target = min(max(0, target), maxOffset)
         guard abs(scroll.contentOffset.y - target) > 1 else { return }
         scroll.setContentOffset(CGPoint(x: 0, y: target), animated: false)
+    }
+
+    private func anchorTop(_ name: String, in scroll: UIScrollView) -> CGFloat? {
+        guard let mark = find(name, in: scroll) else { return nil }
+        return mark.convert(mark.bounds, to: scroll).minY
+    }
+
+    private func find(_ name: String, in view: UIView) -> UIView? {
+        if view.accessibilityIdentifier == name { return view }
+        for child in view.subviews {
+            if let found = find(name, in: child) { return found }
+        }
+        return nil
     }
 
     private func enclosingScroll() -> UIScrollView? {

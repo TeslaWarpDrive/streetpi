@@ -34,24 +34,18 @@ final class TabClearanceTests: XCTestCase {
                 window.isHidden = true
                 continue
             }
-            reveal(label, in: window)
             assertStreamingIsWhole(label)
             assertVisibleTextClearsBar(in: window)
             let bar = tabBarFrame(in: window)
-            let percent = textFrames(in: window).filter {
-                $0.text.contains("20%") || $0.text.contains("last 24 hours")
+            guard let fraction = anchor("blocker-fraction", in: window) else {
+                XCTFail("The percent line is not in the view")
+                window.isHidden = true
+                continue
             }
-            let visiblePercent = percent.contains { item in
-                let overlap = item.frame.intersection(bar)
-                let onScreen = window.bounds.intersects(item.frame)
-                let shortEnough = item.frame.height > 1 && item.frame.height < window.bounds.height * 0.85
-                return onScreen && shortEnough && (overlap.isNull || overlap.height < 1)
-            }
-            let saw = percent.map(\.text).joined(separator: " | ")
-            XCTAssertTrue(
-                visiblePercent,
-                "The percent is not above the tab bar with Streaming. Saw: \(saw)"
-            )
+            let fractionFrame = fraction.convert(fraction.bounds, to: window)
+            let streamingFrame = label.convert(label.bounds, to: window)
+            XCTAssertTrue(clears(fractionFrame, bar: bar, in: window), "The percent line is not above the tab bar")
+            XCTAssertTrue(clears(streamingFrame, bar: bar, in: window), "Streaming is not above the tab bar")
             window.isHidden = true
         }
     }
@@ -118,17 +112,39 @@ final class TabClearanceTests: XCTestCase {
         let bar = tabBarFrame(in: window)
         let texts = textFrames(in: window)
         XCTAssertFalse(texts.isEmpty, "No text was found to compare with the tab bar")
+        let visible = visiblePage(in: window)
         let tabWords: Set<String> = ["House", "Ad blocker", "Pi", "Settings"]
         for item in texts where tabWords.contains(item.text) == false {
-            let onScreen = window.bounds.intersects(item.frame)
-            let shortEnough = item.frame.height > 1 && item.frame.height < window.bounds.height * 0.85
-            guard onScreen, shortEnough else { continue }
-            let overlap = item.frame.intersection(bar)
+            let shown = item.frame.intersection(visible)
+            let shortEnough = shown.height > 1 && shown.height < window.bounds.height * 0.85
+            guard shortEnough else { continue }
+            let overlap = shown.intersection(bar)
             XCTAssertTrue(
                 overlap.isNull || overlap.height < 1,
                 "\(item.text) sits under the tab bar"
             )
         }
+    }
+
+    private func clears(_ frame: CGRect, bar: CGRect, in window: UIWindow) -> Bool {
+        let shown = frame.intersection(visiblePage(in: window))
+        guard shown.height > 1 else { return false }
+        let overlap = shown.intersection(bar)
+        return overlap.isNull || overlap.height < 1
+    }
+
+    private func visiblePage(in window: UIWindow) -> CGRect {
+        guard let scroll = mainScroll(in: window) else { return window.bounds }
+        let inset = scroll.bounds.inset(by: scroll.adjustedContentInset)
+        return scroll.convert(inset, to: window)
+    }
+
+    private func anchor(_ name: String, in view: UIView) -> UIView? {
+        if view.accessibilityIdentifier == name { return view }
+        for child in view.subviews {
+            if let found = anchor(name, in: child) { return found }
+        }
+        return nil
     }
 
     private func host(
@@ -163,18 +179,6 @@ final class TabClearanceTests: XCTestCase {
         controller.view.layoutIfNeeded()
         pump()
         return window
-    }
-
-    private func reveal(_ label: UILabel, in window: UIWindow) {
-        guard let scroll = mainScroll(in: window) else { return }
-        let frame = label.convert(label.bounds, to: scroll)
-        let visible = scroll.bounds.height - scroll.adjustedContentInset.bottom
-        guard visible > 1 else { return }
-        let maxOffset = max(0, scroll.contentSize.height - visible)
-        let target = min(max(0, frame.maxY - visible + 8), maxOffset)
-        scroll.setContentOffset(CGPoint(x: 0, y: target), animated: false)
-        scroll.layoutIfNeeded()
-        pump()
     }
 
     private func streamingLabel(in window: UIWindow) -> UILabel? {
