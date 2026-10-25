@@ -56,6 +56,8 @@ struct SheenWord: View {
     var body: some View {
         Text(text)
             .foregroundStyle(.clear)
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
             .overlay {
                 LinearGradient(
                     colors: [palette.auraTeal, palette.auraBlue, palette.auraViolet, palette.auraPink],
@@ -64,6 +66,8 @@ struct SheenWord: View {
                 )
                 .mask {
                     Text(text)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
                 }
             }
             .compositingGroup()

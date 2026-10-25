@@ -18,15 +18,13 @@ struct HouseHome: View {
     @State private var showMeaning = false
 
     var body: some View {
-        GeometryReader { proxy in
-            ScrollView {
-                column
-                    .frame(width: proxy.size.width, alignment: .topLeading)
-            }
-            .scrollIndicators(.hidden)
-            .refreshable {
-                await refresh()
-            }
+        ScrollView {
+            column
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .scrollIndicators(.hidden)
+        .refreshable {
+            await refresh()
         }
         .sheet(isPresented: $showMeaning) {
             PercentMeaningSheet(text: board.blocker.explainer) {
