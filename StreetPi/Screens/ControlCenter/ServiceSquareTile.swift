@@ -4,6 +4,7 @@ import SwiftUI
 /// One service at a glance. The word sits with the dot.
 struct ServiceSquareTile: View {
     var square: ServiceSquare
+    var compresses: Bool = false
     var onOpen: () -> Void
 
     @Environment(\.afterglowPalette) private var palette
@@ -16,12 +17,16 @@ struct ServiceSquareTile: View {
                     .font(.headline)
                     .foregroundStyle(palette.ink)
                     .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: true, vertical: true)
+                    .lineLimit(compresses ? 2 : 1)
+                    .minimumScaleFactor(compresses ? 0.5 : 1)
+                    .fixedSize(horizontal: compresses == false, vertical: true)
                 Text(square.title)
                     .font(.subheadline)
                     .foregroundStyle(palette.secondary)
                     .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: true, vertical: true)
+                    .lineLimit(compresses ? 2 : 1)
+                    .minimumScaleFactor(compresses ? 0.5 : 1)
+                    .fixedSize(horizontal: compresses == false, vertical: true)
             }
             .padding(AfterglowShape.line)
             .frame(maxWidth: .infinity, minHeight: 96)

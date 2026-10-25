@@ -186,6 +186,7 @@ struct AppShell: View {
                     .toolbar(.hidden, for: .tabBar)
                     .safeAreaInset(edge: .leading, spacing: 0) {
                         AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: false)
+                            .frame(width: 340)
                     }
             } else {
                 tabs(wide: wide)
@@ -409,7 +410,7 @@ struct AppShell: View {
     }
 
     private var alerts: some View {
-        AlertsSheet(alerts: machine.alerts, theme: theme, wide: false) {
+        AlertsSheet(alerts: machine.alerts, note: machine.alertNote, theme: theme, wide: false) {
             showAlerts = false
         }
     }

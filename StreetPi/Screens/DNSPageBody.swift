@@ -22,6 +22,7 @@ struct DNSPageBody: View {
                 emptyTitle: DNSCopy.emptyQueriesTitle,
                 emptyDetail: DNSCopy.emptyQueriesDetail,
                 offersAllow: true,
+                failureNote: nil,
                 theme: theme,
                 wide: wide,
                 now: now,

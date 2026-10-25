@@ -19,46 +19,11 @@ struct HouseHome: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: AfterglowShape.block) {
-                HouseTitleBar(alertCount: alertCount, onAlerts: onAlerts, onSettings: onSettings)
-                StatusPill(
-                    title: board.headline,
-                    accentWord: HeadlineAccent.word(in: board.headline),
-                    checkedLine: board.checkedLine
-                )
-                BoardColumns {
-                    BlockerCard(
-                        tile: board.blocker,
-                        onOpen: onOpenBlocker,
-                        onHold: onPauseBlocker,
-                        onInfo: { showMeaning = true }
-                    )
-                } trailing: {
-                    PiBoardCard(tile: board.pi) {
-                        onOpen(.piHealth)
-                    }
-                }
-                SquareRow(squares: board.squares, onOpen: onOpen)
-                BoardColumns {
-                    MonitorBoardCard(tile: board.monitors)
-                } trailing: {
-                    BackupBoardCard(tile: board.backups) {
-                        onOpen(.backups)
-                    }
-                }
-                BoardColumns {
-                    RunningBoardCard(tile: board.running) {
-                        onOpen(.piHealth)
-                    }
-                } trailing: {
-                    DevicesBoardCard(tile: board.devices, onOpen: onOpenDevices)
-                }
-                HouseFooter()
+            FitOfferedWidth(maxWidth: wide ? 880 : nil) {
+                column
+                    .padding(.horizontal, AfterglowShape.page)
+                    .padding(.vertical, pageInset)
             }
-            .padding(.horizontal, AfterglowShape.page)
-            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? AfterglowShape.line : AfterglowShape.block)
-            .frame(maxWidth: wide ? 880 : 560, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollIndicators(.hidden)
         .refreshable {
@@ -69,6 +34,49 @@ struct HouseHome: View {
                 showMeaning = false
             }
         }
+    }
+
+    private var column: some View {
+        VStack(alignment: .leading, spacing: AfterglowShape.block) {
+            HouseTitleBar(alertCount: alertCount, onAlerts: onAlerts, onSettings: onSettings)
+            StatusPill(
+                title: board.headline,
+                accentWord: HeadlineAccent.word(in: board.headline),
+                checkedLine: board.checkedLine
+            )
+            BoardColumns(wide: wide) {
+                BlockerCard(
+                    tile: board.blocker,
+                    onOpen: onOpenBlocker,
+                    onHold: onPauseBlocker,
+                    onInfo: { showMeaning = true }
+                )
+            } trailing: {
+                PiBoardCard(tile: board.pi) {
+                    onOpen(.piHealth)
+                }
+            }
+            SquareRow(squares: board.squares, onOpen: onOpen)
+            BoardColumns(wide: wide) {
+                MonitorBoardCard(tile: board.monitors)
+            } trailing: {
+                BackupBoardCard(tile: board.backups) {
+                    onOpen(.backups)
+                }
+            }
+            BoardColumns(wide: wide) {
+                RunningBoardCard(tile: board.running) {
+                    onOpen(.piHealth)
+                }
+            } trailing: {
+                DevicesBoardCard(tile: board.devices, onOpen: onOpenDevices)
+            }
+            HouseFooter()
+        }
+    }
+
+    private var pageInset: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? AfterglowShape.line : AfterglowShape.block
     }
 
     private func refresh() async {

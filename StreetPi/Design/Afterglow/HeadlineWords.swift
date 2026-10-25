@@ -50,12 +50,15 @@ struct HeadlineWords: View {
 /// Aurora stops painted through the glyphs. A gradient style on `Text` does not hold.
 struct SheenWord: View {
     var text: String
+    var minimumScale: CGFloat = 0.5
 
     @Environment(\.afterglowPalette) private var palette
 
     var body: some View {
         Text(text)
             .foregroundStyle(.clear)
+            .lineLimit(1)
+            .minimumScaleFactor(minimumScale)
             .overlay {
                 LinearGradient(
                     colors: [palette.auraTeal, palette.auraBlue, palette.auraViolet, palette.auraPink],
@@ -64,6 +67,8 @@ struct SheenWord: View {
                 )
                 .mask {
                     Text(text)
+                        .lineLimit(1)
+                        .minimumScaleFactor(minimumScale)
                 }
             }
             .compositingGroup()
