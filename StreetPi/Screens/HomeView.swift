@@ -26,7 +26,7 @@ struct HomeView: View {
                 }
             }
             .padding(.horizontal, Rhythm.page)
-            .padding(.vertical, Rhythm.block)
+            .padding(.vertical, showsBriefing ? Rhythm.block : Rhythm.line)
             .frame(maxWidth: wide ? 880 : 560)
             .frame(maxWidth: .infinity)
         }
@@ -101,9 +101,10 @@ struct HomeView: View {
         let columns = twoColumns
             ? [GridItem(.flexible(), spacing: Rhythm.line), GridItem(.flexible(), spacing: Rhythm.line)]
             : [GridItem(.flexible())]
-        return LazyVGrid(columns: columns, alignment: .leading, spacing: Rhythm.line) {
+        let compact = showsBriefing == false
+        return LazyVGrid(columns: columns, alignment: .leading, spacing: compact ? Rhythm.tight : Rhythm.line) {
             ForEach(groups) { group in
-                GroupCard(group: group, theme: theme) {
+                GroupCard(group: group, theme: theme, compact: compact) {
                     onGroup(group.id)
                 }
             }

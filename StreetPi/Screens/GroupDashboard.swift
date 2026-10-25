@@ -4,31 +4,32 @@ import StreetPiCore
 struct GroupCard: View {
     var group: GroupBrief
     var theme: StreetTheme
+    var compact: Bool = false
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(alignment: .top, spacing: Rhythm.line) {
+            HStack(alignment: .top, spacing: compact ? Rhythm.tight : Rhythm.line) {
                 Image(systemName: group.id.symbolName)
-                    .font(.title3)
+                    .font(compact ? .body : .title3)
                     .foregroundStyle(theme.accent)
-                    .frame(width: 28, alignment: .center)
+                    .frame(width: compact ? 22 : 28, alignment: .center)
                     .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: compact ? 2 : 4) {
                     Text(group.title)
-                        .font(.headline)
+                        .font(compact ? .subheadline.weight(.semibold) : .headline)
                         .foregroundStyle(theme.ink)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(group.summary)
-                        .font(.subheadline)
+                        .font(compact ? .footnote : .subheadline)
                         .foregroundStyle(theme.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 ToneMark(tone: group.tone, theme: theme)
-                    .padding(.top, 4)
+                    .padding(.top, compact ? 2 : 4)
             }
-            .padding(Rhythm.line)
+            .padding(compact ? Rhythm.tight : Rhythm.line)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay {
