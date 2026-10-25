@@ -24,6 +24,12 @@ public struct DNSDesk: Sendable, Equatable, Codable {
     public var listsUpdateKnown: Bool
     /// Live upkeep sentence. Fixtures leave this empty and keep the fixed note.
     public var upkeepNote: String?
+    /// Set by the live poll. Nil keeps the sample prefix used by fixtures and snapshots.
+    public var liveFeed: [DNSQuery]?
+    public var textLogLines: [String]
+    public var textLogKnown: Bool
+    public var liveReadNote: String?
+    public var textLogReadNote: String?
 
     public init(
         textLogFileEnabled: Bool,
@@ -45,7 +51,12 @@ public struct DNSDesk: Sendable, Equatable, Codable {
         blockedDomains: [DNSCount],
         spokenLine: String? = nil,
         listsUpdateKnown: Bool = true,
-        upkeepNote: String? = nil
+        upkeepNote: String? = nil,
+        liveFeed: [DNSQuery]? = nil,
+        textLogLines: [String] = [],
+        textLogKnown: Bool = true,
+        liveReadNote: String? = nil,
+        textLogReadNote: String? = nil
     ) {
         self.textLogFileEnabled = textLogFileEnabled
         self.blocking = blocking
@@ -67,6 +78,11 @@ public struct DNSDesk: Sendable, Equatable, Codable {
         self.spokenLine = spokenLine
         self.listsUpdateKnown = listsUpdateKnown
         self.upkeepNote = upkeepNote
+        self.liveFeed = liveFeed
+        self.textLogLines = textLogLines
+        self.textLogKnown = textLogKnown
+        self.liveReadNote = liveReadNote
+        self.textLogReadNote = textLogReadNote
     }
 
     public var queriesToday: Int {
@@ -82,7 +98,10 @@ public struct DNSDesk: Sendable, Equatable, Codable {
     }
 
     public var liveQueries: [DNSQuery] {
-        Array(queries.prefix(3))
+        if let liveFeed {
+            return liveFeed
+        }
+        return Array(queries.prefix(3))
     }
 }
 
@@ -218,6 +237,15 @@ extension DNSDesk {
         topClients: [],
         blockedDomains: []
     )
+
+    /// No sample rows. The lists-updated line stays hidden until a real date arrives.
+    public static var quiet: DNSDesk {
+        var desk = emptyLookups
+        desk.listsUpdatedAt = .distantPast
+        desk.listsUpdateKnown = false
+        desk.textLogKnown = false
+        return desk
+    }
 
     public var blockingLine: String {
         if let spokenLine, !spokenLine.isEmpty {

@@ -198,6 +198,7 @@ public enum AdBlockerHome {
         desk.spokenLine = item.title
         desk.listsUpdateKnown = false
         desk.upkeepNote = item.detail
+        desk.textLogKnown = false
         desk.services = []
         return make(
             Parts(

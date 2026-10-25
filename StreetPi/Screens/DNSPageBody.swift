@@ -34,6 +34,7 @@ struct DNSPageBody: View {
                 emptyTitle: DNSCopy.emptyLiveTitle,
                 emptyDetail: DNSCopy.emptyLiveDetail,
                 offersAllow: false,
+                failureNote: desk.liveReadNote,
                 theme: theme,
                 wide: wide,
                 now: now,

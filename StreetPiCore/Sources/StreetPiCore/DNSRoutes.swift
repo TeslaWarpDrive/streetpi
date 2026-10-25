@@ -26,6 +26,7 @@ public enum DNSAPI {
         DNSRoute(method: "GET", path: "/api/stats/top_domains", needsConfigAccess: false),
         DNSRoute(method: "GET", path: "/api/stats/top_clients", needsConfigAccess: false),
         DNSRoute(method: "GET", path: "/api/queries", needsConfigAccess: false),
+        DNSRoute(method: "GET", path: "/api/logs/dnsmasq", needsConfigAccess: false),
         DNSRoute(method: "GET", path: "/api/clients", needsConfigAccess: false),
         DNSRoute(method: "GET", path: "/api/groups", needsConfigAccess: false),
         DNSRoute(method: "GET", path: "/api/domains/deny", needsConfigAccess: false),

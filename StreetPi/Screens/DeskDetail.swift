@@ -115,6 +115,7 @@ struct MachineDeskDetail: View {
     var page: MachinePage?
     var machine: MachineReading?
     var theme: StreetTheme
+    var piNotice: String?
     var onPage: (MachinePage?) -> Void
 
     var body: some View {
@@ -138,8 +139,8 @@ struct MachineDeskDetail: View {
                 }
                 reading(page, links: true)
             }
-        } else if machine != nil {
-            MachineHome(desk: desk, machine: machine, theme: theme, wide: wide) { next in
+        } else {
+            MachineHome(desk: desk, machine: machine, theme: theme, wide: wide, piNotice: piNotice) { next in
                 onPage(next)
             }
         }
@@ -153,6 +154,7 @@ struct MachineDeskDetail: View {
             theme: theme,
             wide: wide,
             showsDestinations: links,
+            piNotice: piNotice,
             onPage: { onPage($0) }
         )
     }

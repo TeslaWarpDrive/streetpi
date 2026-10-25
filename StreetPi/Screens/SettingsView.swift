@@ -3,6 +3,9 @@ import SwiftUI
 
 struct SettingsView: View {
     var theme: StreetTheme
+    @Binding var piHost: String
+    var hostNote: String?
+    var onCommitHost: () -> Void
     var onSaved: () -> Void = {}
 
     @State private var address = LiveHostStore().piholeText()
@@ -22,6 +25,7 @@ struct SettingsView: View {
                     .foregroundStyle(theme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 adBlocker
+                piAddress
                 Text(versionLine)
                     .font(.subheadline)
                     .foregroundStyle(theme.secondary)
@@ -103,6 +107,60 @@ struct SettingsView: View {
         }
         note = "Saved."
         onSaved()
+    }
+
+    private var piAddress: some View {
+        VStack(alignment: .leading, spacing: Rhythm.tight) {
+            Text("Pi address")
+                .font(.headline)
+                .foregroundStyle(theme.ink)
+                .accessibilityAddTraits(.isHeader)
+            TextField(
+                "Pi address",
+                text: $piHost,
+                prompt: Text(LiveEndpoints.house.netdata.absoluteString).foregroundStyle(theme.tertiary)
+            )
+            .textFieldStyle(.plain)
+            .font(.body)
+            .foregroundStyle(theme.ink)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled(true)
+            .keyboardType(.URL)
+            .submitLabel(.done)
+            .padding(Rhythm.line)
+            .background {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(theme.surface)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(theme.hairline, lineWidth: 1)
+                    }
+            }
+            .onSubmit(onCommitHost)
+            .accessibilityLabel("Pi address")
+            Text("Charts are read from this address on your home network. Nothing here signs in.")
+                .font(.subheadline)
+                .foregroundStyle(theme.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if let hostNote {
+                Text(hostNote)
+                    .font(.subheadline)
+                    .foregroundStyle(theme.attention)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Button(action: onCommitHost) {
+                Text("Save address")
+                    .font(.body)
+                    .foregroundStyle(theme.ink)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, Rhythm.line)
+                    .padding(.vertical, 10)
+                    .background { Capsule().fill(theme.surface) }
+                    .overlay { Capsule().stroke(theme.hairline, lineWidth: 1) }
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     private var versionLine: String {

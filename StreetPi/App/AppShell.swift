@@ -28,6 +28,11 @@ struct AppShell: View {
     var onSetupSave: (String) -> Void = { _ in }
     var onSetupCancel: () -> Void = {}
     var onRefresh: @MainActor () async -> Void = {}
+    var piHost: Binding<String> = .constant(LiveEndpoints.house.netdata.absoluteString)
+    var hostNote: String?
+    var onCommitHost: () -> Void = {}
+    var piNotice: String?
+    var machineReading: MachineReading?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.streetPiStill) private var still
@@ -60,7 +65,12 @@ struct AppShell: View {
         onSavePassword: @escaping () -> Void = {},
         onSetupSave: @escaping (String) -> Void = { _ in },
         onSetupCancel: @escaping () -> Void = {},
-        onRefresh: @escaping @MainActor () async -> Void = {}
+        onRefresh: @escaping @MainActor () async -> Void = {},
+        piHost: Binding<String> = .constant(LiveEndpoints.house.netdata.absoluteString),
+        hostNote: String? = nil,
+        onCommitHost: @escaping () -> Void = {},
+        piNotice: String? = nil,
+        machineReading: MachineReading? = nil
     ) {
         self.section = section
         self.screen = screen
@@ -88,6 +98,11 @@ struct AppShell: View {
         self.onSetupSave = onSetupSave
         self.onSetupCancel = onSetupCancel
         self.onRefresh = onRefresh
+        self.piHost = piHost
+        self.hostNote = hostNote
+        self.onCommitHost = onCommitHost
+        self.piNotice = piNotice
+        self.machineReading = machineReading
         _showAlerts = State(initialValue: section == .alerts)
     }
 
@@ -222,7 +237,7 @@ struct AppShell: View {
     @ViewBuilder
     private func houseBody(wide: Bool) -> some View {
         HouseHome(
-            board: HouseBoard.make(screen: screen, desk: desk, now: now),
+            board: HouseBoard.make(screen: screen, desk: desk, now: now, piNotice: piNotice),
             alertCount: machine.alerts.count,
             wide: wide,
             onRefresh: onRefresh,
@@ -242,7 +257,7 @@ struct AppShell: View {
     }
 
     private func pauseBlocker() {
-        let board = HouseBoard.make(screen: screen, desk: desk, now: now)
+        let board = HouseBoard.make(screen: screen, desk: desk, now: now, piNotice: piNotice)
         guard board.blocker.canPause else { return }
         onPending(.pauseAdBlocking(.thirtySeconds))
     }
@@ -326,8 +341,9 @@ struct AppShell: View {
                     splits: splitsDesk,
                     desk: machine,
                     page: machinePage,
-                    machine: screen.snapshot?.machine,
+                    machine: machineReading ?? screen.snapshot?.machine,
                     theme: theme,
+                    piNotice: piNotice,
                     onPage: onMachinePage
                 )
             }
@@ -339,7 +355,13 @@ struct AppShell: View {
 
     private var settings: some View {
         NavigationStack {
-            SettingsView(theme: theme, onSaved: onSettingsSaved)
+            SettingsView(
+                theme: theme,
+                piHost: piHost,
+                hostNote: hostNote,
+                onCommitHost: onCommitHost,
+                onSaved: onSettingsSaved
+            )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(theme.background)
                 .toolbar(.hidden, for: .navigationBar)
