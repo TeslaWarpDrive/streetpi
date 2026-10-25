@@ -72,6 +72,7 @@ struct SheenWord: View {
                 }
             }
             .compositingGroup()
+            .clipped()
             .accessibilityHidden(true)
     }
 }

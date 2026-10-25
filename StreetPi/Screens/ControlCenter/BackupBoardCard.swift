@@ -12,6 +12,6 @@ struct BackupBoardCard: View {
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Backups, \(tile.figure). \(tile.line)")
+        .accessibilityLabel("Backups. \(tile.figure)")
     }
 }

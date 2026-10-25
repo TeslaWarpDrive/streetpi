@@ -28,4 +28,42 @@ enum HouseBoard {
         }
         return board
     }
+
+    /// Status-page tiles replace the sample monitors, backups, and squares.
+    /// The percent stays on the Pi-hole share. The Pi meters stay on the machine reading.
+    static func applying(status: HouseStatusBoard, to board: ControlBoard) -> ControlBoard {
+        var next = board
+        next.headline = status.briefing.headline
+        let wanted: [HouseGroup] = [.streaming, .remoteHelp, .internet, .address]
+        let chosen = wanted.compactMap { group in
+            status.tiles.first { $0.id == group }
+        }
+        let tiles = chosen.isEmpty ? Array(status.tiles.prefix(4)) : chosen
+        next.squares = tiles.map { tile in
+            ServiceSquare(
+                id: tile.title,
+                title: tile.title,
+                word: tile.summary,
+                tone: tile.tone,
+                group: tile.id
+            )
+        }
+        if let monitors = status.tiles.first(where: { $0.id == .monitors }) {
+            next.monitors = MonitorTile(
+                figure: monitors.summary,
+                line: monitors.summary,
+                marks: monitors.rows.map { row in
+                    MonitorMark(id: row.id, name: row.name, up: row.state == "Up", word: row.state)
+                }
+            )
+        }
+        if let backups = status.tiles.first(where: { $0.id == .backups }) {
+            next.backups = BackupTile(
+                figure: backups.summary,
+                line: backups.summary,
+                tone: backups.tone
+            )
+        }
+        return next
+    }
 }

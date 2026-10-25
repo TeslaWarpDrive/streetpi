@@ -42,7 +42,7 @@ struct HouseHome: View {
     }
 
     private func column(short: Bool) -> some View {
-        VStack(alignment: .leading, spacing: compact(short) ? compactGap : AfterglowShape.block) {
+        VStack(alignment: .leading, spacing: stackSpacing(short: short)) {
             HouseTitleBar(alertCount: alertCount, onAlerts: onAlerts, onSettings: onSettings)
             StatusPill(
                 title: board.headline,
@@ -88,8 +88,16 @@ struct HouseHome: View {
     private let compactGap: CGFloat = 4
 
     /// A short phone at the default size keeps the first screen to the mock.
+    /// Large text stays on the text styles and uses a tighter gap so the status can wrap.
     private func compact(_ short: Bool) -> Bool {
         short && dynamicTypeSize.isAccessibilitySize == false
+    }
+
+    private func stackSpacing(short: Bool) -> CGFloat {
+        if dynamicTypeSize.isAccessibilitySize {
+            return AfterglowShape.line
+        }
+        return compact(short) ? compactGap : AfterglowShape.block
     }
 
     private func refresh() async {

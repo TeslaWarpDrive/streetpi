@@ -1,21 +1,12 @@
 import SwiftUI
 
-/// Room above the phone tab bar. The bar floats over the page, so each screen
-/// keeps its own inset instead of drawing cards and type underneath it.
+/// The phone tab strip is a sibling of the page, so the page ends where the strip starts.
+/// `phoneBar` is only the fallback a test uses when it cannot find that strip.
 enum TabClearance {
-    /// Extra space past the system inset. Enough to lift the last line off the bar
-    /// on a small phone without covering the percent that sits just above it.
-    static let phoneBar: CGFloat = 20
+    static let phoneBar: CGFloat = 49
 
     /// Sheets and confirmations sit over the bar, so they keep a taller inset.
     static let sheet: CGFloat = 49
-}
-
-extension View {
-    /// Inset a phone page above the tab bar. A wide window uses the sidebar, so it stays put.
-    func clearsPhoneTabBar(wide: Bool) -> some View {
-        modifier(PhoneTabClearance(wide: wide))
-    }
 }
 
 /// A one-point mark a test can find when it scrolls a page.
@@ -30,6 +21,10 @@ struct ScrollAnchor: UIViewRepresentable {
 
     func updateUIView(_ view: ScrollAnchorView, context: Context) {
         view.accessibilityIdentifier = name
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: ScrollAnchorView, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? 1, height: proposal.height ?? 1)
     }
 }
 
@@ -47,14 +42,34 @@ final class ScrollAnchorView: UIView {
     }
 }
 
-private struct PhoneTabClearance: ViewModifier {
+/// The phone strip and the iPad sidebar sit beside the page, so the page is not padded.
+private struct ShellChrome<Page: View>: View {
     var wide: Bool
+    @Binding var selection: HouseTab
+    var roomy: Bool
+    @ViewBuilder var page: () -> Page
 
-    func body(content: Content) -> some View {
+    var body: some View {
         if wide {
-            content
+            HStack(alignment: .top, spacing: 0) {
+                AccessibleTabStrip(selection: $selection, scrollsHorizontally: false)
+                    .frame(minWidth: roomy ? 280 : 200, maxWidth: roomy ? 340 : 280)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                laidOut
+            }
         } else {
-            content.padding(.bottom, TabClearance.phoneBar)
+            VStack(spacing: 0) {
+                laidOut
+                AccessibleTabStrip(selection: $selection, scrollsHorizontally: true)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
+    }
+
+    private var laidOut: some View {
+        page()
+            .tabViewStyle(.tabBarOnly)
+            .toolbar(.hidden, for: .tabBar)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }

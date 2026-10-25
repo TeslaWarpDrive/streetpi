@@ -52,19 +52,26 @@ struct BlockerCard: View {
         ViewThatFits(in: .horizontal) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 percent
-                Text(plainLine)
-                    .font(.caption)
-                    .foregroundStyle(palette.ink)
+                plainText
                     .fixedSize(horizontal: true, vertical: true)
             }
             VStack(alignment: .leading, spacing: 2) {
                 percent
-                Text(plainLine)
-                    .font(.caption)
-                    .foregroundStyle(palette.ink)
-                    .fixedSize(horizontal: false, vertical: true)
+                plainText
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+    }
+
+    private var plainText: some View {
+        FittingText(
+            text: plainLine,
+            color: palette.ink,
+            style: .caption1,
+            weight: .regular,
+            identifier: "blocker-plain",
+            breaksWords: false
+        )
     }
 
     private var percent: some View {

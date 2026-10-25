@@ -168,67 +168,27 @@ struct AppShell: View {
     }
 
     private func shell(wide: Bool) -> some View {
-        styledTabs(wide: wide)
-            .modifier(WideSizeClass(wide: wide))
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(theme.background)
-    }
-
-    /// The system bar at ordinary sizes. At accessibility sizes, our own strip.
-    /// Styles stay on the `TabView` itself. A modifier around the whole shell
-    /// makes the type checker give up.
-    @ViewBuilder
-    private func styledTabs(wide: Bool) -> some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            if wide {
-                tabs(wide: wide)
-                    .tabViewStyle(.tabBarOnly)
-                    .toolbar(.hidden, for: .tabBar)
-                    .safeAreaInset(edge: .leading, spacing: 0) {
-                        AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: false)
-                            .frame(width: 340)
-                    }
-            } else {
-                tabs(wide: wide)
-                    .tabViewStyle(.tabBarOnly)
-                    .toolbar(.hidden, for: .tabBar)
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
-                        AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: true)
-                    }
-            }
-        } else if wide {
-            HStack(alignment: .top, spacing: 0) {
-                AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: false)
-                    .frame(minWidth: 200, idealWidth: 240, maxWidth: 280)
-                    .frame(maxHeight: .infinity, alignment: .top)
-                tabs(wide: wide)
-                    .tabViewStyle(.tabBarOnly)
-                    .toolbar(.hidden, for: .tabBar)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            }
-        } else {
+        ShellChrome(wide: wide, selection: tabBinding, roomy: dynamicTypeSize.isAccessibilitySize) {
             tabs(wide: wide)
-                .tabViewStyle(.sidebarAdaptable)
         }
+        .modifier(WideSizeClass(wide: wide))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(theme.background)
     }
 
     private func tabs(wide: Bool) -> some View {
         TabView(selection: tabBinding) {
             Tab(HouseTab.house.title, systemImage: HouseTab.house.symbol, value: HouseTab.house) {
                 house(wide: wide)
-                    .clearsPhoneTabBar(wide: wide)
             }
             Tab(HouseTab.adBlocker.title, systemImage: HouseTab.adBlocker.symbol, value: HouseTab.adBlocker) {
                 adBlocker(wide: wide)
-                    .clearsPhoneTabBar(wide: wide)
             }
             Tab(HouseTab.pi.title, systemImage: HouseTab.pi.symbol, value: HouseTab.pi) {
                 pi(wide: wide)
-                    .clearsPhoneTabBar(wide: wide)
             }
             Tab(HouseTab.settings.title, systemImage: HouseTab.settings.symbol, value: HouseTab.settings) {
                 settings
-                    .clearsPhoneTabBar(wide: wide)
             }
         }
     }
@@ -241,7 +201,6 @@ struct AppShell: View {
                     .toolbar(.hidden, for: .navigationBar)
                     .navigationDestination(for: HouseGroup.self) { group in
                         room(group, wide: wide)
-                            .clearsPhoneTabBar(wide: wide)
                     }
             }
         }
@@ -376,24 +335,9 @@ struct AppShell: View {
     }
 
     private var houseBoard: ControlBoard {
-        var board = HouseBoard.make(screen: screen, desk: desk, now: now, piNotice: piNotice)
+        let board = HouseBoard.make(screen: screen, desk: desk, now: now, piNotice: piNotice)
         guard let statusBoard else { return board }
-        board.headline = statusBoard.briefing.headline
-        let wanted: [HouseGroup] = [.streaming, .remoteHelp, .internet, .address]
-        let chosen = wanted.compactMap { group in
-            statusBoard.tiles.first { $0.id == group }
-        }
-        let tiles = chosen.isEmpty ? Array(statusBoard.tiles.prefix(4)) : chosen
-        board.squares = tiles.map { tile in
-            ServiceSquare(
-                id: tile.title,
-                title: tile.title,
-                word: tile.summary,
-                tone: tile.tone,
-                group: tile.id
-            )
-        }
-        return board
+        return HouseBoard.applying(status: statusBoard, to: board)
     }
 
     private var settings: some View {

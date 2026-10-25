@@ -14,6 +14,11 @@ struct AccessibleTabStrip: View {
         AfterglowScope(paintsGround: false) {
             strip
         }
+        .background {
+            ScrollAnchor(name: "phone-tab-strip")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityHidden(true)
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Tabs")
     }

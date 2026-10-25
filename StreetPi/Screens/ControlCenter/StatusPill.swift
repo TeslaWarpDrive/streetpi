@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Overall status on one line. The accent word stays inside the pill.
+/// Overall status. The accent word stays inside the pill, clear of the checked line.
 struct StatusPill: View {
     var title: String
     var accentWord: String
@@ -11,23 +11,20 @@ struct StatusPill: View {
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(alignment: .center, spacing: AfterglowShape.tight) {
-                pill
-                    .fixedSize(horizontal: true, vertical: true)
-                checked
-                    .fixedSize(horizontal: true, vertical: true)
+            HStack(alignment: .firstTextBaseline, spacing: AfterglowShape.line) {
+                pill(wraps: false)
+                checked(wraps: false)
             }
-            VStack(alignment: .leading, spacing: AfterglowShape.tight) {
-                pill
-                checked
+            VStack(alignment: .leading, spacing: AfterglowShape.line) {
+                pill(wraps: true)
+                checked(wraps: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var pill: some View {
-        words
-            .font(dynamicTypeSize.isAccessibilitySize ? .title3.bold() : .subheadline.bold())
+    private func pill(wraps: Bool) -> some View {
+        words(wraps: wraps)
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
             .background(palette.panelRaised, in: Capsule())
@@ -38,29 +35,34 @@ struct StatusPill: View {
             .accessibilityLabel(title)
     }
 
-    private var checked: some View {
-        Text(checkedLine)
-            .font(dynamicTypeSize.isAccessibilitySize ? .subheadline : .caption)
-            .foregroundStyle(palette.secondary)
-            .fixedSize(horizontal: false, vertical: true)
+    private func checked(wraps: Bool) -> some View {
+        FittingText(
+            text: checkedLine,
+            color: palette.secondary,
+            style: dynamicTypeSize.isAccessibilitySize ? .subheadline : .caption1,
+            weight: .regular,
+            identifier: "checked-line",
+            breaksWords: false
+        )
+        .fixedSize(horizontal: wraps == false, vertical: true)
+        .frame(maxWidth: wraps ? .infinity : nil, alignment: .leading)
     }
 
     @ViewBuilder
-    private var words: some View {
+    private func words(wraps: Bool) -> some View {
         if dynamicTypeSize.isAccessibilitySize {
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(Array(tokens.enumerated()), id: \.offset) { _, token in
-                    styled(token)
-                        .fixedSize(horizontal: false, vertical: true)
+                    styled(token, wraps: wraps)
                 }
             }
         } else {
             HStack(spacing: 4) {
                 ForEach(Array(tokens.enumerated()), id: \.offset) { _, token in
-                    styled(token)
+                    styled(token, wraps: false)
                 }
             }
-            .fixedSize(horizontal: true, vertical: true)
+            .fixedSize(horizontal: wraps == false, vertical: true)
         }
     }
 
@@ -69,14 +71,26 @@ struct StatusPill: View {
     }
 
     @ViewBuilder
-    private func styled(_ token: String) -> some View {
+    private func styled(_ token: String, wraps: Bool) -> some View {
         if isAccent(token) {
             SheenWord(text: token, minimumScale: 1)
-        } else {
-            Text(token)
-                .foregroundStyle(palette.ink)
+                .background {
+                    ScrollAnchor(name: "status-accent")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .accessibilityHidden(true)
+                }
                 .fixedSize(horizontal: true, vertical: true)
-                .accessibilityHidden(true)
+        } else {
+            FittingText(
+                text: token,
+                color: palette.ink,
+                style: dynamicTypeSize.isAccessibilitySize ? .title3 : .subheadline,
+                weight: .bold,
+                identifier: "status-word",
+                breaksWords: true
+            )
+            .fixedSize(horizontal: wraps == false, vertical: true)
+            .frame(maxWidth: wraps ? .infinity : nil, alignment: .leading)
         }
     }
 

@@ -28,8 +28,8 @@ struct MonitorBoardCard: View {
     private var spoken: String {
         let names = tile.marks.map { "\($0.name), \($0.word)" }.joined(separator: ". ")
         if names.isEmpty {
-            return "Monitors. \(tile.line)"
+            return "Monitors. \(shortStatus)"
         }
-        return "Monitors, \(tile.figure). \(tile.line) \(names)"
+        return "Monitors. \(shortStatus). \(names)"
     }
 }
