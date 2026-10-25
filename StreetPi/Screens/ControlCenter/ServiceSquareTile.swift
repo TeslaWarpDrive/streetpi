@@ -17,19 +17,18 @@ struct ServiceSquareTile: View {
                     .font(.headline)
                     .foregroundStyle(palette.ink)
                     .multilineTextAlignment(.center)
-                    .lineLimit(compresses ? 2 : 1)
-                    .minimumScaleFactor(compresses ? 0.5 : 1)
-                    .fixedSize(horizontal: compresses == false, vertical: true)
-                Text(square.title)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(WholeWord.locked(square.title))
                     .font(.subheadline)
                     .foregroundStyle(palette.secondary)
                     .multilineTextAlignment(.center)
-                    .lineLimit(compresses ? 2 : 1)
-                    .minimumScaleFactor(compresses ? 0.5 : 1)
-                    .fixedSize(horizontal: compresses == false, vertical: true)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: true, vertical: true)
             }
             .padding(AfterglowShape.line)
-            .frame(maxWidth: .infinity, minHeight: 96)
+            .frame(maxWidth: compresses ? .infinity : nil, minHeight: 96)
+            .fixedSize(horizontal: compresses == false, vertical: false)
             .background(palette.panel, in: RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous)
@@ -38,5 +37,12 @@ struct ServiceSquareTile: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(square.title), \(square.word)")
+    }
+}
+
+/// A title that must not break in the middle of the word, as in "Stream-ing".
+enum WholeWord {
+    static func locked(_ word: String) -> String {
+        word.map(String.init).joined(separator: "\u{2060}")
     }
 }

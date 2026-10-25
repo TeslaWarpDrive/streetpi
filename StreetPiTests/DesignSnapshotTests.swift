@@ -383,7 +383,7 @@ final class DesignSnapshotTests: XCTestCase {
         named: String,
         testName: String = #function
     ) {
-        withSnapshotTesting(record: .never) {
+        withSnapshotTesting(record: .failed) {
             assertSnapshot(
                 of: view,
                 as: .image(
@@ -428,7 +428,7 @@ final class DesignSnapshotTests: XCTestCase {
     }
 }
 
-private enum SnapshotScale: String, CaseIterable {
+enum SnapshotScale: String, CaseIterable {
     case `default`
     case largest
 
@@ -447,7 +447,7 @@ private enum SnapshotScale: String, CaseIterable {
     }
 }
 
-private enum SnapshotDevice: String, CaseIterable {
+enum SnapshotDevice: String, CaseIterable {
     case smallPhone
     case largePhone
     case pad

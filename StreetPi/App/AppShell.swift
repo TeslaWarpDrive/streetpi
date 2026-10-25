@@ -216,15 +216,19 @@ struct AppShell: View {
         TabView(selection: tabBinding) {
             Tab(HouseTab.house.title, systemImage: HouseTab.house.symbol, value: HouseTab.house) {
                 house(wide: wide)
+                    .clearsPhoneTabBar(wide: wide)
             }
             Tab(HouseTab.adBlocker.title, systemImage: HouseTab.adBlocker.symbol, value: HouseTab.adBlocker) {
                 adBlocker(wide: wide)
+                    .clearsPhoneTabBar(wide: wide)
             }
             Tab(HouseTab.pi.title, systemImage: HouseTab.pi.symbol, value: HouseTab.pi) {
                 pi(wide: wide)
+                    .clearsPhoneTabBar(wide: wide)
             }
             Tab(HouseTab.settings.title, systemImage: HouseTab.settings.symbol, value: HouseTab.settings) {
                 settings
+                    .clearsPhoneTabBar(wide: wide)
             }
         }
     }
@@ -237,6 +241,7 @@ struct AppShell: View {
                     .toolbar(.hidden, for: .navigationBar)
                     .navigationDestination(for: HouseGroup.self) { group in
                         room(group, wide: wide)
+                            .clearsPhoneTabBar(wide: wide)
                     }
             }
         }
