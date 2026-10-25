@@ -128,7 +128,7 @@ struct AppShell: View {
 
     private func shell(wide: Bool) -> some View {
         styledTabs(wide: wide)
-            .environment(\.horizontalSizeClass, wide ? .regular : .compact)
+            .modifier(WideSizeClass(wide: wide))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(theme.background)
     }
@@ -181,12 +181,14 @@ struct AppShell: View {
         AfterglowScope {
             NavigationStack(path: $roomPath) {
                 houseBody(wide: wide)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .toolbar(.hidden, for: .navigationBar)
                     .navigationDestination(for: HouseGroup.self) { group in
                         room(group, wide: wide)
                     }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .overlay {
             if still && showAlerts {
                 alerts
@@ -314,6 +316,20 @@ struct AppShell: View {
     private var lines: [String] {
         guard let snapshot = screen.snapshot, snapshot.isEmptyHouse == false else { return [] }
         return HouseholdVoice.porchLines(snapshot)
+    }
+}
+
+/// Regular width asks the adaptable tab view for the iPad sidebar.
+/// Compact is left to the phone, so the tab content keeps its normal height.
+private struct WideSizeClass: ViewModifier {
+    var wide: Bool
+
+    func body(content: Content) -> some View {
+        if wide {
+            content.environment(\.horizontalSizeClass, .regular)
+        } else {
+            content
+        }
     }
 }
 

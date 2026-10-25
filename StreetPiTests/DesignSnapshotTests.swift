@@ -320,7 +320,11 @@ final class DesignSnapshotTests: XCTestCase {
         withSnapshotTesting(record: .failed) {
             assertSnapshot(
                 of: view,
-                as: .image(layout: .device(config: layout), traits: traits(size: size)),
+                as: .image(
+                    drawHierarchyInKeyWindow: true,
+                    layout: .device(config: layout),
+                    traits: traits(size: size)
+                ),
                 named: named,
                 testName: testName
             )

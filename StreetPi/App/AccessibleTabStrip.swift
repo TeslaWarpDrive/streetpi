@@ -28,6 +28,8 @@ struct AccessibleTabStrip: View {
                     .padding(.vertical, AfterglowShape.tight)
                 }
                 .scrollIndicators(.visible)
+                .scrollClipDisabled(false)
+                .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: AfterglowShape.tight) {
