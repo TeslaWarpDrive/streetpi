@@ -19,6 +19,7 @@ struct RootView: View {
     @State private var hostNote: String?
     @State private var piNotice: String?
     @State private var liveReading: MachineReading?
+    @State private var liveClient: LiveHTTPClient
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.secretStore) private var secretStore
 
@@ -26,10 +27,12 @@ struct RootView: View {
         _clock = State(initialValue: now)
         let fixtures = LiveGate.usesFixtures
         _showLaunch = State(initialValue: !fixtures)
-        let endpoint = HouseAddress.current()
-        _piHost = State(initialValue: endpoint.display)
-        _committedHost = State(initialValue: endpoint.display)
+        let store = LiveHostStore()
+        let netdata = store.netdataText()
+        _piHost = State(initialValue: netdata)
+        _committedHost = State(initialValue: netdata)
         _hostNote = State(initialValue: nil)
+        _liveClient = State(initialValue: LiveHTTPClient(store: store))
         if fixtures {
             _screen = State(initialValue: .ready(.healthyFixture))
             _machine = State(initialValue: .houseFixture)
@@ -152,8 +155,9 @@ struct RootView: View {
     private func pumpMeters() async {
         var failures = 0
         while !Task.isCancelled {
-            let endpoint = NetdataEndpoint.parsed(committedHost) ?? .houseDefault
-            let result = await PiMeterRefresh(endpoint: endpoint).load()
+            let base = LiveHostStore().load().netdata
+            guard let result = await PiMeterRefresh(client: liveClient, base: base).load() else { return }
+            if Task.isCancelled { return }
             switch result {
             case .success(let meters):
                 apply(meters)
@@ -192,15 +196,37 @@ struct RootView: View {
     }
 
     private func commitPiHost() {
-        guard let endpoint = NetdataEndpoint.parsed(piHost) else {
+        let store = LiveHostStore()
+        guard let url = Self.houseCharts(piHost) else {
             hostNote = "Use the Pi's address on your home network."
             piHost = committedHost
             return
         }
-        HouseAddress.save(endpoint)
+        let current = store.load()
+        do {
+            try store.save(
+                pihole: current.pihole.absoluteString,
+                netdata: url.absoluteString,
+                uptimeKuma: current.uptimeKuma.absoluteString
+            )
+        } catch {
+            hostNote = "Use the Pi's address on your home network."
+            piHost = committedHost
+            return
+        }
+        liveClient.apply(store)
         hostNote = nil
-        piHost = endpoint.display
-        committedHost = endpoint.display
+        piHost = store.netdataText()
+        committedHost = piHost
+    }
+
+    private static func houseCharts(_ text: String) -> URL? {
+        guard let url = LiveAddress.validated(text, schemes: ["http", "https"]),
+              let host = url.host?.lowercased(),
+              !host.contains("netdata.cloud"),
+              !host.contains("my-netdata.io")
+        else { return nil }
+        return url
     }
 
     private func saveSetup(_ raw: String) {

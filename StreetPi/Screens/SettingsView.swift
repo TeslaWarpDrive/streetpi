@@ -1,4 +1,3 @@
-import StreetPiCore
 import SwiftUI
 
 struct SettingsView: View {
@@ -42,7 +41,7 @@ struct SettingsView: View {
             TextField(
                 "Pi address",
                 text: $piHost,
-                prompt: Text(NetdataEndpoint.houseDefault.host).foregroundStyle(theme.tertiary)
+                prompt: Text(LiveEndpoints.house.netdata.absoluteString).foregroundStyle(theme.tertiary)
             )
             .textFieldStyle(.plain)
             .font(.body)

@@ -22,7 +22,7 @@ struct AppShell: View {
     var onSavePassword: () -> Void = {}
     var onSetupSave: (String) -> Void = { _ in }
     var onSetupCancel: () -> Void = {}
-    var piHost: Binding<String> = .constant(NetdataEndpoint.houseDefault.host)
+    var piHost: Binding<String> = .constant(LiveEndpoints.house.netdata.absoluteString)
     var hostNote: String?
     var onCommitHost: () -> Void = {}
     var piNotice: String?
