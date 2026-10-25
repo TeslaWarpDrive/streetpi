@@ -363,7 +363,7 @@ final class DesignSnapshotTests: XCTestCase {
             assertSnapshot(
                 of: view,
                 as: .image(
-                    drawHierarchyInKeyWindow: true,
+                    perceptualPrecision: 0.98,
                     layout: .device(config: layout),
                     traits: traits(size: size)
                 ),
@@ -383,7 +383,11 @@ final class DesignSnapshotTests: XCTestCase {
         withSnapshotTesting(record: .failed) {
             assertSnapshot(
                 of: view,
-                as: .image(layout: .sizeThatFits, traits: traits(size: size)),
+                as: .image(
+                    perceptualPrecision: 0.98,
+                    layout: .sizeThatFits,
+                    traits: traits(size: size)
+                ),
                 named: named,
                 testName: testName
             )
