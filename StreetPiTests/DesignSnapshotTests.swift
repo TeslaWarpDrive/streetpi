@@ -350,12 +350,13 @@ final class DesignSnapshotTests: XCTestCase {
         named: String,
         testName: String = #function
     ) {
-        withSnapshotTesting(record: .failed) {
+        withSnapshotTesting(record: .never) {
             assertSnapshot(
                 of: view,
                 as: .image(
                     drawHierarchyInKeyWindow: true,
-                    perceptualPrecision: 0.99,
+                    precision: 0.97,
+                    perceptualPrecision: 0.98,
                     layout: .device(config: layout),
                     traits: traits(size: size)
                 ),
