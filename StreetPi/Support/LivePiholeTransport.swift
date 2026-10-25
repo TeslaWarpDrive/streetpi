@@ -1,18 +1,31 @@
 import Foundation
 import StreetPiCore
 
-/// Pi-hole calls through the shared live client. Tests never open a socket.
+/// Pi-hole calls through the shared live client. A mock sender lets tests stay off the network.
 struct LivePiholeTransport: PiholeTransport {
-    var client: LiveHTTPClient
+    var http: any LiveHTTPSending
     var base: URL
 
+    init(http: any LiveHTTPSending, base: URL) {
+        self.http = http
+        self.base = base
+    }
+
+    init(client: LiveHTTPClient, base: URL) {
+        self.init(http: client, base: base)
+    }
+
     func send(_ request: PiholeRequest) async throws -> PiholeResponse {
-        guard !LiveGate.usesFixtures else { throw PiholeProblem.offline }
         guard let url = Self.endpoint(base: base, pathAndQuery: request.path) else {
             throw PiholeProblem.notUnderstood
         }
+        var headers = request.headers
+        headers["Accept"] = "application/json"
+        if request.body != nil {
+            headers["Content-Type"] = "application/json"
+        }
         do {
-            let response = try await perform(request, url: url)
+            let response = try await dispatch(request.method, url: url, headers: headers, body: request.body)
             if (300...399).contains(response.status) {
                 throw PiholeProblem.notUnderstood
             }
@@ -26,14 +39,19 @@ struct LivePiholeTransport: PiholeTransport {
         }
     }
 
-    private func perform(_ request: PiholeRequest, url: URL) async throws -> LiveHTTPResponse {
-        switch request.method {
+    private func dispatch(
+        _ method: String,
+        url: URL,
+        headers: [String: String],
+        body: Data?
+    ) async throws -> LiveHTTPResponse {
+        switch method {
         case "GET":
-            return try await client.get(url, headers: request.headers)
+            try await http.get(url, headers: headers)
         case "POST":
-            return try await client.post(url, headers: request.headers, body: request.body)
+            try await http.post(url, headers: headers, body: body)
         case "DELETE":
-            return try await client.delete(url, headers: request.headers)
+            try await http.delete(url, headers: headers)
         default:
             throw PiholeProblem.notUnderstood
         }
@@ -43,7 +61,9 @@ struct LivePiholeTransport: PiholeTransport {
         switch problem {
         case .unreachable:
             .offline
-        case .badAddress, .untrusted:
+        case .untrusted:
+            .untrusted
+        case .badAddress:
             .notUnderstood
         }
     }
@@ -59,5 +79,21 @@ struct LivePiholeTransport: PiholeTransport {
         parts.password = nil
         guard let origin = parts.url else { return nil }
         return LivePaths.url(base: origin, path: pathAndQuery)
+    }
+}
+
+struct KeychainFTLSession: FTLSessionStoring {
+    var keychain: KeychainSession
+
+    func loadSID() -> String? {
+        try? keychain.loadSessionID()
+    }
+
+    func saveSID(_ sid: String) {
+        try? keychain.saveSessionID(sid)
+    }
+
+    func clearSID() {
+        try? keychain.deleteSessionID()
     }
 }

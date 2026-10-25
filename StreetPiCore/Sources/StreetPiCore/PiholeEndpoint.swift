@@ -30,3 +30,12 @@ public struct PiholeEndpoint: Sendable, Equatable {
 public enum PiholeLiveLink {
     public static let socketsEnabled = false
 }
+
+/// Request paths in this app start with `/api`. The live base already ends in `/api`.
+public enum PiholeAPIPath {
+    public static func underAPIRoot(_ path: String) -> String {
+        let prefix = "/api/"
+        guard path.hasPrefix(prefix) else { return path }
+        return String(path.dropFirst(prefix.count))
+    }
+}

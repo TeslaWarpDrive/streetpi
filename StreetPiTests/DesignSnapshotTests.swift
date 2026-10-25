@@ -35,8 +35,7 @@ final class DesignSnapshotTests: XCTestCase {
         assertMatrix(
             section: .group(.adBlockerAndDNS),
             screen: .ready(house),
-            testName: "ad-blocker",
-            record: .all
+            testName: "ad-blocker"
         )
     }
 
@@ -135,8 +134,7 @@ final class DesignSnapshotTests: XCTestCase {
             section: .group(.adBlockerAndDNS),
             screen: .ready(house),
             testName: "dns-upkeep",
-            dnsPage: .upkeep,
-            record: .all
+            dnsPage: .upkeep
         )
     }
 
@@ -146,8 +144,7 @@ final class DesignSnapshotTests: XCTestCase {
             screen: .ready(house),
             testName: "dns-confirm",
             dnsPage: .today,
-            pending: .pauseAdBlocking(.fiveMinutes),
-            record: .all
+            pending: .pauseAdBlocking(.fiveMinutes)
         )
     }
 
@@ -157,8 +154,7 @@ final class DesignSnapshotTests: XCTestCase {
             screen: .ready(house),
             testName: "dns-allow",
             dnsPage: .queryLog,
-            pending: .allowDomain(named: "news.example.test"),
-            record: .all
+            pending: .allowDomain(named: "news.example.test")
         )
     }
 

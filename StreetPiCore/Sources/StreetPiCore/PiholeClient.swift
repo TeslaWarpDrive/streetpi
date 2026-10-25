@@ -1,19 +1,29 @@
 import Foundation
 
+/// Remembers the session id so the next call, and the next client, can reuse it.
+public protocol FTLSessionStoring: Sendable {
+    func loadSID() -> String?
+    func saveSID(_ sid: String)
+    func clearSID()
+}
+
 public actor PiholeClient {
     private let transport: any PiholeTransport
     private let password: @Sendable () -> String
     private let now: @Sendable () -> Date
+    private let sessions: (any FTLSessionStoring)?
     private var session: SID?
 
     public init(
         transport: any PiholeTransport,
         password: @escaping @Sendable () -> String,
-        now: @escaping @Sendable () -> Date = { Date() }
+        now: @escaping @Sendable () -> Date = { Date() },
+        sessions: (any FTLSessionStoring)? = nil
     ) {
         self.transport = transport
         self.password = password
         self.now = now
+        self.sessions = sessions
     }
 
     public func pause(seconds: Int) async throws -> DNSBlocking {
@@ -166,8 +176,15 @@ public actor PiholeClient {
     }
 
     public func signOut() async {
-        guard let current = session else { return }
+        if session == nil, let stored = sessions?.loadSID(), !stored.isEmpty {
+            session = SID(value: stored, expiresAt: now())
+        }
+        guard let current = session else {
+            sessions?.clearSID()
+            return
+        }
         session = nil
+        sessions?.clearSID()
         let request = PiholeRequest(
             method: "DELETE",
             path: "/api/auth",
@@ -205,6 +222,7 @@ public actor PiholeClient {
         var response = try await sendOnce(request)
         if response.status == 401 {
             session = nil
+            sessions?.clearSID()
             response = try await sendOnce(request)
         }
         try accept(response, badRequest: badRequest)
@@ -235,6 +253,13 @@ public actor PiholeClient {
         if let session, session.expiresAt > now() {
             return session.value
         }
+        if session == nil, let stored = sessions?.loadSID(), !stored.isEmpty {
+            session = SID(
+                value: stored,
+                expiresAt: now().addingTimeInterval(TimeInterval(FTLSessionPolicy.validitySeconds))
+            )
+            return stored
+        }
         try await authenticate()
         guard let session else { throw PiholeProblem.needsSignIn }
         return session.value
@@ -259,6 +284,7 @@ public actor PiholeClient {
         let wire = try JSONDecoder().decode(AuthWire.self, from: response.body)
         let validity = wire.session.validity ?? FTLSessionPolicy.validitySeconds
         session = SID(value: wire.session.sid, expiresAt: now().addingTimeInterval(TimeInterval(validity)))
+        sessions?.saveSID(wire.session.sid)
     }
 
     private func accept(_ response: PiholeResponse, badRequest: PiholeProblem) throws {

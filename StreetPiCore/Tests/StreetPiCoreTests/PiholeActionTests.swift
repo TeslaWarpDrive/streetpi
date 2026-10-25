@@ -159,6 +159,46 @@ final class PiholeActionTests: XCTestCase {
         XCTAssertTrue(PiholeActionRoute.callsTheAPI(.pauseAdBlocking(.thirtySeconds)))
     }
 
+    func testASecondClientReusesTheStoredSession() async throws {
+        let store = MemorySIDStore()
+        let transport = ScriptedPiholeTransport(steps: [
+            .json(200, #"{"session":{"sid":"sid-a","validity":1800}}"#),
+            .json(200, #"{"blocking":"disabled","timer":30}"#),
+            .json(200, #"{"blocking":"enabled","timer":null}"#),
+            .json(204, "{}"),
+        ])
+        let first = PiholeClient(
+            transport: transport,
+            password: { Self.fixturePassword },
+            now: { .streetFixtureNow },
+            sessions: store
+        )
+        _ = try await first.pause(seconds: 30)
+        let second = PiholeClient(
+            transport: transport,
+            password: { Self.fixturePassword },
+            now: { .streetFixtureNow },
+            sessions: store
+        )
+        _ = try await second.resume()
+        XCTAssertEqual(store.loadSID(), "sid-a")
+        XCTAssertEqual(transport.sent.map(\.path), ["/api/auth", "/api/dns/blocking", "/api/dns/blocking"])
+        XCTAssertEqual(transport.sent[2].headers[FTLSessionPolicy.sidHeader], "sid-a")
+        await second.signOut()
+        XCTAssertNil(store.loadSID())
+        XCTAssertEqual(transport.sent.last?.method, "DELETE")
+        let described = transport.sent.map { String(describing: $0) }.joined(separator: " ")
+        XCTAssertFalse(described.contains("sid-a"))
+        XCTAssertFalse(described.contains(Self.fixturePassword))
+    }
+
+    func testAPIPathsDropTheRepeatedRoot() {
+        XCTAssertEqual(PiholeAPIPath.underAPIRoot("/api/dns/blocking"), "dns/blocking")
+        XCTAssertEqual(PiholeAPIPath.underAPIRoot("/api/action/gravity"), "action/gravity")
+        XCTAssertEqual(PiholeAPIPath.underAPIRoot("/api/domains/allow/exact"), "domains/allow/exact")
+        XCTAssertFalse(PiholeAPIPath.underAPIRoot("/api/dns/blocking").contains("192.168"))
+    }
+
     func testColoredGravityStillReadsTheCount() throws {
         let raw = Data("\u{1B}[32m[i] Number of gravity domains: 1,234\u{1B}[0m\n".utf8)
         let report = try PiholeDecode.gravity(from: raw)
@@ -179,5 +219,28 @@ final class PiholeActionTests: XCTestCase {
 
     private var gravityBody: Data {
         Data("  [i] Number of gravity domains: 4321 (4321 unique domains)\n".utf8)
+    }
+}
+
+private final class MemorySIDStore: FTLSessionStoring, @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: String?
+
+    func loadSID() -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+
+    func saveSID(_ sid: String) {
+        lock.lock()
+        value = sid
+        lock.unlock()
+    }
+
+    func clearSID() {
+        lock.lock()
+        value = nil
+        lock.unlock()
     }
 }

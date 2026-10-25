@@ -20,6 +20,7 @@ public enum PiholeProblem: Error, Sendable, Equatable {
     case pinKept
     case busy
     case gravityFailed
+    case untrusted
 
     public var title: String {
         switch self {
@@ -39,6 +40,8 @@ public enum PiholeProblem: Error, Sendable, Equatable {
             "That is already running."
         case .gravityFailed:
             "Block lists did not update."
+        case .untrusted:
+            "This phone does not trust the Pi yet."
         case .notUnderstood:
             "The Pi sent something this phone could not read."
         case .notSetUp:
@@ -70,6 +73,8 @@ public enum PiholeProblem: Error, Sendable, Equatable {
             "Block lists are already updating. Nothing else was started."
         case .gravityFailed:
             "The Pi could not finish updating the lists. Nothing else was changed."
+        case .untrusted:
+            "Nothing was changed."
         case .notUnderstood:
             "Nothing was changed."
         case .notSetUp:

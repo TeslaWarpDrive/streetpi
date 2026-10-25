@@ -14,7 +14,7 @@ public enum LiveReadCopy {
         case .offline:
             offline
         case .needsPassword, .needsSignIn, .refused, .notSetUp, .dnsOff, .certificateChanged, .pinKept,
-             .busy, .gravityFailed:
+             .busy, .gravityFailed, .untrusted:
             problem.title
         case .notUnderstood, .invalidDomain, .invalidPause:
             fallback
