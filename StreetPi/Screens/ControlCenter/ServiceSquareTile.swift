@@ -16,12 +16,15 @@ struct ServiceSquareTile: View {
             VStack(spacing: 2) {
                 HStack(spacing: 4) {
                     StatusDot(tone: square.tone)
-                    Text(square.word)
-                        .font(.subheadline.bold())
-                        .foregroundStyle(palette.ink)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                    FittingText(
+                        text: square.word,
+                        color: palette.ink,
+                        style: .subheadline,
+                        weight: .bold,
+                        identifier: "square-word",
+                        breaksWords: false
+                    )
+                    .fixedSize(horizontal: false, vertical: true)
                 }
                 UnbrokenTitle(text: square.title, color: palette.secondary)
                     .fixedSize(horizontal: compresses == false, vertical: true)

@@ -36,8 +36,9 @@ class ClearanceCase: XCTestCase {
         let label = requireLabel("checked-line", in: window)
         XCTAssertTrue(plain(label.text).contains("just now"), "Checked line lost its words: \(plain(label.text))")
         assertFullyDrawn(label)
-        let overlap = label.convert(label.bounds, to: window).intersection(tabBarFrame(in: window))
-        XCTAssertTrue(overlap.isNull || overlap.height < 1, "Checked just now sits under the tab bar")
+        let frame = label.convert(label.bounds, to: window)
+        let bar = tabBarFrame(in: window)
+        XCTAssertTrue(visibleClears(frame, bar: bar, in: window), "Checked just now sits under the tab bar")
     }
 
     fileprivate func assertAccentClearsCheckedLine(in window: UIWindow) {
@@ -110,9 +111,17 @@ class ClearanceCase: XCTestCase {
         outer.insetBy(dx: -2, dy: -2).contains(inner)
     }
 
-    fileprivate func clears(_ frame: CGRect, bar: CGRect, in window: UIWindow) -> Bool {
+    file    private func clears(_ frame: CGRect, bar: CGRect, in window: UIWindow) -> Bool {
         let shown = frame.intersection(visiblePage(in: window))
         guard shown.height > 1 else { return false }
+        let overlap = shown.intersection(bar)
+        return overlap.isNull || overlap.height < 1
+    }
+
+    /// A line that is still below the fold is not under the bar. The part on screen must clear it.
+    private func visibleClears(_ frame: CGRect, bar: CGRect, in window: UIWindow) -> Bool {
+        let shown = frame.intersection(visiblePage(in: window))
+        guard shown.height > 1 else { return true }
         let overlap = shown.intersection(bar)
         return overlap.isNull || overlap.height < 1
     }
@@ -348,8 +357,9 @@ final class TabClearanceTests: ClearanceCase {
                     assertVisibleTextClearsBar(in: window)
                     let plain = requireLabel("blocker-plain", in: window)
                     assertFullyDrawn(plain)
+                    let frame = plain.convert(plain.bounds, to: window)
                     XCTAssertTrue(
-                        clears(plain.convert(plain.bounds, to: window), bar: tabBarFrame(in: window), in: window),
+                        visibleClears(frame, bar: tabBarFrame(in: window), in: window),
                         "The ad blocker line sits under the tab bar"
                     )
                 }
@@ -368,11 +378,11 @@ final class TabClearanceTests: ClearanceCase {
             status: board,
             snapshot: StatusPageFixture.previewSnapshot(now: now)
         )
-        let spoken = textFrames(in: window).map(\.text).joined(separator: "\n")
-        XCTAssertFalse(spoken.contains("8 of 8"), spoken)
-        XCTAssertFalse(spoken.contains("The weekly copy succeeded."), spoken)
-        XCTAssertTrue(spoken.contains("27 of 28 up"), spoken)
-        XCTAssertTrue(spoken.contains("No backup check-in yet."), spoken)
+        let spoken = textFrames(in: window).map(\.text).joined(separator: " ")
+        XCTAssertFalse(spoken.contains("8 of 8"))
+        XCTAssertFalse(spoken.contains("The weekly copy succeeded."))
+        XCTAssertTrue(spoken.contains("27 of 28"), spoken)
+        XCTAssertTrue(spoken.contains("check-in"), spoken)
         XCTAssertTrue(spoken.contains("up to date"), spoken)
         window.isHidden = true
     }

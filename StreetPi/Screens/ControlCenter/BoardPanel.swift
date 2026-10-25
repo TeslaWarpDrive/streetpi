@@ -48,10 +48,16 @@ struct CompactFact: View {
                 if let tone {
                     StatusDot(tone: tone)
                 }
-                Text(value)
-                    .font(.subheadline.bold())
-                    .foregroundStyle(palette.ink)
-                    .fixedSize(horizontal: false, vertical: true)
+                FittingText(
+                    text: value,
+                    color: palette.ink,
+                    style: .subheadline,
+                    weight: .bold,
+                    identifier: "compact-value",
+                    breaksWords: false
+                )
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

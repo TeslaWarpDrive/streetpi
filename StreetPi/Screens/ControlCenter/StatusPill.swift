@@ -10,14 +10,23 @@ struct StatusPill: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline, spacing: AfterglowShape.line) {
-                pill(wraps: false)
-                checked(wraps: false)
-            }
-            VStack(alignment: .leading, spacing: AfterglowShape.line) {
-                pill(wraps: true)
-                checked(wraps: true)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: AfterglowShape.tight) {
+                    pill(wraps: true)
+                    checked(wraps: true)
+                }
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline, spacing: AfterglowShape.line) {
+                        pill(wraps: false)
+                        checked(wraps: false)
+                    }
+                    VStack(alignment: .leading, spacing: AfterglowShape.tight) {
+                        pill(wraps: true)
+                        checked(wraps: true)
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -26,11 +35,12 @@ struct StatusPill: View {
     private func pill(wraps: Bool) -> some View {
         words(wraps: wraps)
             .padding(.horizontal, 10)
-            .padding(.vertical, 4)
+            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 2 : 4)
             .background(palette.panelRaised, in: Capsule())
             .overlay {
                 Capsule().strokeBorder(palette.hairlineInteractive, lineWidth: 1)
             }
+            .clipShape(Capsule())
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(title)
     }
