@@ -7,10 +7,40 @@ struct SettingsView: View {
     var hostNote: String?
     var onCommitHost: () -> Void
     var onSaved: () -> Void = {}
+    var statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString
+    var statusSlug: String = "house"
+    var onStatusPage: (String, String) -> Void = { _, _ in }
 
     @State private var address = LiveHostStore().piholeText()
     @State private var pin = LiveHostStore().pinText()
     @State private var note = ""
+    @State private var pageAddress: String
+    @State private var slug: String
+
+    init(
+        theme: StreetTheme,
+        piHost: Binding<String>,
+        hostNote: String?,
+        onCommitHost: @escaping () -> Void,
+        onSaved: @escaping () -> Void = {},
+        statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString,
+        statusSlug: String = "house",
+        onStatusPage: @escaping (String, String) -> Void = { _, _ in }
+    ) {
+        self.theme = theme
+        self._piHost = piHost
+        self.hostNote = hostNote
+        self.onCommitHost = onCommitHost
+        self.onSaved = onSaved
+        self.statusAddress = statusAddress
+        self.statusSlug = statusSlug
+        self.onStatusPage = onStatusPage
+        _address = State(initialValue: LiveHostStore().piholeText())
+        _pin = State(initialValue: LiveHostStore().pinText())
+        _note = State(initialValue: "")
+        _pageAddress = State(initialValue: statusAddress)
+        _slug = State(initialValue: statusSlug)
+    }
 
     var body: some View {
         ScrollView {
@@ -26,6 +56,7 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 adBlocker
                 piAddress
+                statusPage
                 Text(versionLine)
                     .font(.subheadline)
                     .foregroundStyle(theme.secondary)
@@ -161,6 +192,70 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    private var statusPage: some View {
+        VStack(alignment: .leading, spacing: Rhythm.tight) {
+            Text("Status page")
+                .font(.headline)
+                .foregroundStyle(theme.ink)
+                .accessibilityAddTraits(.isHeader)
+            Text("The house status page is on your home network. The slug starts as house.")
+                .font(.subheadline)
+                .foregroundStyle(theme.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            TextField(
+                "Status page address",
+                text: $pageAddress,
+                prompt: Text(LiveEndpoints.house.uptimeKuma.absoluteString).foregroundStyle(theme.tertiary)
+            )
+            .textFieldStyle(.plain)
+            .font(.body)
+            .foregroundStyle(theme.ink)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled(true)
+            .keyboardType(.URL)
+            .submitLabel(.next)
+            .padding(Rhythm.line)
+            .background { plate }
+            .accessibilityLabel("Status page address")
+            TextField("Slug", text: $slug, prompt: Text("house").foregroundStyle(theme.tertiary))
+                .textFieldStyle(.plain)
+                .font(.body)
+                .foregroundStyle(theme.ink)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled(true)
+                .submitLabel(.done)
+                .padding(Rhythm.line)
+                .background { plate }
+                .onSubmit(saveStatusPage)
+                .accessibilityLabel("Status page slug")
+            Button(action: saveStatusPage) {
+                Text("Save status page")
+                    .font(.body)
+                    .foregroundStyle(theme.ink)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, Rhythm.line)
+                    .padding(.vertical, 10)
+                    .background { Capsule().fill(theme.surface) }
+                    .overlay { Capsule().stroke(theme.hairline, lineWidth: 1) }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var plate: some View {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(theme.surface)
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(theme.hairline, lineWidth: 1)
+            }
+    }
+
+    private func saveStatusPage() {
+        onStatusPage(pageAddress, slug)
     }
 
     private var versionLine: String {

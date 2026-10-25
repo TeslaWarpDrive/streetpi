@@ -25,6 +25,9 @@ struct RootView: View {
     @State private var piNotice: String?
     @State private var liveReading: MachineReading?
     @State private var liveClient: LiveHTTPClient
+    @State private var statusAddress: String
+    @State private var statusSlug: String
+    @State private var statusBoard: HouseStatusBoard?
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.secretStore) private var secretStore
 
@@ -38,6 +41,9 @@ struct RootView: View {
         _committedHost = State(initialValue: netdata)
         _hostNote = State(initialValue: nil)
         _liveClient = State(initialValue: LiveHTTPClient(store: store))
+        _statusAddress = State(initialValue: store.uptimeKumaText())
+        _statusSlug = State(initialValue: StatusPageSlugStore.current())
+        _statusBoard = State(initialValue: nil)
         if fixtures {
             _screen = State(initialValue: .ready(.healthyFixture))
             _desk = State(initialValue: .houseFixture)
@@ -104,7 +110,11 @@ struct RootView: View {
             hostNote: hostNote,
             onCommitHost: commitPiHost,
             piNotice: piNotice,
-            machineReading: liveReading
+            machineReading: liveReading,
+            statusBoard: statusBoard,
+            statusAddress: statusAddress,
+            statusSlug: statusSlug,
+            onStatusPage: saveStatusPage
         )
         .launchOverlay(isPresented: $showLaunch)
         .preferredColorScheme(.dark)
@@ -134,7 +144,7 @@ struct RootView: View {
     }
 
     private var watchToken: String {
-        "\(scenePhase)|\(committedHost)|\(retry)|\(signedOut)"
+        "\(scenePhase)|\(committedHost)|\(retry)|\(signedOut)|\(statusAddress)|\(statusSlug)"
     }
 
     private var setupTrustNote: String {
@@ -159,10 +169,11 @@ struct RootView: View {
     }
 
     private func watchLive() async {
-        async let house: Void = watchHouse()
+        async let blocker: Void = watchHouse()
+        async let status: Void = pumpStatus()
         async let meters: Void = pumpMeters()
         async let history: Void = pumpHistory()
-        _ = await (house, meters, history)
+        _ = await (blocker, status, meters, history)
     }
 
     /// Tests keep the fixture screen and never open a socket.
@@ -284,6 +295,33 @@ struct RootView: View {
             merged.textLogFileEnabled = desk.textLogFileEnabled
         }
         return merged
+    }
+
+    /// The house tiles come from the status page. A miss does not invent fixture monitors.
+    private func pumpStatus() async {
+        var failures = 0
+        while !Task.isCancelled {
+            do {
+                let load = try await readStatusPage()
+                statusBoard = load.board
+                failures = 0
+            } catch is CancellationError {
+                return
+            } catch {
+                failures += 1
+            }
+            let wait = RefreshPace.waitSeconds(afterFailures: failures)
+            try? await Task.sleep(for: .seconds(wait))
+        }
+    }
+
+    private func readStatusPage() async throws -> StatusPageLoad {
+        guard let base = LiveAddress.validated(statusAddress, schemes: ["http", "https"]),
+              let endpoint = StatusPageEndpoint.make(base: base, slug: statusSlug)
+        else { throw StatusPageProblem.notUnderstood }
+        let transport = StatusPageLiveTransport(sender: liveClient, base: base)
+        let reader = StatusPageReader(transport: transport, endpoint: endpoint, now: { Date() })
+        return try await reader.load()
     }
 
     private func pumpMeters() async {
@@ -463,6 +501,27 @@ struct RootView: View {
         hostNote = nil
         piHost = store.netdataText()
         committedHost = piHost
+    }
+
+    private func saveStatusPage(address: String, slug: String) {
+        let store = LiveHostStore()
+        guard let url = LiveAddress.validated(address, schemes: ["http", "https"]),
+              StatusPageEndpoint.isSlug(slug)
+        else { return }
+        let current = store.load()
+        do {
+            try store.save(
+                pihole: current.pihole.absoluteString,
+                netdata: current.netdata.absoluteString,
+                uptimeKuma: url.absoluteString
+            )
+        } catch {
+            return
+        }
+        StatusPageSlugStore.save(slug)
+        liveClient.apply(store)
+        statusAddress = store.uptimeKumaText()
+        statusSlug = StatusPageSlugStore.current()
     }
 
     private static func houseCharts(_ text: String) -> URL? {

@@ -33,6 +33,10 @@ struct AppShell: View {
     var onCommitHost: () -> Void = {}
     var piNotice: String?
     var machineReading: MachineReading?
+    var statusBoard: HouseStatusBoard? = nil
+    var statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString
+    var statusSlug: String = "house"
+    var onStatusPage: (String, String) -> Void = { _, _ in }
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.streetPiStill) private var still
@@ -70,7 +74,11 @@ struct AppShell: View {
         hostNote: String? = nil,
         onCommitHost: @escaping () -> Void = {},
         piNotice: String? = nil,
-        machineReading: MachineReading? = nil
+        machineReading: MachineReading? = nil,
+        statusBoard: HouseStatusBoard? = nil,
+        statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString,
+        statusSlug: String = "house",
+        onStatusPage: @escaping (String, String) -> Void = { _, _ in }
     ) {
         self.section = section
         self.screen = screen
@@ -103,12 +111,19 @@ struct AppShell: View {
         self.onCommitHost = onCommitHost
         self.piNotice = piNotice
         self.machineReading = machineReading
+        self.statusBoard = statusBoard
+        self.statusAddress = statusAddress
+        self.statusSlug = statusSlug
+        self.onStatusPage = onStatusPage
         _showAlerts = State(initialValue: section == .alerts)
     }
 
     private var theme: StreetTheme { .house }
 
     private var groups: [GroupBrief] {
+        if let statusBoard {
+            return statusBoard.tiles.map(\.brief)
+        }
         guard let snapshot = screen.snapshot else { return [] }
         return HouseGuide.groups(in: snapshot)
     }
@@ -237,7 +252,7 @@ struct AppShell: View {
     @ViewBuilder
     private func houseBody(wide: Bool) -> some View {
         HouseHome(
-            board: HouseBoard.make(screen: screen, desk: desk, now: now, piNotice: piNotice),
+            board: houseBoard,
             alertCount: machine.alerts.count,
             wide: wide,
             onRefresh: onRefresh,
@@ -353,6 +368,27 @@ struct AppShell: View {
         }
     }
 
+    private var houseBoard: ControlBoard {
+        var board = HouseBoard.make(screen: screen, desk: desk, now: now, piNotice: piNotice)
+        guard let statusBoard else { return board }
+        board.headline = statusBoard.briefing.headline
+        let wanted: [HouseGroup] = [.streaming, .remoteHelp, .internet, .address]
+        let chosen = wanted.compactMap { group in
+            statusBoard.tiles.first { $0.id == group }
+        }
+        let tiles = chosen.isEmpty ? Array(statusBoard.tiles.prefix(4)) : chosen
+        board.squares = tiles.map { tile in
+            ServiceSquare(
+                id: tile.title,
+                title: tile.title,
+                word: tile.summary,
+                tone: tile.tone,
+                group: tile.id
+            )
+        }
+        return board
+    }
+
     private var settings: some View {
         NavigationStack {
             SettingsView(
@@ -360,7 +396,10 @@ struct AppShell: View {
                 piHost: piHost,
                 hostNote: hostNote,
                 onCommitHost: onCommitHost,
-                onSaved: onSettingsSaved
+                onSaved: onSettingsSaved,
+                statusAddress: statusAddress,
+                statusSlug: statusSlug,
+                onStatusPage: onStatusPage
             )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(theme.background)
