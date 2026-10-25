@@ -12,19 +12,22 @@ struct StatusHeadline: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            AuraView(tone: tone)
-            HeadlineWords(title: title, accentWord: accentWord)
-                .padding(.horizontal, AfterglowShape.block)
-                .padding(.vertical, AfterglowShape.line)
-                .background(palette.panelRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .padding(.horizontal, AfterglowShape.line)
-                .padding(.top, glowBand)
-                .padding(.bottom, AfterglowShape.line)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
+        HeadlineWords(title: title, accentWord: accentWord)
+            .padding(.horizontal, AfterglowShape.block)
+            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? AfterglowShape.tight : AfterglowShape.line)
+            .background(palette.panelRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .padding(.horizontal, AfterglowShape.line)
+            .padding(.top, glowBand)
+            .padding(.bottom, AfterglowShape.line)
+            .background(alignment: .top) {
+                AuraView(tone: tone)
+                    .frame(height: glowBand + 24)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
     }
 
     /// Large type keeps a shorter band so the words stay on screen. The band never covers the text.
