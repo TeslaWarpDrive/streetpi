@@ -27,6 +27,10 @@ struct AppShell: View {
     var hostNote: String?
     var onCommitHost: () -> Void = {}
     var piNotice: String?
+    var statusBoard: HouseStatusBoard? = nil
+    var statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString
+    var statusSlug: String = "house"
+    var onStatusPage: (String, String) -> Void = { _, _ in }
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.streetPiStill) private var still
@@ -58,7 +62,11 @@ struct AppShell: View {
         piHost: Binding<String> = .constant(LiveEndpoints.house.netdata.absoluteString),
         hostNote: String? = nil,
         onCommitHost: @escaping () -> Void = {},
-        piNotice: String? = nil
+        piNotice: String? = nil,
+        statusBoard: HouseStatusBoard? = nil,
+        statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString,
+        statusSlug: String = "house",
+        onStatusPage: @escaping (String, String) -> Void = { _, _ in }
     ) {
         self.section = section
         self.screen = screen
@@ -85,12 +93,19 @@ struct AppShell: View {
         self.hostNote = hostNote
         self.onCommitHost = onCommitHost
         self.piNotice = piNotice
+        self.statusBoard = statusBoard
+        self.statusAddress = statusAddress
+        self.statusSlug = statusSlug
+        self.onStatusPage = onStatusPage
         _showAlerts = State(initialValue: section == .alerts)
     }
 
     private var theme: StreetTheme { .house }
 
     private var groups: [GroupBrief] {
+        if let statusBoard {
+            return statusBoard.tiles.map(\.brief)
+        }
         guard let snapshot = screen.snapshot else { return [] }
         return HouseGuide.groups(in: snapshot)
     }
@@ -337,7 +352,10 @@ struct AppShell: View {
                 theme: theme,
                 piHost: piHost,
                 hostNote: hostNote,
-                onCommitHost: onCommitHost
+                onCommitHost: onCommitHost,
+                statusAddress: statusAddress,
+                statusSlug: statusSlug,
+                onStatusPage: onStatusPage
             )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(theme.background)
