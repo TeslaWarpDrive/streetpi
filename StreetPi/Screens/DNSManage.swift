@@ -203,24 +203,81 @@ struct DNSUpkeep: View {
                 .font(.system(.largeTitle, design: .rounded))
                 .foregroundStyle(theme.ink)
                 .accessibilityAddTraits(.isHeader)
-            Text("Lists updated \(AgePhrase.english(from: desk.listsUpdatedAt, to: now)).")
-                .font(.body)
-                .foregroundStyle(theme.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(DNSCopy.upkeepDetail)
-                .font(.body)
-                .foregroundStyle(theme.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            DeskCard(theme: theme) {
-                Text("Text log file")
-                    .font(.headline)
+            if desk.listsUpdatedAt != .distantPast {
+                Text("Lists updated \(AgePhrase.english(from: desk.listsUpdatedAt, to: now)).")
+                    .font(.body)
+                    .foregroundStyle(theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if desk.textLogKnown {
+                if let note = desk.textLogReadNote {
+                    Text(note)
+                        .font(.body)
+                        .foregroundStyle(theme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(LiveReadCopy.tryAgain)
+                        .font(.subheadline)
+                        .foregroundStyle(theme.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text(fileLine)
+                    .font(.body)
+                    .foregroundStyle(theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                fileCard
+            } else if let note = desk.textLogReadNote {
+                Text(note)
+                    .font(.body)
                     .foregroundStyle(theme.ink)
-                Text(desk.textLogFileEnabled ? "On" : "Off")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(theme.ink)
-                Text("Lookups are still kept.")
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(LiveReadCopy.tryAgain)
                     .font(.subheadline)
                     .foregroundStyle(theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("The text log will show here once this phone can read it.")
+                    .font(.body)
+                    .foregroundStyle(theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if !desk.textLogLines.isEmpty {
+                textLog
+            }
+        }
+    }
+
+    private var fileCard: some View {
+        DeskCard(theme: theme) {
+            Text("Text log file")
+                .font(.headline)
+                .foregroundStyle(theme.ink)
+            Text(desk.textLogFileEnabled ? "On" : "Off")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(theme.ink)
+            Text("Lookups are still kept.")
+                .font(.subheadline)
+                .foregroundStyle(theme.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var fileLine: String {
+        if desk.textLogFileEnabled {
+            return "The text log file is on. This phone does not change settings on the Pi."
+        }
+        return DNSCopy.upkeepDetail
+    }
+
+    private var textLog: some View {
+        DeskCard(theme: theme) {
+            Text("Text log")
+                .font(.headline)
+                .foregroundStyle(theme.ink)
+                .accessibilityAddTraits(.isHeader)
+            ForEach(Array(desk.textLogLines.enumerated()), id: \.offset) { _, line in
+                Text(line)
+                    .font(.subheadline)
+                    .foregroundStyle(theme.ink)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

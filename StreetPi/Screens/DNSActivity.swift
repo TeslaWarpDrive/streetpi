@@ -49,6 +49,7 @@ struct DNSLogScreen: View {
     var emptyTitle: String
     var emptyDetail: String
     var offersAllow: Bool
+    var failureNote: String?
     var theme: StreetTheme
     var wide: Bool
     var now: Date
@@ -62,7 +63,11 @@ struct DNSLogScreen: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
             if queries.isEmpty {
-                EmptyNote(title: emptyTitle, detail: emptyDetail, theme: theme)
+                if let failureNote {
+                    EmptyNote(title: failureNote, detail: LiveReadCopy.tryAgain, theme: theme)
+                } else {
+                    EmptyNote(title: emptyTitle, detail: emptyDetail, theme: theme)
+                }
             } else {
                 ForEach(queries) { query in
                     queryRow(query)
