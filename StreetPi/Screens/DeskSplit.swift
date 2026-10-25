@@ -59,25 +59,16 @@ struct DeskIndexButton: View {
 }
 
 struct DNSIndex: View {
-    var overviewSelected: Bool
-    var selected: DNSPage?
+    var selected: DNSPage
     var theme: StreetTheme
     var passwordSaved: Bool
     var sessionActive: Bool
-    var onOverview: () -> Void
     var onPage: (DNSPage) -> Void
     var onSavePassword: () -> Void
     var onSignOut: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: Rhythm.line) {
-            DeskIndexButton(
-                title: "Overview",
-                symbol: "shield.lefthalf.filled",
-                selected: overviewSelected,
-                theme: theme,
-                action: onOverview
-            )
             phoneNote
             ForEach(DNSShelf.allCases) { shelf in
                 VStack(alignment: .leading, spacing: Rhythm.tight) {

@@ -21,20 +21,6 @@ public struct PauseLength: Sendable, Equatable, Identifiable, Codable {
     public static let thirtyMinutes = PauseLength(validSeconds: 1_800)
     public static let presets: [PauseLength] = [.thirtySeconds, .fiveMinutes, .thirtyMinutes]
 
-    /// Short label for a pause control. Confirmation still uses `title`.
-    public var shortTitle: String {
-        if seconds == 30 {
-            return "30 sec"
-        }
-        if seconds == 300 {
-            return "5 min"
-        }
-        if seconds == 1_800 {
-            return "30 min"
-        }
-        return title
-    }
-
     public var title: String {
         if seconds == 30 {
             return "30 seconds"

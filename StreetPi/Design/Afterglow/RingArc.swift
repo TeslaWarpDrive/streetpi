@@ -3,7 +3,6 @@ import SwiftUI
 /// Glowing ring arc. The stroke uses the Aurora stops.
 struct RingArc: View {
     var fraction: Double
-    var diameter: CGFloat = AfterglowShape.ring
 
     @Environment(\.afterglowPalette) private var palette
 
@@ -17,7 +16,6 @@ struct RingArc: View {
             arc(lineWidth: AfterglowShape.arcWidth)
             cap
         }
-        .frame(width: diameter, height: diameter)
         .accessibilityHidden(true)
     }
 
@@ -57,7 +55,7 @@ struct RingArc: View {
     private var capPoint: CGPoint {
         let degrees = -90.0 + clamped * 360.0
         let radians = degrees * Double.pi / 180
-        let radius = (diameter - AfterglowShape.arcWidth) / 2
+        let radius = (AfterglowShape.ring - AfterglowShape.arcWidth) / 2
         return CGPoint(x: cos(radians) * radius, y: sin(radians) * radius)
     }
 }

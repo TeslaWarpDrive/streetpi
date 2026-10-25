@@ -1,0 +1,13 @@
+import SwiftUI
+
+struct HouseFooter: View {
+    @Environment(\.afterglowPalette) private var palette
+
+    var body: some View {
+        Text("Tap a tile to open it. Hold the ad blocker to pause it.")
+            .font(.footnote)
+            .foregroundStyle(palette.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
