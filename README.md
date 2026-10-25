@@ -12,7 +12,7 @@ Pi health is look-only. It shows the processor, temperature, memory, disk, and u
 
 Aurora, dark only. There is no light palette and no appearance switch. Home is a Briefing and ring gauges for Processor, Temperature, Memory, and Disk. The Porch card and the Lampblack bar meters are retired. The only gradient is the Aurora glow family: the Home aura, the ring arcs, and the headline accent word. The launch film is `StreetPi/Resources/launch-film.mp4`, silent and full-screen on the Aurora ground. Tap to skip. It fades into the Home aura. Reduce Motion shows the poster, then fades, and does not play the video. Replace that one file to change the film. Do not add a second video. `LaunchOverlay` is the seam.
 
-Keep Home compact and good-looking. A vertical stack is fine when the content fits. When a screen has a lot of data, many stat cards, graphs, or other dense information, do not make it a long one-card column. Choose the arrangement that looks best for that amount of content. There is no fixed column count. Large text must wrap or scroll, and nothing truncates or overlaps. The Home screen follows this when it is built.
+Keep Home compact and good-looking. A vertical stack is fine when the content fits. When a screen has a lot of data, many stat cards, graphs, or other dense information, do not make it a long one-card column. Choose the arrangement that looks best for that amount of content. There is no fixed column count. Large text must wrap or scroll, and nothing truncates or overlaps. The Home screen follows this.
 
 Tabs are House, Ad blocker, Pi, and Settings. The iPad uses a sidebar.
 

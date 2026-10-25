@@ -42,11 +42,11 @@ struct GalleryTabBar: View {
     private var bar: some View {
         Group {
             if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: AfterglowShape.tight) {
+                VStack(alignment: .leading, spacing: AfterglowShape.line) {
                     tabs
                 }
             } else {
-                HStack(spacing: 0) {
+                HStack(alignment: .top, spacing: 0) {
                     tabs
                 }
             }

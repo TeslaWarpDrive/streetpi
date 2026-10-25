@@ -1,0 +1,23 @@
+import StreetPiCore
+import SwiftUI
+
+/// Existing alerts, presented from the House bell.
+struct AlertsSheet: View {
+    var alerts: [HouseAlert]
+    var theme: StreetTheme
+    var wide: Bool
+    var onClose: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            AlertsScreen(alerts: alerts, theme: theme, wide: wide)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done", action: onClose)
+                    }
+                }
+        }
+        .presentationDragIndicator(.visible)
+        .presentationBackground(theme.background)
+    }
+}
