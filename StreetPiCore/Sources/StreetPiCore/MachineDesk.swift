@@ -47,6 +47,16 @@ extension MachineDesk {
         alerts: []
     )
 
+    /// Production desk before the charts agent answers. No sample series.
+    public static let livePlaceholder = MachineDesk(
+        modelName: "Raspberry Pi",
+        host: "",
+        series: [],
+        services: [],
+        containers: [],
+        alerts: []
+    )
+
     private static func series(_ id: String, _ title: String, _ caption: String) -> MetricSeries {
         MetricSeries(
             id: id,

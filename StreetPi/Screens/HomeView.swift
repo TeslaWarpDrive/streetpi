@@ -8,6 +8,7 @@ struct HomeView: View {
     var lines: [String]
     var groups: [GroupBrief]
     var wide: Bool
+    var piNotice: String?
     var onGroup: (HouseGroup) -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -63,6 +64,12 @@ struct HomeView: View {
 
     private var readings: some View {
         VStack(alignment: .leading, spacing: Rhythm.block) {
+            if snapshot?.machine == nil, let piNotice {
+                Text(piNotice)
+                    .font(.body)
+                    .foregroundStyle(theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let cpu = snapshot?.machine?.cpuUsedFraction {
                 MeterRow(label: "Processor", value: ReadingText.percent(cpu), fraction: cpu, theme: theme)
             }
@@ -79,6 +86,9 @@ struct HomeView: View {
             }
             if let disk = snapshot?.machine?.diskUsedFraction {
                 MeterRow(label: "Disk", value: ReadingText.percent(disk), fraction: disk, theme: theme)
+            }
+            if let uptime = snapshot?.machine?.uptimeSeconds {
+                MeterRow(label: "Uptime", value: ReadingText.uptime(uptime), fraction: nil, theme: theme)
             }
         }
     }
