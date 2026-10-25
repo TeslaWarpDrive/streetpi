@@ -8,6 +8,7 @@ struct AccessibleTabStrip: View {
 
     @Environment(\.afterglowPalette) private var palette
     @Environment(\.afterglowGate) private var gate
+    @Environment(\.streetPiStill) private var still
 
     var body: some View {
         AfterglowScope(paintsGround: false) {
@@ -58,7 +59,7 @@ struct AccessibleTabStrip: View {
 
     @ViewBuilder
     private var plate: some View {
-        if gate.usesSolidPlate {
+        if gate.usesSolidPlate || still {
             palette.panelRaised
                 .overlay { Rectangle().strokeBorder(palette.hairline, lineWidth: 1) }
         } else if #available(iOS 26, *) {

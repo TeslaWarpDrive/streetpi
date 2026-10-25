@@ -14,8 +14,33 @@ struct SettingsView: View {
     @State private var address = LiveHostStore().piholeText()
     @State private var pin = LiveHostStore().pinText()
     @State private var note = ""
-    @State private var pageAddress = ""
-    @State private var slug = "house"
+    @State private var pageAddress: String
+    @State private var slug: String
+
+    init(
+        theme: StreetTheme,
+        piHost: Binding<String>,
+        hostNote: String?,
+        onCommitHost: @escaping () -> Void,
+        onSaved: @escaping () -> Void = {},
+        statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString,
+        statusSlug: String = "house",
+        onStatusPage: @escaping (String, String) -> Void = { _, _ in }
+    ) {
+        self.theme = theme
+        self._piHost = piHost
+        self.hostNote = hostNote
+        self.onCommitHost = onCommitHost
+        self.onSaved = onSaved
+        self.statusAddress = statusAddress
+        self.statusSlug = statusSlug
+        self.onStatusPage = onStatusPage
+        _address = State(initialValue: LiveHostStore().piholeText())
+        _pin = State(initialValue: LiveHostStore().pinText())
+        _note = State(initialValue: "")
+        _pageAddress = State(initialValue: statusAddress)
+        _slug = State(initialValue: statusSlug)
+    }
 
     var body: some View {
         ScrollView {

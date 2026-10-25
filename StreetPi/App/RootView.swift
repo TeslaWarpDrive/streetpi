@@ -302,6 +302,35 @@ struct RootView: View {
         }
         return merged
     }
+}
+
+private extension RootView {
+    /// The house tiles come from the status page. A miss does not invent fixture monitors.
+    func pumpStatus() async {
+        var failures = 0
+        while !Task.isCancelled {
+            do {
+                let load = try await readStatusPage()
+                statusBoard = load.board
+                failures = 0
+            } catch is CancellationError {
+                return
+            } catch {
+                failures += 1
+            }
+            let wait = RefreshPace.waitSeconds(afterFailures: failures)
+            try? await Task.sleep(for: .seconds(wait))
+        }
+    }
+
+    func readStatusPage() async throws -> StatusPageLoad {
+        guard let base = LiveAddress.validated(statusAddress, schemes: ["http", "https"]),
+              let endpoint = StatusPageEndpoint.make(base: base, slug: statusSlug)
+        else { throw StatusPageProblem.notUnderstood }
+        let transport = StatusPageLiveTransport(sender: liveClient, base: base)
+        let reader = StatusPageReader(transport: transport, endpoint: endpoint, now: { Date() })
+        return try await reader.load()
+    }
 
     private func trustPresentedPin() {
         guard let presentedPin, PiholePin.isSHA256Pin(presentedPin) else { return }
@@ -395,44 +424,6 @@ struct RootView: View {
         guard LiveReaderGate.opensSockets else { return nil }
         guard AdBlockerSecrets.password(in: secretStore).isEmpty == false else { return nil }
         return await clientForCurrentSettings()
-    }
-}
-
-private extension RootView {
-    /// The house tiles come from the status page. A miss does not invent fixture monitors.
-    func pumpStatus() async {
-        var failures = 0
-        while !Task.isCancelled {
-            do {
-                let load = try await readStatusPage()
-                statusBoard = load.board
-                showHouse(load.snapshot)
-                failures = 0
-            } catch is CancellationError {
-                return
-            } catch {
-                failures += 1
-            }
-            let wait = RefreshPace.waitSeconds(afterFailures: failures)
-            try? await Task.sleep(for: .seconds(wait))
-        }
-    }
-
-    func readStatusPage() async throws -> StatusPageLoad {
-        guard let base = LiveAddress.validated(statusAddress, schemes: ["http", "https"]),
-              let endpoint = StatusPageEndpoint.make(base: base, slug: statusSlug)
-        else { throw StatusPageProblem.notUnderstood }
-        let transport = StatusPageLiveTransport(sender: liveClient, base: base)
-        let reader = StatusPageReader(transport: transport, endpoint: endpoint, now: { Date() })
-        return try await reader.load()
-    }
-
-    func showHouse(_ snapshot: HouseholdSnapshot) {
-        var next = snapshot
-        next.machine = liveReading
-        next.capturedAt = Date()
-        clock = Date()
-        screen = .ready(next)
     }
 
     func saveStatusPage(address: String, slug: String) {

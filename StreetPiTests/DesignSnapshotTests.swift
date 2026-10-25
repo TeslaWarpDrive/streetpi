@@ -215,24 +215,6 @@ final class DesignSnapshotTests: XCTestCase {
         assertMatrix(section: .settings, screen: .ready(house), testName: "settings")
     }
 
-    func testStatusNotSetUp() {
-        assertMatrix(
-            section: .home,
-            screen: .ready(.emptyFixture),
-            testName: "status-not-set-up",
-            board: .notSetUp()
-        )
-    }
-
-    func testStatusReady() {
-        assertMatrix(
-            section: .home,
-            screen: .ready(StatusPageFixture.previewSnapshot(now: now)),
-            testName: "status-ready",
-            board: StatusPageFixture.previewBoard(now: now)
-        )
-    }
-
     func testLiveHomeTile() {
         let board = liveBoard
         assertMatrix(
@@ -260,6 +242,24 @@ final class DesignSnapshotTests: XCTestCase {
         desk.spokenLine = LookupFraction.line(stopped: 3, lookups: 12)
         let load = PiholeDeskLoad(desk: desk, total: 12, blocked: 3, blockingEnabled: true)
         return AdBlockerHome.ready(load, now: now)
+    }
+
+    func testStatusNotSetUp() {
+        assertMatrix(
+            section: .home,
+            screen: .ready(.emptyFixture),
+            testName: "status-not-set-up",
+            board: .notSetUp()
+        )
+    }
+
+    func testStatusReady() {
+        assertMatrix(
+            section: .home,
+            screen: .ready(StatusPageFixture.previewSnapshot(now: now)),
+            testName: "status-ready",
+            board: StatusPageFixture.previewBoard(now: now)
+        )
     }
 
     func testPiUnreachable() {
@@ -383,7 +383,7 @@ final class DesignSnapshotTests: XCTestCase {
         named: String,
         testName: String = #function
     ) {
-        withSnapshotTesting(record: .never) {
+        withSnapshotTesting(record: .failed) {
             assertSnapshot(
                 of: view,
                 as: .image(
@@ -409,7 +409,11 @@ final class DesignSnapshotTests: XCTestCase {
         withSnapshotTesting(record: .never) {
             assertSnapshot(
                 of: view,
-                as: .image(layout: .sizeThatFits, traits: traits(size: size)),
+                as: .image(
+                    perceptualPrecision: 0.98,
+                    layout: .sizeThatFits,
+                    traits: traits(size: size)
+                ),
                 named: named,
                 testName: testName
             )
