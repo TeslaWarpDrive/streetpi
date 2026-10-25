@@ -34,6 +34,10 @@ struct AppShell: View {
     var onCommitHost: () -> Void = {}
     var piNotice: String?
     var machineReading: MachineReading?
+    var statusBoard: HouseStatusBoard?
+    var statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString
+    var statusSlug: String = "house"
+    var onStatusPage: (String, String) -> Void = { _, _ in }
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.streetPiStill) private var still
@@ -72,7 +76,11 @@ struct AppShell: View {
         hostNote: String? = nil,
         onCommitHost: @escaping () -> Void = {},
         piNotice: String? = nil,
-        machineReading: MachineReading? = nil
+        machineReading: MachineReading? = nil,
+        statusBoard: HouseStatusBoard? = nil,
+        statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString,
+        statusSlug: String = "house",
+        onStatusPage: @escaping (String, String) -> Void = { _, _ in }
     ) {
         self.section = section
         self.screen = screen
@@ -106,6 +114,10 @@ struct AppShell: View {
         self.onCommitHost = onCommitHost
         self.piNotice = piNotice
         self.machineReading = machineReading
+        self.statusBoard = statusBoard
+        self.statusAddress = statusAddress
+        self.statusSlug = statusSlug
+        self.onStatusPage = onStatusPage
         _showAlerts = State(initialValue: section == .alerts)
     }
 
@@ -364,7 +376,10 @@ struct AppShell: View {
                 piHost: piHost,
                 hostNote: hostNote,
                 onCommitHost: onCommitHost,
-                onSaved: onSettingsSaved
+                onSaved: onSettingsSaved,
+                statusAddress: statusAddress,
+                statusSlug: statusSlug,
+                onStatusPage: onStatusPage
             )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(theme.background)
