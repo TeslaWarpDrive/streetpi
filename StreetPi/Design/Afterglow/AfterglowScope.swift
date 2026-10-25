@@ -2,6 +2,7 @@ import SwiftUI
 
 /// Injects the Aurora palette and motion gate, and paints the ground.
 struct AfterglowScope<Content: View>: View {
+    var paintsGround: Bool = true
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -19,12 +20,14 @@ struct AfterglowScope<Content: View>: View {
             .environment(\.afterglowPalette, palette)
             .environment(\.afterglowGate, gate)
             .background {
-                ZStack {
-                    palette.ground
-                    GroundGrain()
-                        .opacity(0.07)
-                        .blendMode(.overlay)
-                        .accessibilityHidden(true)
+                if paintsGround {
+                    ZStack {
+                        palette.ground
+                        GroundGrain()
+                            .opacity(0.07)
+                            .blendMode(.overlay)
+                            .accessibilityHidden(true)
+                    }
                 }
             }
     }

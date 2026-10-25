@@ -32,7 +32,11 @@ final class DesignSnapshotTests: XCTestCase {
     }
 
     func testAdBlocker() {
-        assertMatrix(section: .group(.adBlockerAndDNS), screen: .ready(house), testName: "ad-blocker")
+        assertMatrix(
+            section: .group(.adBlockerAndDNS),
+            screen: .ready(house),
+            testName: "ad-blocker"
+        )
     }
 
     func testDNSToday() {
@@ -229,6 +233,35 @@ final class DesignSnapshotTests: XCTestCase {
         )
     }
 
+    func testLiveHomeTile() {
+        let board = liveBoard
+        assertMatrix(
+            section: .home,
+            screen: .explained(board.status, board.snapshot),
+            testName: "live-home-tile",
+            desk: board.desk
+        )
+    }
+
+    func testLiveAdBlocker() {
+        let board = liveBoard
+        assertMatrix(
+            section: .group(.adBlockerAndDNS),
+            screen: .explained(board.status, board.snapshot),
+            testName: "live-ad-blocker",
+            desk: board.desk
+        )
+    }
+
+    private var liveBoard: AdBlockerBoard {
+        var desk = DNSDesk.emptyLookups
+        desk.blocking = DNSBlocking(enabled: true)
+        desk.day = [DayChartSample(hour: 14, allowed: 9, blocked: 3)]
+        desk.spokenLine = LookupFraction.line(stopped: 3, lookups: 12)
+        let load = PiholeDeskLoad(desk: desk, total: 12, blocked: 3, blockingEnabled: true)
+        return AdBlockerHome.ready(load, now: now)
+    }
+
     func testPiUnreachable() {
         var quiet = house
         quiet.machine = nil
@@ -350,10 +383,14 @@ final class DesignSnapshotTests: XCTestCase {
         named: String,
         testName: String = #function
     ) {
-        withSnapshotTesting(record: .never) {
+        withSnapshotTesting(record: .failed) {
             assertSnapshot(
                 of: view,
-                as: .image(layout: .device(config: layout), traits: traits(size: size)),
+                as: .image(
+                    drawHierarchyInKeyWindow: false,
+                    layout: .device(config: layout),
+                    traits: traits(size: size)
+                ),
                 named: named,
                 testName: testName
             )
@@ -367,7 +404,7 @@ final class DesignSnapshotTests: XCTestCase {
         named: String,
         testName: String
     ) {
-        withSnapshotTesting(record: .never) {
+        withSnapshotTesting(record: .failed) {
             assertSnapshot(
                 of: view,
                 as: .image(layout: .sizeThatFits, traits: traits(size: size)),

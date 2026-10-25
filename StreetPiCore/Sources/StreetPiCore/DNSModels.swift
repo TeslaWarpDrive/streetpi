@@ -151,7 +151,7 @@ public enum DNSCopy {
     public static let localNamesNote = "These names stay on the Pi. This phone can read them."
     public static let upkeepDetail = """
     The text log file is off. Lookups are still kept in memory and in the history, back to July. \
-    This phone does not change settings on the Pi.
+    You can update the block lists from this phone. Other settings stay as they are.
     """
 }
 

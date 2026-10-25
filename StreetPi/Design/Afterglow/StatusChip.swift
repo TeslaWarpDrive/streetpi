@@ -7,6 +7,7 @@ struct StatusChip: View {
     var symbol: String?
 
     @Environment(\.afterglowPalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(title: String, tone: PlainEnglishStatus.Tone, symbol: String? = nil) {
         self.title = title
@@ -15,23 +16,62 @@ struct StatusChip: View {
     }
 
     var body: some View {
+        label
+            .font(AfterglowType.chip)
+            .foregroundStyle(palette.tone(tone))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .frame(minHeight: 44, alignment: .leading)
+            .background(palette.tone(tone).opacity(0.16), in: Capsule())
+            .overlay {
+                Capsule().strokeBorder(palette.hairline, lineWidth: 1)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(title)
+    }
+
+    /// Largest type scrolls the words on one line so the pill does not tower over the headline.
+    @ViewBuilder
+    private var label: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            ScrollView(.horizontal) {
+                oneLine
+            }
+            .scrollIndicators(.visible)
+        } else {
+            fitted
+        }
+    }
+
+    private var oneLine: some View {
         HStack(alignment: .center, spacing: 6) {
-            Image(systemName: symbol ?? AfterglowSymbol.status(tone))
-                .shadow(color: palette.tone(tone).opacity(0.75), radius: 5)
-                .accessibilityHidden(true)
+            mark
             Text(title)
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: true)
         }
-        .font(AfterglowType.chip)
-        .foregroundStyle(palette.tone(tone))
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .frame(minHeight: 32)
-        .background(palette.tone(tone).opacity(0.16), in: Capsule())
-        .overlay {
-            Capsule().strokeBorder(palette.hairline, lineWidth: 1)
+    }
+
+    /// One line when it fits. Otherwise the word wraps under the symbol instead of clipping.
+    private var fitted: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 6) {
+                mark
+                Text(title)
+                    .fixedSize(horizontal: true, vertical: true)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                mark
+                Text(title)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(title)
+    }
+
+    private var mark: some View {
+        Image(systemName: symbol ?? AfterglowSymbol.status(tone))
+            .shadow(color: palette.tone(tone).opacity(0.75), radius: 5)
+            .accessibilityHidden(true)
     }
 }

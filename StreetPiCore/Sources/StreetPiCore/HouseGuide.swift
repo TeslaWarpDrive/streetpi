@@ -46,19 +46,27 @@ public struct GroupBrief: Sendable, Equatable, Identifiable {
     public var summary: String
     public var tone: PlainEnglishStatus.Tone
     public var rows: [GroupRow]
+    /// Blocked share for the home ad-blocker tile. Fixtures leave this empty.
+    public var meter: String?
+    /// "Last 24 hours" when the tile has a real reading.
+    public var windowLabel: String?
 
     public init(
         id: HouseGroup,
         title: String,
         summary: String,
         tone: PlainEnglishStatus.Tone,
-        rows: [GroupRow]
+        rows: [GroupRow],
+        meter: String? = nil,
+        windowLabel: String? = nil
     ) {
         self.id = id
         self.title = title
         self.summary = summary
         self.tone = tone
         self.rows = rows
+        self.meter = meter
+        self.windowLabel = windowLabel
     }
 }
 

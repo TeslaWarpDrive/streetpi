@@ -1,61 +1,112 @@
 import Foundation
 
+/// Remembers the session id so the next call, and the next client, can reuse it.
+public protocol FTLSessionStoring: Sendable {
+    func loadSID() -> String?
+    func saveSID(_ sid: String)
+    func clearSID()
+}
+
 public actor PiholeClient {
     private let transport: any PiholeTransport
     private let password: @Sendable () -> String
     private let now: @Sendable () -> Date
+    private let sessions: (any FTLSessionStoring)?
     private var session: SID?
 
     public init(
         transport: any PiholeTransport,
         password: @escaping @Sendable () -> String,
-        now: @escaping @Sendable () -> Date = { Date() }
+        now: @escaping @Sendable () -> Date = { Date() },
+        sessions: (any FTLSessionStoring)? = nil
     ) {
         self.transport = transport
         self.password = password
         self.now = now
+        self.sessions = sessions
     }
 
-    public func pause(seconds: Int) async throws {
+    public func pause(seconds: Int) async throws -> DNSBlocking {
         guard let request = PiholeWrites.pause(seconds: seconds) else {
             throw PiholeProblem.invalidPause
         }
-        _ = try await perform(request)
+        let response = try await perform(request)
+        return try PiholeDecode.blocking(from: response.body)
     }
 
-    public func resume() async throws {
-        _ = try await perform(PiholeWrites.resume())
+    public func resume() async throws -> DNSBlocking {
+        let response = try await perform(PiholeWrites.resume())
+        return try PiholeDecode.blocking(from: response.body)
     }
 
-    public func block(domain: String) async throws {
+    public func block(domain: String) async throws -> String {
         guard let request = PiholeWrites.block(domain: domain) else {
             throw PiholeProblem.invalidDomain
         }
-        _ = try await perform(request)
+        let response = try await perform(request, badRequest: .invalidDomain)
+        let sent = DomainName.normalized(domain) ?? domain
+        return try PiholeDecode.acceptedDomain(from: response.body, sent: sent)
     }
 
-    public func allow(domain: String) async throws {
+    public func allow(domain: String) async throws -> String {
         guard let request = PiholeWrites.allow(domain: domain) else {
             throw PiholeProblem.invalidDomain
         }
-        _ = try await perform(request)
+        let response = try await perform(request, badRequest: .invalidDomain)
+        let sent = DomainName.normalized(domain) ?? domain
+        return try PiholeDecode.acceptedDomain(from: response.body, sent: sent)
+    }
+
+    public func updateGravity() async throws -> GravityReport {
+        let response = try await perform(PiholeWrites.gravity())
+        return try PiholeDecode.gravity(from: response.body)
     }
 
     public func blocking() async throws -> DNSBlocking {
         try PiholeDecode.blocking(from: try await get("/api/dns/blocking"))
     }
 
+    /// No password and no session id. A 200 with `dns: true` means the ad blocker is there.
+    public func reachability() async throws -> PiholeLoginState {
+        let response = try await sendPlain(
+            PiholeRequest(method: "GET", path: "/api/info/login", headers: [:], body: nil)
+        )
+        guard (200...299).contains(response.status) else { throw PiholeProblem.notSetUp }
+        switch PiholeDecode.loginProbe(from: response.body) {
+        case .answering:
+            return .answering
+        case .dnsOff:
+            return .dnsOff
+        case .notThisService:
+            throw PiholeProblem.notSetUp
+        }
+    }
+
     public func summary() async throws -> DNSSummary {
         try PiholeDecode.summary(from: try await get("/api/stats/summary"))
     }
 
+    public func summaryFacts() async throws -> PiholeSummaryFacts {
+        try PiholeDecode.summaryFacts(from: try await get("/api/stats/summary"))
+    }
+
     public func history(ending: Date) async throws -> [DayChartSample] {
-        try PiholeDecode.history(from: try await get("/api/history"), ending: ending)
+        let until = Int(ending.timeIntervalSince1970)
+        let from = until - 86_400
+        let path = "/api/history?from=\(from)&until=\(until)"
+        return try PiholeDecode.history(from: try await get(path), ending: ending)
     }
 
     public func topDomains() async throws -> [DNSCount] {
-        try PiholeDecode.namedCounts(
-            from: try await get("/api/stats/top_domains"),
+        try await topDomains(blocked: false)
+    }
+
+    public func topDomains(blocked: Bool) async throws -> [DNSCount] {
+        let path = blocked
+            ? "/api/stats/top_domains?blocked=true&count=10"
+            : "/api/stats/top_domains?count=10"
+        return try PiholeDecode.namedCounts(
+            from: try await get(path),
             listKey: "domains",
             nameKey: "domain"
         )
@@ -63,14 +114,25 @@ public actor PiholeClient {
 
     public func topClients() async throws -> [DNSCount] {
         try PiholeDecode.namedCounts(
-            from: try await get("/api/stats/top_clients"),
+            from: try await get("/api/stats/top_clients?count=10"),
             listKey: "clients",
-            nameKey: "name"
+            nameKey: "name",
+            fallbackNameKey: "ip"
         )
     }
 
     public func queries() async throws -> [DNSQuery] {
-        try PiholeDecode.queries(from: try await get("/api/queries"))
+        try PiholeDecode.queries(from: try await get("/api/queries?length=50"))
+    }
+
+    public func domains() async throws -> [NamedRow] {
+        let denied = try PiholeDecode.domainRows(from: try await get("/api/domains/deny"), detail: "Blocked")
+        let allowed = try PiholeDecode.domainRows(from: try await get("/api/domains/allow"), detail: "Allowed")
+        return denied + allowed
+    }
+
+    public func queryLogging() async throws -> Bool {
+        try PiholeDecode.queryLogging(from: try await get("/api/config/dns/queryLogging"))
     }
 
     /// Newest lookups. The caller polls this and folds the rows into `LiveLogFeed`.
@@ -105,9 +167,24 @@ public actor PiholeClient {
         try PiholeDecode.cnames(from: try await get("/api/config/dns/cnameRecords"))
     }
 
+    /// Reuse a session id this phone already holds. A 401 still signs in again.
+    public func restoreSession(id: String, expiresAt: Date) {
+        guard session == nil else { return }
+        let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else { return }
+        session = SID(value: trimmed, expiresAt: expiresAt)
+    }
+
     public func signOut() async {
-        guard let current = session else { return }
+        if session == nil, let stored = sessions?.loadSID(), !stored.isEmpty {
+            session = SID(value: stored, expiresAt: now())
+        }
+        guard let current = session else {
+            sessions?.clearSID()
+            return
+        }
         session = nil
+        sessions?.clearSID()
         let request = PiholeRequest(
             method: "DELETE",
             path: "/api/auth",
@@ -126,13 +203,29 @@ public actor PiholeClient {
         return response.body
     }
 
-    private func perform(_ request: PiholeRequest) async throws -> PiholeResponse {
+    private func sendPlain(_ request: PiholeRequest) async throws -> PiholeResponse {
+        do {
+            let response = try await transport.send(request)
+            guard response.status != 401 else { throw PiholeProblem.notSetUp }
+            return response
+        } catch let problem as PiholeProblem {
+            throw problem
+        } catch {
+            throw PiholeProblem.offline
+        }
+    }
+
+    private func perform(
+        _ request: PiholeRequest,
+        badRequest: PiholeProblem = .notUnderstood
+    ) async throws -> PiholeResponse {
         var response = try await sendOnce(request)
         if response.status == 401 {
             session = nil
+            sessions?.clearSID()
             response = try await sendOnce(request)
         }
-        try accept(response)
+        try accept(response, badRequest: badRequest)
         return response
     }
 
@@ -140,7 +233,13 @@ public actor PiholeClient {
         let sid = try await validSID()
         var headers = request.headers
         headers[FTLSessionPolicy.sidHeader] = sid
-        let authed = PiholeRequest(method: request.method, path: request.path, headers: headers, body: request.body)
+        let authed = PiholeRequest(
+            method: request.method,
+            path: request.path,
+            headers: headers,
+            body: request.body,
+            timeout: request.timeout
+        )
         do {
             return try await transport.send(authed)
         } catch let problem as PiholeProblem {
@@ -153,6 +252,13 @@ public actor PiholeClient {
     private func validSID() async throws -> String {
         if let session, session.expiresAt > now() {
             return session.value
+        }
+        if session == nil, let stored = sessions?.loadSID(), !stored.isEmpty {
+            session = SID(
+                value: stored,
+                expiresAt: now().addingTimeInterval(TimeInterval(FTLSessionPolicy.validitySeconds))
+            )
+            return stored
         }
         try await authenticate()
         guard let session else { throw PiholeProblem.needsSignIn }
@@ -178,16 +284,21 @@ public actor PiholeClient {
         let wire = try JSONDecoder().decode(AuthWire.self, from: response.body)
         let validity = wire.session.validity ?? FTLSessionPolicy.validitySeconds
         session = SID(value: wire.session.sid, expiresAt: now().addingTimeInterval(TimeInterval(validity)))
+        sessions?.saveSID(wire.session.sid)
     }
 
-    private func accept(_ response: PiholeResponse) throws {
+    private func accept(_ response: PiholeResponse, badRequest: PiholeProblem) throws {
         switch response.status {
         case 200...299:
             return
+        case 400:
+            throw badRequest
         case 401:
             throw PiholeProblem.needsSignIn
         case 403:
             throw PiholeProblem.refused
+        case 409:
+            throw PiholeProblem.busy
         default:
             throw PiholeProblem.notUnderstood
         }

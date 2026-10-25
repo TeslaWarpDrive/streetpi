@@ -18,6 +18,12 @@ public struct DNSDesk: Sendable, Equatable, Codable {
     public var topDomains: [DNSCount]
     public var topClients: [DNSCount]
     public var blockedDomains: [DNSCount]
+    /// Live sentence for the hub and Today. Fixtures leave this empty and keep the fixed line.
+    public var spokenLine: String?
+    /// False when the Pi did not report when the block lists last updated.
+    public var listsUpdateKnown: Bool
+    /// Live upkeep sentence. Fixtures leave this empty and keep the fixed note.
+    public var upkeepNote: String?
     /// Set by the live poll. Nil keeps the sample prefix used by fixtures and snapshots.
     public var liveFeed: [DNSQuery]?
     public var textLogLines: [String]
@@ -43,6 +49,9 @@ public struct DNSDesk: Sendable, Equatable, Codable {
         topDomains: [DNSCount],
         topClients: [DNSCount],
         blockedDomains: [DNSCount],
+        spokenLine: String? = nil,
+        listsUpdateKnown: Bool = true,
+        upkeepNote: String? = nil,
         liveFeed: [DNSQuery]? = nil,
         textLogLines: [String] = [],
         textLogKnown: Bool = true,
@@ -66,6 +75,9 @@ public struct DNSDesk: Sendable, Equatable, Codable {
         self.topDomains = topDomains
         self.topClients = topClients
         self.blockedDomains = blockedDomains
+        self.spokenLine = spokenLine
+        self.listsUpdateKnown = listsUpdateKnown
+        self.upkeepNote = upkeepNote
         self.liveFeed = liveFeed
         self.textLogLines = textLogLines
         self.textLogKnown = textLogKnown
@@ -230,11 +242,15 @@ extension DNSDesk {
     public static var quiet: DNSDesk {
         var desk = emptyLookups
         desk.listsUpdatedAt = .distantPast
+        desk.listsUpdateKnown = false
         desk.textLogKnown = false
         return desk
     }
 
     public var blockingLine: String {
+        if let spokenLine, !spokenLine.isEmpty {
+            return spokenLine
+        }
         if blocking.enabled {
             return "Ads are being blocked."
         }

@@ -7,6 +7,7 @@ public enum HouseholdAction: Sendable, Equatable {
     case resumeAdBlocking
     case blockDomain(named: String)
     case allowDomain(named: String)
+    case updateBlockLists
     case signOutOfAdBlocker
 }
 
@@ -34,10 +35,14 @@ public enum Confirmation: Sendable, Equatable {
 
 public enum ActionPolicy {
     public static func confirmation(for action: HouseholdAction) -> Confirmation {
-        if action == .refresh {
+        switch action {
+        case .refresh:
             return .notRequired
+        case .signOutOfAdBlocker:
+            return .explain(plainCopy(action))
+        case .pauseAdBlocking, .resumeAdBlocking, .blockDomain, .allowDomain, .updateBlockLists:
+            return .explainAndUseFaceID(plainCopy(action))
         }
-        return .explain(plainCopy(action))
     }
 
     private static func plainCopy(_ action: HouseholdAction) -> String {
@@ -50,9 +55,14 @@ public enum ActionPolicy {
             return "\(name) will be blocked for the whole house."
         case .allowDomain(let name):
             return "\(name) will be allowed for the whole house."
+        case .updateBlockLists:
+            return """
+            Block lists will update for the whole house. This can take a minute. \
+            Ads stay blocked while it runs.
+            """
         case .signOutOfAdBlocker:
             return "This phone will sign out. The password stays on this phone, and ad blocking stays as it is."
-        default:
+        case .refresh:
             return "This will change the house."
         }
     }

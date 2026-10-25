@@ -42,17 +42,31 @@ struct RoomTile: View {
     }
 
     private var statusRow: some View {
-        HStack(alignment: .center, spacing: AfterglowShape.tight) {
-            StatusDot(tone: tone)
-            Image(systemName: AfterglowSymbol.status(tone))
-                .accessibilityHidden(true)
-            Text(word)
-                .fixedSize(horizontal: false, vertical: true)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: AfterglowShape.tight) {
+                mark
+                Text(word)
+                    .fixedSize(horizontal: true, vertical: true)
+            }
+            VStack(alignment: .leading, spacing: AfterglowShape.tight) {
+                mark
+                Text(word)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .font(AfterglowType.label)
         .foregroundStyle(palette.tone(tone))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(word)
+    }
+
+    private var mark: some View {
+        HStack(spacing: AfterglowShape.tight) {
+            StatusDot(tone: tone)
+            Image(systemName: AfterglowSymbol.status(tone))
+                .accessibilityHidden(true)
+        }
     }
 
     private var showsDetail: Bool {

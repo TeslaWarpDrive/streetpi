@@ -4,6 +4,7 @@ import StreetPiCore
 struct PiholeSetupView: View {
     var theme: StreetTheme
     var wide: Bool
+    var trustNote: String?
     var onSave: (String) -> Void
     var onCancel: () -> Void
 
@@ -64,7 +65,7 @@ struct PiholeSetupView: View {
                     .foregroundStyle(theme.ink)
                     .accessibilityAddTraits(.isHeader)
             }
-            Text(PiholeTrust.explanation(for: certificate))
+            Text(trustNote ?? PiholeTrust.explanation(for: certificate))
                 .font(.body)
                 .foregroundStyle(theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -77,10 +78,47 @@ struct PiholeSetupView: View {
     }
 }
 
+struct ActionNoticeBanner: View {
+    var notice: ActionNotice
+    var theme: StreetTheme
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Rhythm.line) {
+            Image(systemName: notice.failed ? "exclamationmark.circle" : "checkmark.circle")
+                .font(.title3)
+                .foregroundStyle(notice.failed ? theme.problem : theme.accent)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: Rhythm.tight) {
+                Text(notice.title)
+                    .font(.headline)
+                    .foregroundStyle(theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(notice.detail)
+                    .font(.subheadline)
+                    .foregroundStyle(theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(Rhythm.line)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(theme.hairline, lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 struct DNSProblemView: View {
     var problem: PiholeProblem
     var theme: StreetTheme
     var wide: Bool
+    var offersSetup = false
+    var onSavePassword: () -> Void = {}
+    var onTrustNewCertificate: () -> Void = {}
+    var onKeepSavedPin: () -> Void = {}
 
     var body: some View {
         DeskScroll(wide: wide) {
@@ -99,6 +137,19 @@ struct DNSProblemView: View {
                 .font(.body)
                 .foregroundStyle(theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            if problem == .certificateChanged {
+                Button("Trust the new certificate", action: onTrustNewCertificate)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(theme.accent)
+                Button("Keep the saved pin", action: onKeepSavedPin)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(theme.ink)
+            }
+            if offersSetup {
+                Button("Set up this phone", action: onSavePassword)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(theme.accent)
+            }
         }
         .accessibilityElement(children: .combine)
     }

@@ -6,16 +6,17 @@ final class ActionPolicyTests: XCTestCase {
         XCTAssertEqual(ActionPolicy.confirmation(for: .refresh), .notRequired)
     }
 
-    func testFilterWritesExplainThemselvesWithoutFaceID() throws {
+    func testFilterWritesExplainThemselvesAndUseFaceID() throws {
         let pause = ActionPolicy.confirmation(for: .pauseAdBlocking(.fiveMinutes))
         let resume = ActionPolicy.confirmation(for: .resumeAdBlocking)
         let block = ActionPolicy.confirmation(for: .blockDomain(named: "ads.example.test"))
         let allow = ActionPolicy.confirmation(for: .allowDomain(named: "news.example.test"))
+        let lists = ActionPolicy.confirmation(for: .updateBlockLists)
         let custom = try XCTUnwrap(PauseLength(seconds: 12 * 60))
         let customPause = ActionPolicy.confirmation(for: .pauseAdBlocking(custom))
 
-        for confirmation in [pause, resume, block, allow, customPause] {
-            XCTAssertFalse(confirmation.requiresFaceID)
+        for confirmation in [pause, resume, block, allow, customPause, lists] {
+            XCTAssertTrue(confirmation.requiresFaceID)
             XCTAssertFalse(confirmation.explanation?.isEmpty ?? true)
         }
         XCTAssertTrue(pause.explanation?.contains("5 minutes") ?? false)
@@ -24,6 +25,8 @@ final class ActionPolicyTests: XCTestCase {
         XCTAssertTrue(resume.explanation?.contains("turn back on") ?? false)
         XCTAssertEqual(block.explanation, "ads.example.test will be blocked for the whole house.")
         XCTAssertEqual(allow.explanation, "news.example.test will be allowed for the whole house.")
+        XCTAssertTrue(lists.explanation?.contains("Block lists") ?? false)
+        XCTAssertTrue(lists.explanation?.contains("minute") ?? false)
         XCTAssertFalse(ActionPolicy.confirmation(for: .signOutOfAdBlocker).requiresFaceID)
     }
 
@@ -33,6 +36,7 @@ final class ActionPolicyTests: XCTestCase {
             .pauseAdBlocking(.fiveMinutes), .pauseAdBlocking(custom), .resumeAdBlocking,
             .blockDomain(named: "ads.example.test"),
             .allowDomain(named: "news.example.test"),
+            .updateBlockLists,
             .signOutOfAdBlocker,
         ]
         for action in actions {

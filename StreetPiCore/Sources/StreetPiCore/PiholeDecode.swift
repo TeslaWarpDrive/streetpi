@@ -27,8 +27,8 @@ public enum PiholeDecode {
 
     public static func blocking(from data: Data) throws -> DNSBlocking {
         let root = try object(data)
-        guard let word = root["blocking"] as? String else { throw PiholeProblem.notUnderstood }
-        if word == "enabled" {
+        let enabled = try blockingFlag(root["blocking"])
+        if enabled {
             return DNSBlocking(enabled: true)
         }
         let timer = int(root["timer"])
@@ -36,11 +36,63 @@ public enum PiholeDecode {
         return DNSBlocking(enabled: false, pause: pause)
     }
 
-    public static func namedCounts(from data: Data, listKey: String, nameKey: String) throws -> [DNSCount] {
+    public static func acceptedDomain(from data: Data, sent name: String) throws -> String {
+        if data.isEmpty { return name }
+        let root: [String: Any]
+        do {
+            root = try object(data)
+        } catch {
+            throw PiholeProblem.notUnderstood
+        }
+        if let processed = root["processed"] as? [String: Any],
+           let errors = processed["errors"] as? [Any],
+           !errors.isEmpty {
+            throw PiholeProblem.invalidDomain
+        }
+        if let domain = namedDomain(root["domain"]) { return domain }
+        if let rows = root["domains"] as? [[String: Any]],
+           let domain = rows.compactMap({ namedDomain($0["domain"]) }).first {
+            return domain
+        }
+        if let processed = root["processed"] as? [String: Any],
+           let success = processed["success"] as? [[String: Any]],
+           let domain = success.compactMap({ namedDomain($0["item"]) }).first {
+            return domain
+        }
+        return name
+    }
+
+    public static func gravity(from data: Data) throws -> GravityReport {
+        guard let raw = String(bytes: data, encoding: .utf8) else {
+            throw PiholeProblem.notUnderstood
+        }
+        let text = stripControls(raw)
+        if text.contains("Gravity failed") {
+            throw PiholeProblem.gravityFailed
+        }
+        if let count = gravityDomainCount(in: text) {
+            return GravityReport(
+                domainCount: count,
+                detail: "The Pi is now using \(count) domains on the block lists."
+            )
+        }
+        return GravityReport(
+            domainCount: nil,
+            detail: "The Pi finished updating the block lists."
+        )
+    }
+
+    public static func namedCounts(
+        from data: Data,
+        listKey: String,
+        nameKey: String,
+        fallbackNameKey: String? = nil
+    ) throws -> [DNSCount] {
         let root = try object(data)
         guard let rows = root[listKey] as? [[String: Any]] else { throw PiholeProblem.notUnderstood }
         return rows.compactMap { row in
-            guard let name = row[nameKey] as? String, let count = int(row["count"]) else { return nil }
+            let name = text(row[nameKey]) ?? fallbackNameKey.flatMap { text(row[$0]) }
+            guard let name, let count = int(row["count"]) else { return nil }
             return DNSCount(name: name, count: count)
         }
     }
@@ -107,6 +159,44 @@ public enum PiholeDecode {
             let name = parts.count > 1 ? String(parts[1]) : line
             return NamedRow(id: "host-\(index)", name: name, detail: "Inside the house")
         }
+    }
+
+    public static func domainRows(from data: Data, detail: String) throws -> [NamedRow] {
+        try rows(from: data, key: "domains") { row, index in
+            let name = text(row["domain"]) ?? text(row["unicode"]) ?? "A name"
+            let enabled = (row["enabled"] as? Bool) ?? true
+            let note = enabled ? detail : "\(detail), off"
+            return NamedRow(id: "\(detail)-\(index)", name: name, detail: note)
+        }
+    }
+
+    public static func queryLogging(from data: Data) throws -> Bool {
+        let wire = try JSONDecoder().decode(QueryLoggingWire.self, from: data)
+        if let value = wire.queryLogging ?? wire.config?.dns?.queryLogging {
+            return value
+        }
+        throw PiholeProblem.notUnderstood
+    }
+
+    public static func summaryFacts(from data: Data) throws -> PiholeSummaryFacts {
+        let root = try object(data)
+        guard let queries = root["queries"] as? [String: Any],
+              let total = int(queries["total"]),
+              let blocked = int(queries["blocked"])
+        else { throw PiholeProblem.notUnderstood }
+        let clients = root["clients"] as? [String: Any]
+        let active = int(clients?["active"]) ?? 0
+        let gravity = root["gravity"] as? [String: Any]
+        let stamp = double(gravity?["last_update"]) ?? 0
+        let updated = stamp > 0 ? Date(timeIntervalSince1970: stamp) : nil
+        return PiholeSummaryFacts(total: total, blocked: blocked, activeClients: active, listsUpdatedAt: updated)
+    }
+
+    public static func loginProbe(from data: Data) -> PiholeLoginProbe {
+        guard let wire = try? JSONDecoder().decode(LoginWire.self, from: data),
+              let dns = wire.dns
+        else { return .notThisService }
+        return dns ? .answering : .dnsOff
     }
 
     public static func cnames(from data: Data) throws -> [NamedRow] {
@@ -195,6 +285,12 @@ public enum PiholeDecode {
         return root
     }
 
+    private static func text(_ value: Any?) -> String? {
+        guard let value = value as? String else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     private static func clientName(_ value: Any?) -> String {
         if let name = value as? String, !name.isEmpty {
             return name
@@ -212,6 +308,64 @@ public enum PiholeDecode {
         return address
     }
 
+    private static func blockingFlag(_ value: Any?) throws -> Bool {
+        if let word = value as? String {
+            if word == "enabled" { return true }
+            if word == "disabled" { return false }
+            throw PiholeProblem.notUnderstood
+        }
+        if let flag = value as? Bool { return flag }
+        throw PiholeProblem.notUnderstood
+    }
+
+    private static func namedDomain(_ value: Any?) -> String? {
+        guard let name = value as? String else { return nil }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func gravityDomainCount(in text: String) -> Int? {
+        let folded = text.lowercased()
+        guard let found = folded.range(of: "gravity domains:") else { return nil }
+        var digits = ""
+        var started = false
+        for character in text[found.upperBound...] {
+            if character.isNumber {
+                digits.append(character)
+                started = true
+            } else if character == "," && started {
+                continue
+            } else if started {
+                break
+            } else if character == " " || character == "\t" {
+                continue
+            } else {
+                break
+            }
+        }
+        return Int(digits)
+    }
+
+    private static func stripControls(_ text: String) -> String {
+        var output = ""
+        var skipping = false
+        for character in text {
+            if character == "\u{1B}" {
+                skipping = true
+                continue
+            }
+            if skipping {
+                if character.isLetter { skipping = false }
+                continue
+            }
+            let printable = character.isNewline || character == "\t" || character.unicodeScalars.allSatisfy {
+                !CharacterSet.controlCharacters.contains($0)
+            }
+            if printable { output.append(character) }
+        }
+        return output
+    }
+
     private static func int(_ value: Any?) -> Int? {
         if let value = value as? Int { return value }
         if let value = value as? Double { return Int(value) }
@@ -225,4 +379,21 @@ public enum PiholeDecode {
         if let value = value as? NSNumber { return value.doubleValue }
         return nil
     }
+}
+
+private struct LoginWire: Decodable {
+    var dns: Bool?
+}
+
+private struct QueryLoggingWire: Decodable {
+    struct DNS: Decodable {
+        var queryLogging: Bool?
+    }
+
+    struct Config: Decodable {
+        var dns: DNS?
+    }
+
+    var queryLogging: Bool?
+    var config: Config?
 }

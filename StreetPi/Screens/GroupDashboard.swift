@@ -132,6 +132,37 @@ extension HouseGroup {
     }
 }
 
+struct ServiceRow: View {
+    var name: String
+    var state: String
+    var theme: StreetTheme
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(name)
+                    .font(.title3)
+                    .foregroundStyle(theme.ink)
+                Spacer(minLength: Rhythm.line)
+                Text(state)
+                    .font(.body)
+                    .foregroundStyle(theme.secondary)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.title3)
+                    .foregroundStyle(theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(state)
+                    .font(.body)
+                    .foregroundStyle(theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 private struct MeterLine: View {
     var label: String
     var value: String

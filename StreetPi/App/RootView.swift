@@ -10,10 +10,17 @@ struct RootView: View {
     @State private var machine: MachineDesk
     @State private var machinePage: MachinePage?
     @State private var pending: HouseholdAction?
+    @State private var actionNotice: ActionNotice?
+    @State private var sending = false
     @State private var passwordSaved = false
     @State private var showsSetup = false
     @State private var dnsSession = DNSSessionHold()
     @State private var showLaunch: Bool
+    @State private var dnsProblem: PiholeProblem?
+    @State private var presentedPin: String?
+    @State private var declinedPin: String?
+    @State private var signedOut = false
+    @State private var retry = 0
     @State private var piHost: String
     @State private var committedHost: String
     @State private var hostNote: String?
@@ -46,7 +53,13 @@ struct RootView: View {
             _piNotice = State(initialValue: nil)
             _liveReading = State(initialValue: HouseholdSnapshot.healthyFixture.machine)
         } else {
-            _screen = State(initialValue: .ready(.emptyFixture))
+            let looking = PlainEnglishStatus(
+                headline: HouseReadingCopy.lookingTitle,
+                detail: HouseReadingCopy.emptyDetail,
+                tone: .calm,
+                linkLine: "On the home network"
+            )
+            _screen = State(initialValue: .explained(looking, nil))
             _desk = State(initialValue: .quiet)
             _machine = State(initialValue: .livePlaceholder)
             _piNotice = State(initialValue: HouseReadingCopy.lookingTitle)
@@ -73,9 +86,19 @@ struct RootView: View {
             machine: machine,
             machinePage: machinePage,
             pendingAction: pending,
+            actionNotice: actionNotice,
             passwordSaved: passwordSaved,
             showsSetup: showsSetup,
-            sessionActive: dnsSession.client != nil,
+            dnsProblem: dnsProblem,
+            sessionActive: dnsSession.signedIn,
+            trustNote: setupTrustNote,
+            offersSetup: !passwordSaved,
+            onTrustNewCertificate: trustPresentedPin,
+            onKeepSavedPin: keepSavedPin,
+            onSettingsSaved: {
+                signedOut = false
+                retry += 1
+            },
             onDNSPage: { dnsPage = $0 },
             onMachinePage: { machinePage = $0 },
             onPending: { pending = $0 },
@@ -85,10 +108,12 @@ struct RootView: View {
             onSavePassword: { showsSetup = true },
             onSetupSave: saveSetup,
             onSetupCancel: { showsSetup = false },
+            onRefresh: refreshNow,
             piHost: $piHost,
             hostNote: hostNote,
             onCommitHost: commitPiHost,
             piNotice: piNotice,
+            machineReading: liveReading,
             statusBoard: statusBoard,
             statusAddress: statusAddress,
             statusSlug: statusSlug,
@@ -100,14 +125,12 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             guard phase == .background else { return }
             let client = dnsSession.client
-            Task {
-                await client?.appDidEnterBackground()
-            }
+            dnsSession.signedIn = false
+            Task { await client?.appDidEnterBackground() }
         }
-        .task(id: watchKey) {
+        .task(id: watchToken) {
             guard scenePhase == .active else { return }
-            let stored = try? secretStore.load(for: AppPassword.account)
-            passwordSaved = stored != nil
+            passwordSaved = (try? KeychainSession(store: secretStore).hasAppPassword()) ?? false
             if LiveGate.usesFixtures {
                 await watchFixtures()
             } else {
@@ -116,15 +139,19 @@ struct RootView: View {
         }
         .task(id: dnsPage) {
             guard !LiveGate.usesFixtures, dnsPage == .liveLog, scenePhase == .active else { return }
-            while !Task.isCancelled, dnsPage == .liveLog, scenePhase == .active {
+            while !Task.isCancelled, dnsPage == .liveLog, scenePhase == .active, signedOut == false {
                 await refreshLiveLog()
                 try? await Task.sleep(for: .seconds(4))
             }
         }
     }
 
-    private var watchKey: String {
-        "\(scenePhase)|\(committedHost)|\(statusAddress)|\(statusSlug)"
+    private var watchToken: String {
+        "\(scenePhase)|\(committedHost)|\(retry)|\(signedOut)|\(statusAddress)|\(statusSlug)"
+    }
+
+    private var setupTrustNote: String {
+        "This phone checks the ad blocker's security pin from Settings. The pin stays on this phone."
     }
 
     /// Snapshot and preview path. This loop never opens a socket.
@@ -145,14 +172,235 @@ struct RootView: View {
     }
 
     private func watchLive() async {
-        async let house: Void = pumpStatus()
+        async let house: Void = watchHouse()
+        async let status: Void = pumpStatus()
         async let meters: Void = pumpMeters()
         async let history: Void = pumpHistory()
-        _ = await (house, meters, history)
+        _ = await (house, status, meters, history)
     }
 
+    /// Tests keep the fixture screen and never open a socket.
+    private func watchHouse() async {
+        guard LiveReaderGate.opensSockets, signedOut == false else { return }
+        var failures = 0
+        while Task.isCancelled == false, signedOut == false {
+            let client = await clientForCurrentSettings()
+            let board = await refresh(client, now: Date())
+            if Task.isCancelled || signedOut { break }
+            apply(board)
+            failures = board.problem == nil ? 0 : failures + 1
+            let wait = RefreshPace.waitSeconds(afterFailures: failures)
+            try? await Task.sleep(for: .seconds(wait))
+        }
+    }
+
+    private func refreshNow() async {
+        guard LiveReaderGate.opensSockets, signedOut == false else { return }
+        let client = await clientForCurrentSettings()
+        apply(await refresh(client, now: Date()))
+    }
+
+    private func clientForCurrentSettings() async -> PiholeClient {
+        let hosts = LiveHostStore()
+        let endpoint = PiholeBaseAddress.endpoint(from: hosts.piholeText()) ?? .house
+        let pin = hosts.pinText()
+        if let existing = dnsSession.client, dnsSession.endpoint == endpoint, dnsSession.pin == pin {
+            dnsSession.http?.apply(hosts)
+            liveClient.apply(hosts)
+            return existing
+        }
+        let previous = dnsSession.client
+        let configuration = LiveHTTPClient.sessionConfiguration()
+        configuration.timeoutIntervalForRequest = 300
+        configuration.timeoutIntervalForResource = 300
+        let http = LiveHTTPClient(store: hosts, configuration: configuration)
+        http.apply(hosts)
+        liveClient.apply(hosts)
+        let box = PresentedPinBox()
+        let store = secretStore
+        let sessions = KeychainSession(store: store)
+        let client = PiholeClient(
+            transport: PiholeURLSessionTransport(
+                http: http,
+                endpoint: endpoint,
+                sessions: sessions,
+                presented: box
+            ),
+            password: { AdBlockerSecrets.password(in: store) }
+        )
+        dnsSession.client = client
+        dnsSession.http = http
+        dnsSession.endpoint = endpoint
+        dnsSession.pin = pin
+        dnsSession.presented = box
+        dnsSession.signedIn = false
+        if let previous {
+            await previous.signOut()
+        }
+        if let saved = try? sessions.loadSessionID() {
+            await client.restoreSession(
+                id: saved,
+                expiresAt: Date().addingTimeInterval(TimeInterval(FTLSessionPolicy.validitySeconds))
+            )
+        }
+        return client
+    }
+
+    private func refresh(_ client: PiholeClient, now: Date) async -> AdBlockerBoard {
+        let saved = AdBlockerSecrets.password(in: secretStore).isEmpty == false
+        do {
+            let state = try await client.reachability()
+            guard saved else { return AdBlockerHome.notSetUp(now: now) }
+            if state == .dnsOff { return AdBlockerHome.dnsOff(now: now) }
+            let load = try await client.loadDesk(now: now)
+            dnsSession.signedIn = true
+            return AdBlockerHome.ready(load, now: now)
+        } catch let problem as PiholeProblem {
+            dnsSession.signedIn = false
+            if problem == .certificateChanged {
+                let presented = dnsSession.presented?.presented()
+                if let presented, presented == declinedPin {
+                    return AdBlockerHome.failed(.pinKept, now: now)
+                }
+                presentedPin = presented
+                return AdBlockerHome.failed(.certificateChanged, now: now)
+            }
+            if problem == .needsPassword || problem == .notSetUp {
+                return AdBlockerHome.notSetUp(now: now)
+            }
+            if problem == .offline {
+                return AdBlockerHome.offline(now: now)
+            }
+            return AdBlockerHome.failed(problem, now: now)
+        } catch {
+            dnsSession.signedIn = false
+            return AdBlockerHome.offline(now: now)
+        }
+    }
+
+    private func apply(_ board: AdBlockerBoard) {
+        clock = Date()
+        desk = keepingLog(board.desk)
+        var snapshot = board.snapshot
+        snapshot.machine = liveReading
+        screen = .explained(board.status, snapshot)
+        dnsProblem = board.problem
+        if board.problem != .certificateChanged {
+            presentedPin = nil
+        }
+    }
+
+    private func keepingLog(_ next: DNSDesk) -> DNSDesk {
+        var merged = next
+        merged.liveFeed = desk.liveFeed
+        merged.liveReadNote = desk.liveReadNote
+        merged.textLogLines = desk.textLogLines
+        merged.textLogKnown = desk.textLogKnown
+        merged.textLogReadNote = desk.textLogReadNote
+        if desk.textLogKnown {
+            merged.textLogFileEnabled = desk.textLogFileEnabled
+        }
+        return merged
+    }
+
+    private func trustPresentedPin() {
+        guard let presentedPin, PiholePin.isSHA256Pin(presentedPin) else { return }
+        let hosts = LiveHostStore()
+        do {
+            try hosts.savePin(presentedPin)
+        } catch {
+            return
+        }
+        dnsSession.http?.apply(hosts)
+        liveClient.apply(hosts)
+        declinedPin = nil
+        self.presentedPin = nil
+        signedOut = false
+        retry += 1
+    }
+
+    private func keepSavedPin() {
+        declinedPin = presentedPin ?? declinedPin
+        apply(AdBlockerHome.failed(.pinKept, now: Date()))
+    }
+
+    private func saveSetup(_ raw: String) {
+        guard raw.isEmpty == false else { return }
+        do {
+            try KeychainSession(store: secretStore).saveAppPassword(raw)
+            passwordSaved = true
+            showsSetup = false
+            signedOut = false
+            retry += 1
+        } catch {
+            showsSetup = true
+        }
+    }
+
+    private func confirm(_ action: HouseholdAction) async {
+        guard !sending else { return }
+        sending = true
+        defer { sending = false }
+        let policy = ActionPolicy.confirmation(for: action)
+        if policy.requiresFaceID {
+            let reason = policy.explanation ?? "Confirm this change."
+            let allowed = await FaceIDGate.allow(reason: reason)
+            guard allowed else { return }
+        }
+        switch action {
+        case .signOutOfAdBlocker:
+            signedOut = true
+            dnsSession.signedIn = false
+            await dnsSession.client?.signOut()
+            try? KeychainSession(store: secretStore).deleteSessionID()
+            actionNotice = nil
+            apply(AdBlockerHome.failed(.needsSignIn, now: Date()))
+            pending = nil
+        case .refresh:
+            pending = nil
+            await refreshNow()
+        default:
+            guard PiholeActionRoute.callsTheAPI(action) else {
+                pending = nil
+                return
+            }
+            await performLive(action)
+        }
+    }
+
+    /// Production calls Pi-hole and shows that answer. It does not edit the fixture desk.
+    private func performLive(_ action: HouseholdAction) async {
+        guard let client = await preparedClient() else {
+            actionNotice = ActionNotice(problem: .needsPassword)
+            pending = nil
+            return
+        }
+        do {
+            let receipt = try await PiholeActions.perform(action, client: client, now: Date())
+            desk = desk.adopting(receipt)
+            actionNotice = ActionNotice(receipt: receipt)
+        } catch let problem as PiholeProblem {
+            actionNotice = ActionNotice(problem: problem)
+        } catch {
+            actionNotice = ActionNotice(problem: .offline)
+        }
+        pending = nil
+    }
+
+    /// Reuses the open reader client, so the next action sends the same session id.
+    private func preparedClient() async -> PiholeClient? {
+        if let client = dnsSession.client {
+            return client
+        }
+        guard LiveReaderGate.opensSockets else { return nil }
+        guard AdBlockerSecrets.password(in: secretStore).isEmpty == false else { return nil }
+        return await clientForCurrentSettings()
+    }
+}
+
+private extension RootView {
     /// The house tiles come from the status page. A miss does not invent fixture monitors.
-    private func pumpStatus() async {
+    func pumpStatus() async {
         var failures = 0
         while !Task.isCancelled {
             do {
@@ -170,13 +418,42 @@ struct RootView: View {
         }
     }
 
-    private func readStatusPage() async throws -> StatusPageLoad {
+    func readStatusPage() async throws -> StatusPageLoad {
         guard let base = LiveAddress.validated(statusAddress, schemes: ["http", "https"]),
               let endpoint = StatusPageEndpoint.make(base: base, slug: statusSlug)
         else { throw StatusPageProblem.notUnderstood }
         let transport = StatusPageLiveTransport(sender: liveClient, base: base)
         let reader = StatusPageReader(transport: transport, endpoint: endpoint, now: { Date() })
         return try await reader.load()
+    }
+
+    func showHouse(_ snapshot: HouseholdSnapshot) {
+        var next = snapshot
+        next.machine = liveReading
+        next.capturedAt = Date()
+        clock = Date()
+        screen = .ready(next)
+    }
+
+    func saveStatusPage(address: String, slug: String) {
+        let store = LiveHostStore()
+        guard let url = LiveAddress.validated(address, schemes: ["http", "https"]),
+              StatusPageEndpoint.isSlug(slug)
+        else { return }
+        let current = store.load()
+        do {
+            try store.save(
+                pihole: current.pihole.absoluteString,
+                netdata: current.netdata.absoluteString,
+                uptimeKuma: url.absoluteString
+            )
+        } catch {
+            return
+        }
+        StatusPageSlugStore.save(slug)
+        liveClient.apply(store)
+        statusAddress = store.uptimeKumaText()
+        statusSlug = StatusPageSlugStore.current()
     }
 
     private func pumpMeters() async {
@@ -194,9 +471,7 @@ struct RootView: View {
                 piNotice = problem.sentence
                 failures += 1
             }
-            if let snapshot = screen.snapshot {
-                showHouse(snapshot)
-            }
+            showMachine()
             let wait = RefreshPace.waitSeconds(afterFailures: failures)
             try? await Task.sleep(for: .seconds(wait))
         }
@@ -233,10 +508,11 @@ struct RootView: View {
     }
 
     private func pullLogs(textFeed: TextLogFeed, queryFeed: LiveLogFeed) async -> LogPull {
-        guard let client = prepareClient() else {
-            let note = PiholeProblem.needsPassword.title
+        guard signedOut == false, LiveReaderGate.opensSockets else {
+            let note = PiholeProblem.needsSignIn.title
             return LogPull(queries: queryFeed, text: textFeed, liveNote: note, textNote: note)
         }
+        let client = await clientForCurrentSettings()
         async let live = pullLive(client: client, feed: queryFeed)
         async let text = pullText(client: client, feed: textFeed)
         let liveResult = await live
@@ -278,30 +554,11 @@ struct RootView: View {
     }
 
     private func refreshLiveLog() async {
-        guard let client = prepareClient() else {
-            if desk.liveQueries.isEmpty {
-                desk.liveReadNote = PiholeProblem.needsPassword.title
-            }
-            return
-        }
+        guard signedOut == false else { return }
+        let client = await clientForCurrentSettings()
         let pulled = await pullLive(client: client, feed: LiveLogFeed(queries: desk.liveFeed ?? []))
         desk.liveFeed = pulled.feed.queries
         desk.liveReadNote = pulled.feed.queries.isEmpty ? pulled.note : nil
-    }
-
-    private func prepareClient() -> PiholeClient? {
-        if let client = dnsSession.client { return client }
-        guard let stored = try? secretStore.load(for: AppPassword.account),
-              let password = String(data: stored, encoding: .utf8),
-              !password.isEmpty
-        else { return nil }
-        let endpoints = LiveHostStore().load()
-        let client = PiholeClient(
-            transport: LivePiholeTransport(client: liveClient, base: endpoints.pihole),
-            password: { password }
-        )
-        dnsSession.client = client
-        return client
     }
 
     private func applyLive(history: NetdataHistoryLoad, log: LogPull) {
@@ -342,12 +599,14 @@ struct RootView: View {
         }
     }
 
-    private func showHouse(_ snapshot: HouseholdSnapshot) {
-        var next = snapshot
-        next.machine = liveReading
-        next.capturedAt = Date()
+    private func showMachine() {
+        guard var snapshot = screen.snapshot else { return }
+        snapshot.machine = liveReading
+        snapshot.capturedAt = Date()
         clock = Date()
-        screen = .ready(next)
+        if case .explained(let status, _) = screen {
+            screen = .explained(status, snapshot)
+        }
     }
 
     private func commitPiHost() {
@@ -370,30 +629,10 @@ struct RootView: View {
             return
         }
         liveClient.apply(store)
+        dnsSession.http?.apply(store)
         hostNote = nil
         piHost = store.netdataText()
         committedHost = piHost
-    }
-
-    private func saveStatusPage(address: String, slug: String) {
-        let store = LiveHostStore()
-        guard let url = LiveAddress.validated(address, schemes: ["http", "https"]),
-              StatusPageEndpoint.isSlug(slug)
-        else { return }
-        let current = store.load()
-        do {
-            try store.save(
-                pihole: current.pihole.absoluteString,
-                netdata: current.netdata.absoluteString,
-                uptimeKuma: url.absoluteString
-            )
-        } catch {
-            return
-        }
-        StatusPageSlugStore.save(slug)
-        liveClient.apply(store)
-        statusAddress = store.uptimeKumaText()
-        statusSlug = StatusPageSlugStore.current()
     }
 
     private static func houseCharts(_ text: String) -> URL? {
@@ -405,31 +644,4 @@ struct RootView: View {
         return url
     }
 
-    private func saveSetup(_ raw: String) {
-        guard !raw.isEmpty else { return }
-        do {
-            try secretStore.save(Data(raw.utf8), for: AppPassword.account)
-            let pin = Data(PiholeCertificate.houseFixture.sha256Fingerprint.utf8)
-            try secretStore.save(pin, for: AppPassword.certificatePin)
-            passwordSaved = true
-            showsSetup = false
-        } catch {
-            showsSetup = true
-        }
-    }
-
-    private func confirm(_ action: HouseholdAction) async {
-        let policy = ActionPolicy.confirmation(for: action)
-        if policy.requiresFaceID {
-            let reason = policy.explanation ?? "Confirm this change."
-            let allowed = await FaceIDGate.allow(reason: reason)
-            guard allowed else { return }
-        }
-        if case .signOutOfAdBlocker = action {
-            await dnsSession.client?.signOut()
-        } else {
-            desk = desk.applying(action)
-        }
-        pending = nil
-    }
 }
