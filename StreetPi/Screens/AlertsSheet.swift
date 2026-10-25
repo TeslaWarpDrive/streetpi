@@ -18,7 +18,7 @@ struct AlertsSheet: View {
                     }
                 }
         }
-        .safeAreaPadding(.bottom, TabClearance.phoneBar)
+        .safeAreaPadding(.bottom, TabClearance.sheet)
         .presentationDragIndicator(.visible)
         .presentationBackground(theme.background)
     }

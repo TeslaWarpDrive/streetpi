@@ -18,26 +18,31 @@ struct HouseHome: View {
     @State private var showMeaning = false
 
     var body: some View {
-        ScrollView {
-            FitOfferedWidth(maxWidth: wide ? 880 : nil) {
-                column
-                    .padding(.horizontal, AfterglowShape.page)
-                    .padding(.vertical, pageInset)
+        GeometryReader { proxy in
+            let short = proxy.size.height < 640
+            ScrollView {
+                FitOfferedWidth(maxWidth: wide ? 880 : nil) {
+                    column(short: short)
+                        .padding(.horizontal, AfterglowShape.page)
+                        .padding(.top, short ? AfterglowShape.line : pageInset)
+                        .padding(.bottom, pageInset)
+                }
             }
-        }
-        .scrollIndicators(.hidden)
-        .refreshable {
-            await refresh()
-        }
-        .sheet(isPresented: $showMeaning) {
-            PercentMeaningSheet(text: board.blocker.explainer) {
-                showMeaning = false
+            .scrollIndicators(.hidden)
+            .refreshable {
+                await refresh()
             }
+            .sheet(isPresented: $showMeaning) {
+                PercentMeaningSheet(text: board.blocker.explainer) {
+                    showMeaning = false
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
         }
     }
 
-    private var column: some View {
-        VStack(alignment: .leading, spacing: AfterglowShape.block) {
+    private func column(short: Bool) -> some View {
+        VStack(alignment: .leading, spacing: short ? AfterglowShape.line : AfterglowShape.block) {
             HouseTitleBar(alertCount: alertCount, onAlerts: onAlerts, onSettings: onSettings)
             StatusPill(
                 title: board.headline,

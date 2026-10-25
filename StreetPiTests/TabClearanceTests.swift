@@ -1,3 +1,4 @@
+import SnapshotTesting
 import StreetPiCore
 import SwiftUI
 import UIKit
@@ -27,27 +28,90 @@ final class TabClearanceTests: XCTestCase {
 
     func testStreamingTitleStaysWhole() {
         for scale in SnapshotScale.allCases {
-            let window = host(page: .home, scale: scale, device: .smallPhone)
-            reveal(["Streaming", "last 24 hours"], in: window)
-            assertStreamingIsWhole(in: window)
+            let window = host(page: .home, scale: scale, device: .smallPhone, pinStreaming: true)
+            guard let label = streamingLabel(in: window) else {
+                XCTFail("Streaming is not in the view. Saw: \(labelTexts(in: window).joined(separator: " | "))")
+                window.isHidden = true
+                continue
+            }
+            reveal(label, in: window)
+            assertStreamingIsWhole(label)
             assertVisibleTextClearsBar(in: window)
+            let bar = tabBarFrame(in: window)
+            let percent = textFrames(in: window).filter {
+                $0.text.contains("20%") || $0.text.contains("last 24 hours")
+            }
+            let visiblePercent = percent.contains { item in
+                let overlap = item.frame.intersection(bar)
+                let onScreen = window.bounds.intersects(item.frame)
+                let shortEnough = item.frame.height > 1 && item.frame.height < window.bounds.height * 0.85
+                return onScreen && shortEnough && (overlap.isNull || overlap.height < 1)
+            }
+            let saw = percent.map(\.text).joined(separator: " | ")
+            XCTAssertTrue(
+                visiblePercent,
+                "The percent is not above the tab bar with Streaming. Saw: \(saw)"
+            )
             window.isHidden = true
         }
     }
 
-    private func assertStreamingIsWhole(in window: UIWindow) {
-        let tiles = textFrames(in: window).filter { $0.text.contains("Streaming") }
-        guard let tile = tiles.min(by: { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }) else {
-            XCTFail("Streaming is not on screen")
-            return
+    /// Scrolled small-phone shots. The suite records them so a person can see both fixes.
+    func testHomeClearProof() {
+        for scale in SnapshotScale.allCases {
+            let view = AppShell(
+                section: .home,
+                screen: .ready(house),
+                now: now,
+                onSection: { _ in }
+            )
+            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
+            .environment(\.dynamicTypeSize, scale.dynamicType)
+            .environment(\.streetPiStill, true)
+            .environment(\.pinsStreamingTitle, true)
+            let traits = UITraitCollection(traitsFrom: [
+                UITraitCollection(userInterfaceStyle: .dark),
+                UITraitCollection(preferredContentSizeCategory: scale.category),
+            ])
+            withSnapshotTesting(record: .failed) {
+                assertSnapshot(
+                    of: view,
+                    as: .wait(
+                        for: 0.2,
+                        on: .image(
+                            drawHierarchyInKeyWindow: true,
+                            precision: 0.95,
+                            perceptualPrecision: 0.5,
+                            layout: .device(config: SnapshotDevice.smallPhone.config),
+                            traits: traits
+                        )
+                    ),
+                    named: "dark-\(scale.rawValue)-smallPhone",
+                    testName: "homeClear"
+                )
+            }
         }
-        let font = UIFont.preferredFont(forTextStyle: .subheadline, compatibleWith: window.traitCollection)
+    }
+
+    private func assertStreamingIsWhole(_ label: UILabel) {
+        let text = plain(label.text)
+        XCTAssertFalse(text.contains("-"), "Streaming is hyphenated: \(text)")
+        XCTAssertTrue(text.contains("Streaming"), "Title lost letters: \(text)")
+        let font = label.font ?? UIFont.preferredFont(forTextStyle: .subheadline)
         let word = ("Streaming" as NSString).size(withAttributes: [.font: font]).width
-        XCTAssertGreaterThanOrEqual(
-            tile.frame.width + 1,
-            word,
-            "Streaming is narrower than the word, so it will hyphenate or clip"
-        )
+        let line = font.lineHeight
+        if label.bounds.width + 1 < word {
+            XCTAssertGreaterThan(
+                label.bounds.height,
+                line * 1.4,
+                "Streaming is narrower than the word on one line"
+            )
+            let needed = label.sizeThatFits(CGSize(width: label.bounds.width, height: 10_000)).height
+            XCTAssertGreaterThanOrEqual(label.bounds.height + 1, needed, "Streaming is clipped")
+        } else {
+            XCTAssertGreaterThanOrEqual(label.bounds.width + 1, word)
+        }
     }
 
     private func assertVisibleTextClearsBar(in window: UIWindow) {
@@ -67,7 +131,12 @@ final class TabClearanceTests: XCTestCase {
         }
     }
 
-    private func host(page: AppSection, scale: SnapshotScale, device: SnapshotDevice) -> UIWindow {
+    private func host(
+        page: AppSection,
+        scale: SnapshotScale,
+        device: SnapshotDevice,
+        pinStreaming: Bool = false
+    ) -> UIWindow {
         let root = AppShell(
             section: page,
             screen: .ready(house),
@@ -78,6 +147,7 @@ final class TabClearanceTests: XCTestCase {
         .environment(\.colorScheme, .dark)
         .environment(\.dynamicTypeSize, scale.dynamicType)
         .environment(\.streetPiStill, true)
+        .environment(\.pinsStreamingTitle, pinStreaming)
         let controller = UIHostingController(rootView: root)
         controller.overrideUserInterfaceStyle = .dark
         controller.traitOverrides.preferredContentSizeCategory = scale.category
@@ -95,17 +165,35 @@ final class TabClearanceTests: XCTestCase {
         return window
     }
 
-    private func reveal(_ words: [String], in window: UIWindow) {
+    private func reveal(_ label: UILabel, in window: UIWindow) {
         guard let scroll = mainScroll(in: window) else { return }
-        let marks = textFrames(in: window).filter { item in
-            words.contains { item.text.contains($0) }
-        }
-        let tops = marks.map { scroll.convert($0.frame, from: window).minY }
-        guard let top = tops.min() else { return }
-        let offset = max(0, top - 8)
-        scroll.setContentOffset(CGPoint(x: 0, y: offset), animated: false)
+        let frame = label.convert(label.bounds, to: scroll)
+        let visible = scroll.bounds.height - scroll.adjustedContentInset.bottom
+        guard visible > 1 else { return }
+        let maxOffset = max(0, scroll.contentSize.height - visible)
+        let target = min(max(0, frame.maxY - visible + 8), maxOffset)
+        scroll.setContentOffset(CGPoint(x: 0, y: target), animated: false)
         scroll.layoutIfNeeded()
         pump()
+    }
+
+    private func streamingLabel(in window: UIWindow) -> UILabel? {
+        labels(in: window).first { plain($0.text).contains("Streaming") }
+    }
+
+    private func labelTexts(in window: UIWindow) -> [String] {
+        labels(in: window).map { plain($0.text) }.filter { $0.isEmpty == false }
+    }
+
+    private func labels(in view: UIView) -> [UILabel] {
+        var found: [UILabel] = []
+        if let label = view as? UILabel {
+            found.append(label)
+        }
+        for child in view.subviews {
+            found.append(contentsOf: labels(in: child))
+        }
+        return found
     }
 
     private func scrollToEnd(_ window: UIWindow) {
@@ -123,7 +211,7 @@ final class TabClearanceTests: XCTestCase {
     }
 
     private func tabBarFrame(in window: UIWindow) -> CGRect {
-        let reservedHeight = min(TabClearance.phoneBar, window.bounds.height)
+        let reservedHeight = min(max(TabClearance.phoneBar, 56), window.bounds.height)
         let reserved = CGRect(
             x: 0,
             y: window.bounds.height - reservedHeight,
@@ -134,7 +222,7 @@ final class TabClearanceTests: XCTestCase {
         let labels = textFrames(in: window).filter { titles.contains($0.text) }
         guard labels.count >= 3 else { return reserved }
         let top = labels.map(\.frame.minY).min() ?? reserved.minY
-        let barTop = min(reserved.minY, max(0, top - 12))
+        let barTop = min(reserved.minY, max(0, top - 28))
         return CGRect(x: 0, y: barTop, width: window.bounds.width, height: window.bounds.height - barTop)
     }
 

@@ -3,8 +3,12 @@ import SwiftUI
 /// Room above the phone tab bar. The bar floats over the page, so each screen
 /// keeps its own inset instead of drawing cards and type underneath it.
 enum TabClearance {
-    /// Tall enough for the phone bar on a home-button phone and a phone with a home indicator.
-    static let phoneBar: CGFloat = 100
+    /// Extra space past the system inset. Enough to lift the last line off the bar
+    /// on a small phone without covering the percent that sits just above it.
+    static let phoneBar: CGFloat = 20
+
+    /// Sheets and confirmations sit over the bar, so they keep a taller inset.
+    static let sheet: CGFloat = 49
 }
 
 extension View {
