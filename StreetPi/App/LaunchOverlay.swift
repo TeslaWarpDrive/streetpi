@@ -70,7 +70,6 @@ struct LaunchOverlay: View {
             finish()
             return
         }
-        SplashAudio.startAmbient()
         let playback = SplashPlayerModel()
         model = playback
         await Task.yield()
@@ -90,7 +89,6 @@ struct LaunchOverlay: View {
 
     private func halt() {
         model?.player.pause()
-        SplashAudio.stop()
     }
 }
 

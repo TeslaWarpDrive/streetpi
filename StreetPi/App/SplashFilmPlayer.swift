@@ -5,7 +5,6 @@ import UIKit
 enum SplashFilm {
     static let videoName = "launch-film"
     static let posterName = "launch-poster"
-    static let volume: Float = 0.4
     static let crossfade: TimeInterval = 0.4
     static let stillHold: Duration = .milliseconds(800)
 
@@ -19,36 +18,12 @@ enum SplashFilm {
     }
 }
 
-/// Ambient mixes with the person's music and goes quiet when the phone is on silent.
-@MainActor
-enum SplashAudio {
-    private static var engaged = false
-
-    static func startAmbient() {
-        let session = AVAudioSession.sharedInstance()
-        do {
-            try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
-            try session.setActive(true)
-            engaged = true
-        } catch {
-            engaged = false
-        }
-    }
-
-    static func stop() {
-        guard engaged else { return }
-        engaged = false
-        try? AVAudioSession.sharedInstance().setActive(false)
-    }
-}
-
 @MainActor
 final class SplashPlayerModel {
     let player: AVPlayer
 
     init() {
         let player = AVPlayer()
-        player.volume = SplashFilm.volume
         player.actionAtItemEnd = .pause
         player.allowsExternalPlayback = false
         player.audiovisualBackgroundPlaybackPolicy = .pauses

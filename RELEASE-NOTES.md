@@ -2,7 +2,7 @@
 
 The first sideload. One app for the house, in plain English. Under the icon the name is Pi Stats. The repository stays `streetpi`.
 
-- Opening plays a short film. Tap anywhere to skip. It fades into Home. Reduce Motion shows the final frame, then fades, and does not play the video. The sound stays quiet, follows the silent switch, and mixes with other music.
+- Opening plays a short silent film. Tap anywhere to skip. It fades into Home. Reduce Motion shows the final frame, then fades, and does not play the video.
 - The app is dark only. There is no light look and no appearance switch.
 - This build's Home is the porch card and the meters. Each part of the house opens from its own card. Aurora, chosen on 2026-10-24, retires that card and those bars. See `docs/project-context.md`.
 - The iPad keeps a sidebar. Ad blocker and Pi health open as a list beside the page. Large text wraps.
