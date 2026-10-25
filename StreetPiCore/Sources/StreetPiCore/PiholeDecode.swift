@@ -27,13 +27,59 @@ public enum PiholeDecode {
 
     public static func blocking(from data: Data) throws -> DNSBlocking {
         let root = try object(data)
-        guard let word = root["blocking"] as? String else { throw PiholeProblem.notUnderstood }
-        if word == "enabled" {
+        let enabled = try blockingFlag(root["blocking"])
+        if enabled {
             return DNSBlocking(enabled: true)
         }
         let timer = int(root["timer"])
         let pause = timer.flatMap { PauseLength(seconds: $0) }
         return DNSBlocking(enabled: false, pause: pause)
+    }
+
+    public static func acceptedDomain(from data: Data, sent name: String) throws -> String {
+        if data.isEmpty { return name }
+        let root: [String: Any]
+        do {
+            root = try object(data)
+        } catch {
+            throw PiholeProblem.notUnderstood
+        }
+        if let processed = root["processed"] as? [String: Any],
+           let errors = processed["errors"] as? [Any],
+           !errors.isEmpty {
+            throw PiholeProblem.invalidDomain
+        }
+        if let domain = namedDomain(root["domain"]) { return domain }
+        if let rows = root["domains"] as? [[String: Any]],
+           let domain = rows.compactMap({ namedDomain($0["domain"]) }).first {
+            return domain
+        }
+        if let processed = root["processed"] as? [String: Any],
+           let success = processed["success"] as? [[String: Any]],
+           let domain = success.compactMap({ namedDomain($0["item"]) }).first {
+            return domain
+        }
+        return name
+    }
+
+    public static func gravity(from data: Data) throws -> GravityReport {
+        guard let raw = String(bytes: data, encoding: .utf8) else {
+            throw PiholeProblem.notUnderstood
+        }
+        let text = stripControls(raw)
+        if text.contains("Gravity failed") {
+            throw PiholeProblem.gravityFailed
+        }
+        if let count = gravityDomainCount(in: text) {
+            return GravityReport(
+                domainCount: count,
+                detail: "The Pi is now using \(count) domains on the block lists."
+            )
+        }
+        return GravityReport(
+            domainCount: nil,
+            detail: "The Pi finished updating the block lists."
+        )
     }
 
     public static func namedCounts(
@@ -260,6 +306,64 @@ public enum PiholeDecode {
             return host
         }
         return address
+    }
+
+    private static func blockingFlag(_ value: Any?) throws -> Bool {
+        if let word = value as? String {
+            if word == "enabled" { return true }
+            if word == "disabled" { return false }
+            throw PiholeProblem.notUnderstood
+        }
+        if let flag = value as? Bool { return flag }
+        throw PiholeProblem.notUnderstood
+    }
+
+    private static func namedDomain(_ value: Any?) -> String? {
+        guard let name = value as? String else { return nil }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func gravityDomainCount(in text: String) -> Int? {
+        let folded = text.lowercased()
+        guard let found = folded.range(of: "gravity domains:") else { return nil }
+        var digits = ""
+        var started = false
+        for character in text[found.upperBound...] {
+            if character.isNumber {
+                digits.append(character)
+                started = true
+            } else if character == "," && started {
+                continue
+            } else if started {
+                break
+            } else if character == " " || character == "\t" {
+                continue
+            } else {
+                break
+            }
+        }
+        return Int(digits)
+    }
+
+    private static func stripControls(_ text: String) -> String {
+        var output = ""
+        var skipping = false
+        for character in text {
+            if character == "\u{1B}" {
+                skipping = true
+                continue
+            }
+            if skipping {
+                if character.isLetter { skipping = false }
+                continue
+            }
+            let printable = character.isNewline || character == "\t" || character.unicodeScalars.allSatisfy {
+                !CharacterSet.controlCharacters.contains($0)
+            }
+            if printable { output.append(character) }
+        }
+        return output
     }
 
     private static func int(_ value: Any?) -> Int? {

@@ -196,6 +196,7 @@ struct DNSUpkeep: View {
     var theme: StreetTheme
     var wide: Bool
     var now: Date
+    var onAction: (HouseholdAction) -> Void
 
     var body: some View {
         DeskScroll(wide: wide) {
@@ -209,12 +210,28 @@ struct DNSUpkeep: View {
                     .foregroundStyle(theme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if let note = desk.upkeepNote {
-                Text(note)
-                    .font(.body)
-                    .foregroundStyle(theme.secondary)
+            Text(desk.upkeepNote ?? DNSCopy.upkeepDetail)
+                .font(.body)
+                .foregroundStyle(theme.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                onAction(.updateBlockLists)
+            } label: {
+                Text("Update block lists")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(theme.ink)
+                    .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, Rhythm.line)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .background(theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(theme.hairline, lineWidth: 1)
+                    }
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Update block lists")
             if desk.textLogKnown {
                 if let note = desk.textLogReadNote {
                     Text(note)
@@ -226,7 +243,7 @@ struct DNSUpkeep: View {
                         .foregroundStyle(theme.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                if desk.upkeepNote == nil {
+                if desk.textLogFileEnabled {
                     Text(fileLine)
                         .font(.body)
                         .foregroundStyle(theme.secondary)
@@ -242,7 +259,7 @@ struct DNSUpkeep: View {
                     .font(.subheadline)
                     .foregroundStyle(theme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-            } else if desk.upkeepNote == nil {
+            } else {
                 Text("The text log will show here once this phone can read it.")
                     .font(.body)
                     .foregroundStyle(theme.secondary)

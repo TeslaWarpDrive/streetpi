@@ -147,7 +147,7 @@ final class PiholeClientTests: XCTestCase {
         ])
         let client = PiholeClient(transport: refused, password: { Self.fixturePassword }, now: { .streetFixtureNow })
         do {
-            try await client.pause(seconds: 30)
+            _ = try await client.pause(seconds: 30)
             XCTFail("Expected a refusal")
         } catch let problem as PiholeProblem {
             XCTAssertEqual(problem, .refused)
@@ -164,7 +164,7 @@ final class PiholeClientTests: XCTestCase {
             now: { .streetFixtureNow }
         )
         do {
-            try await offlineClient.resume()
+            _ = try await offlineClient.resume()
             XCTFail("Expected offline")
         } catch let problem as PiholeProblem {
             XCTAssertEqual(problem, .offline)

@@ -11,6 +11,7 @@ struct AppShell: View {
     var machine: MachineDesk = .houseFixture
     var machinePage: MachinePage?
     var pendingAction: HouseholdAction?
+    var actionNotice: ActionNotice?
     var passwordSaved: Bool = true
     var showsSetup: Bool = false
     var dnsProblem: PiholeProblem?
@@ -33,7 +34,7 @@ struct AppShell: View {
     var onCommitHost: () -> Void = {}
     var piNotice: String?
     var machineReading: MachineReading?
-    var statusBoard: HouseStatusBoard? = nil
+    var statusBoard: HouseStatusBoard?
     var statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString
     var statusSlug: String = "house"
     var onStatusPage: (String, String) -> Void = { _, _ in }
@@ -53,6 +54,7 @@ struct AppShell: View {
         machine: MachineDesk = .houseFixture,
         machinePage: MachinePage? = nil,
         pendingAction: HouseholdAction? = nil,
+        actionNotice: ActionNotice? = nil,
         passwordSaved: Bool = true,
         showsSetup: Bool = false,
         dnsProblem: PiholeProblem? = nil,
@@ -89,6 +91,7 @@ struct AppShell: View {
         self.machine = machine
         self.machinePage = machinePage
         self.pendingAction = pendingAction
+        self.actionNotice = actionNotice
         self.passwordSaved = passwordSaved
         self.showsSetup = showsSetup
         self.dnsProblem = dnsProblem
@@ -121,9 +124,6 @@ struct AppShell: View {
     private var theme: StreetTheme { .house }
 
     private var groups: [GroupBrief] {
-        if let statusBoard {
-            return statusBoard.tiles.map(\.brief)
-        }
         guard let snapshot = screen.snapshot else { return [] }
         return HouseGuide.groups(in: snapshot)
     }
@@ -332,6 +332,7 @@ struct AppShell: View {
                     offersSetup: offersSetup,
                     onTrustNewCertificate: onTrustNewCertificate,
                     onKeepSavedPin: onKeepSavedPin,
+                    actionNotice: actionNotice,
                     onPage: onDNSPage,
                     onPending: onPending,
                     onSavePassword: onSavePassword,

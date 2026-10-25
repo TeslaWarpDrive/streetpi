@@ -72,6 +72,8 @@ struct SettingsView: View {
             let hosts = LiveHostStore()
             address = hosts.piholeText()
             pin = hosts.pinText()
+            pageAddress = statusAddress
+            slug = statusSlug
         }
     }
 

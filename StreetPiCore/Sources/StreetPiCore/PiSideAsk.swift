@@ -1,6 +1,6 @@
 import Foundation
 
-/// Nothing on the Pi needs to change for pause, block, and allow.
+/// Pause, block, allow, and a gravity update use the API. No Pi setting changes from this repo.
 public enum PiSideAsk {
     public static let changes: [String] = []
 }

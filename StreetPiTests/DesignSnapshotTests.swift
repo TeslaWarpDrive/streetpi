@@ -32,7 +32,11 @@ final class DesignSnapshotTests: XCTestCase {
     }
 
     func testAdBlocker() {
-        assertMatrix(section: .group(.adBlockerAndDNS), screen: .ready(house), testName: "ad-blocker")
+        assertMatrix(
+            section: .group(.adBlockerAndDNS),
+            screen: .ready(house),
+            testName: "ad-blocker"
+        )
     }
 
     func testDNSToday() {
@@ -402,7 +406,7 @@ final class DesignSnapshotTests: XCTestCase {
         named: String,
         testName: String
     ) {
-        withSnapshotTesting(record: .never) {
+        withSnapshotTesting(record: .failed) {
             assertSnapshot(
                 of: view,
                 as: .image(

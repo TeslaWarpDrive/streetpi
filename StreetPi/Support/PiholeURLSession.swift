@@ -80,7 +80,11 @@ struct PiholeURLSessionTransport: PiholeTransport {
     }
 
     private func dispatch(_ request: PiholeRequest, url: URL) async throws -> LiveHTTPResponse {
-        let headers = request.headers
+        var headers = request.headers
+        headers["Accept"] = "application/json"
+        if request.body != nil {
+            headers["Content-Type"] = "application/json"
+        }
         switch request.method {
         case "GET":
             return try await http.get(url, headers: headers)

@@ -13,7 +13,8 @@ public enum LiveReadCopy {
         switch problem {
         case .offline:
             offline
-        case .needsPassword, .needsSignIn, .refused, .notSetUp, .dnsOff, .certificateChanged, .pinKept:
+        case .needsPassword, .needsSignIn, .refused, .notSetUp, .dnsOff, .certificateChanged, .pinKept,
+             .busy, .gravityFailed, .untrusted:
             problem.title
         case .notUnderstood, .invalidDomain, .invalidPause:
             fallback
