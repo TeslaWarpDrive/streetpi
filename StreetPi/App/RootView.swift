@@ -3,24 +3,46 @@ import StreetPiCore
 
 struct RootView: View {
     @State private var clock: Date
-    @State private var screen = HouseScreen.ready(.healthyFixture)
+    @State private var screen: HouseScreen
     @State private var section = AppSection.home
     @State private var desk = DNSDesk.houseFixture
     @State private var dnsPage: DNSPage?
-    @State private var machine = MachineDesk.houseFixture
+    @State private var machine: MachineDesk
     @State private var machinePage: MachinePage?
     @State private var pending: HouseholdAction?
     @State private var passwordSaved = false
     @State private var showsSetup = false
     @State private var dnsSession = DNSSessionHold()
     @State private var showLaunch: Bool
+    @State private var piHost: String
+    @State private var committedHost: String
+    @State private var hostNote: String?
+    @State private var piNotice: String?
+    @State private var liveReading: MachineReading?
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.secretStore) private var secretStore
 
     init(now: Date) {
         _clock = State(initialValue: now)
-        let testing = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-        _showLaunch = State(initialValue: !testing)
+        let fixtures = LiveGate.usesFixtures
+        _showLaunch = State(initialValue: !fixtures)
+        let endpoint = HouseAddress.current()
+        _piHost = State(initialValue: endpoint.display)
+        _committedHost = State(initialValue: endpoint.display)
+        _hostNote = State(initialValue: nil)
+        if fixtures {
+            _screen = State(initialValue: .ready(.healthyFixture))
+            _machine = State(initialValue: .houseFixture)
+            _piNotice = State(initialValue: nil)
+            _liveReading = State(initialValue: HouseholdSnapshot.healthyFixture.machine)
+        } else {
+            var house = HouseholdSnapshot.healthyFixture
+            house.machine = nil
+            _screen = State(initialValue: .ready(house))
+            _machine = State(initialValue: .livePlaceholder)
+            _piNotice = State(initialValue: HouseReadingCopy.lookingTitle)
+            _liveReading = State(initialValue: nil)
+        }
     }
 
     var body: some View {
@@ -53,7 +75,11 @@ struct RootView: View {
             },
             onSavePassword: { showsSetup = true },
             onSetupSave: saveSetup,
-            onSetupCancel: { showsSetup = false }
+            onSetupCancel: { showsSetup = false },
+            piHost: $piHost,
+            hostNote: hostNote,
+            onCommitHost: commitPiHost,
+            piNotice: piNotice
         )
         .launchOverlay(isPresented: $showLaunch)
         .preferredColorScheme(.dark)
@@ -65,7 +91,7 @@ struct RootView: View {
                 await client?.appDidEnterBackground()
             }
         }
-        .task(id: scenePhase) {
+        .task(id: watchKey) {
             guard scenePhase == .active else { return }
             let stored = try? secretStore.load(for: AppPassword.account)
             passwordSaved = stored != nil
@@ -73,8 +99,20 @@ struct RootView: View {
         }
     }
 
-    /// Fixture refresh only. The poller is an actor, and the live socket stays off.
+    private var watchKey: String {
+        "\(scenePhase)|\(committedHost)"
+    }
+
     private func watchHouse() async {
+        if LiveGate.usesFixtures {
+            await watchFixtures()
+        } else {
+            await watchLive()
+        }
+    }
+
+    /// Snapshot and preview path. This loop never opens a socket.
+    private func watchFixtures() async {
         let poller = HousePoller {
             try await HouseholdStatusLoader.healthyFixture(now: { Date() }).load()
         }
@@ -88,6 +126,81 @@ struct RootView: View {
             }
             try? await Task.sleep(for: .seconds(tick.waitSeconds))
         }
+    }
+
+    private func watchLive() async {
+        async let house: Void = pumpHouse()
+        async let meters: Void = pumpMeters()
+        _ = await (house, meters)
+    }
+
+    private func pumpHouse() async {
+        let poller = HousePoller {
+            var snapshot = try await HouseholdStatusLoader.healthyFixture(now: { Date() }).load()
+            snapshot.machine = nil
+            return snapshot
+        }
+        while !Task.isCancelled {
+            let tick = await poller.tick()
+            if let snapshot = tick.snapshot {
+                showHouse(snapshot)
+            }
+            try? await Task.sleep(for: .seconds(tick.waitSeconds))
+        }
+    }
+
+    private func pumpMeters() async {
+        var failures = 0
+        while !Task.isCancelled {
+            let endpoint = NetdataEndpoint.parsed(committedHost) ?? .houseDefault
+            let result = await PiMeterRefresh(endpoint: endpoint).load()
+            switch result {
+            case .success(let meters):
+                apply(meters)
+                failures = meters.reading.hasSignal ? 0 : failures + 1
+            case .failure(let problem):
+                liveReading = nil
+                piNotice = problem.sentence
+                failures += 1
+            }
+            if let snapshot = screen.snapshot {
+                showHouse(snapshot)
+            }
+            let wait = RefreshPace.waitSeconds(afterFailures: failures)
+            try? await Task.sleep(for: .seconds(wait))
+        }
+    }
+
+    private func apply(_ meters: NetdataMeters) {
+        machine.host = meters.hostName
+        machine.modelName = "Raspberry Pi"
+        if meters.reading.hasSignal {
+            liveReading = meters.reading
+            piNotice = nil
+        } else {
+            liveReading = nil
+            piNotice = NetdataProblem.notUnderstood.sentence
+        }
+    }
+
+    private func showHouse(_ snapshot: HouseholdSnapshot) {
+        var next = snapshot
+        next.machine = liveReading
+        next.capturedAt = Date()
+        clock = Date()
+        screen = .ready(next)
+    }
+
+    private func commitPiHost() {
+        guard let endpoint = NetdataEndpoint.parsed(piHost) else {
+            hostNote = "Use the Pi's address on your home network."
+            piHost = committedHost
+            return
+        }
+        HouseAddress.save(endpoint)
+        hostNote = nil
+        piHost = endpoint.display
+        committedHost = endpoint.display
     }
 
     private func saveSetup(_ raw: String) {
