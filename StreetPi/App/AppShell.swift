@@ -157,7 +157,6 @@ struct AppShell: View {
         } else {
             tabs(wide: wide)
                 .tabViewStyle(.sidebarAdaptable)
-                .defaultAdaptableTabBarPlacement(.sidebar)
         }
     }
 

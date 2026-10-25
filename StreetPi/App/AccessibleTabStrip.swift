@@ -83,6 +83,7 @@ private struct AccessibleTabButton: View {
         Button(action: action) {
             Label {
                 Text(tab.title)
+                    .lineLimit(scrollsHorizontally ? 1 : nil)
                     .multilineTextAlignment(scrollsHorizontally ? .center : .leading)
                     .fixedSize(horizontal: scrollsHorizontally, vertical: true)
                     .frame(maxWidth: scrollsHorizontally ? nil : .infinity, alignment: .leading)

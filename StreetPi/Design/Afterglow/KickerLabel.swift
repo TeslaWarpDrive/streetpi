@@ -10,6 +10,7 @@ struct KickerLabel: View {
         if dynamicTypeSize.isAccessibilitySize {
             ScrollView(.horizontal) {
                 label
+                    .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: true)
             }
             .scrollIndicators(.visible)
