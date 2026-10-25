@@ -14,7 +14,8 @@ struct RootView: View {
     @State private var showsSetup = false
     @State private var dnsSession = DNSSessionHold()
     @State private var showLaunch: Bool
-    @State private var statusEndpoint: StatusPageEndpoint
+    @State private var statusAddress: String
+    @State private var statusSlug: String
     @State private var statusBoard: HouseStatusBoard?
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.secretStore) private var secretStore
@@ -24,7 +25,12 @@ struct RootView: View {
         let testing = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         _showLaunch = State(initialValue: !testing)
         _screen = State(initialValue: testing ? .ready(.healthyFixture) : .empty)
-        _statusEndpoint = State(initialValue: testing ? .house : StatusPageStore.current())
+        _statusAddress = State(
+            initialValue: testing
+                ? LiveEndpoints.house.uptimeKuma.absoluteString
+                : LiveHostStore().uptimeKumaText()
+        )
+        _statusSlug = State(initialValue: testing ? "house" : StatusPageSlugStore.current())
         _statusBoard = State(initialValue: nil)
     }
 
@@ -60,8 +66,9 @@ struct RootView: View {
             onSetupSave: saveSetup,
             onSetupCancel: { showsSetup = false },
             statusBoard: statusBoard,
-            statusEndpoint: statusEndpoint,
-            onStatusEndpoint: saveStatusEndpoint
+            statusAddress: statusAddress,
+            statusSlug: statusSlug,
+            onStatusPage: saveStatusPage
         )
         .launchOverlay(isPresented: $showLaunch)
         .preferredColorScheme(.dark)
@@ -82,7 +89,7 @@ struct RootView: View {
     }
 
     private var watchKey: String {
-        "\(scenePhase) \(statusEndpoint.host) \(statusEndpoint.port) \(statusEndpoint.slug)"
+        "\(scenePhase) \(statusAddress) \(statusSlug)"
     }
 
     private static var underTest: Bool {
@@ -97,14 +104,17 @@ struct RootView: View {
             await apply(poller, hold: nil)
             return
         }
-        let endpoint = statusEndpoint
+        let address = statusAddress
+        let slug = statusSlug
         let hold = StatusPageHold()
         let poller = HousePoller {
-            let reader = StatusPageReader(
-                transport: StatusPageURLSession(endpoint: endpoint),
-                endpoint: endpoint,
-                now: { Date() }
-            )
+            guard let base = LiveAddress.validated(address, schemes: ["http", "https"]),
+                  let endpoint = StatusPageEndpoint.make(base: base, slug: slug)
+            else {
+                throw StatusPageProblem.notUnderstood
+            }
+            let transport = StatusPageLiveTransport(sender: LiveHTTPClient(), base: base)
+            let reader = StatusPageReader(transport: transport, endpoint: endpoint, now: { Date() })
             let load = try await reader.load()
             hold.store(load.board)
             return load.snapshot
@@ -129,9 +139,20 @@ struct RootView: View {
         }
     }
 
-    private func saveStatusEndpoint(_ endpoint: StatusPageEndpoint) {
-        statusEndpoint = endpoint
-        StatusPageStore.save(endpoint)
+    private func saveStatusPage(address: String, slug: String) {
+        let store = LiveHostStore()
+        do {
+            try store.save(
+                pihole: store.piholeText(),
+                netdata: store.netdataText(),
+                uptimeKuma: address
+            )
+        } catch {
+            return
+        }
+        StatusPageSlugStore.save(slug)
+        statusAddress = store.uptimeKumaText()
+        statusSlug = StatusPageSlugStore.current()
     }
 
     private func saveSetup(_ raw: String) {

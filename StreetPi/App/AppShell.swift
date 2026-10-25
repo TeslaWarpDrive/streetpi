@@ -23,8 +23,9 @@ struct AppShell: View {
     var onSetupSave: (String) -> Void = { _ in }
     var onSetupCancel: () -> Void = {}
     var statusBoard: HouseStatusBoard? = nil
-    var statusEndpoint: StatusPageEndpoint = .house
-    var onStatusEndpoint: (StatusPageEndpoint) -> Void = { _ in }
+    var statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString
+    var statusSlug: String = "house"
+    var onStatusPage: (String, String) -> Void = { _, _ in }
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -333,7 +334,12 @@ struct AppShell: View {
                 )
             }
         case .settings:
-            SettingsView(theme: theme, endpoint: statusEndpoint, onEndpoint: onStatusEndpoint)
+            SettingsView(
+                theme: theme,
+                address: statusAddress,
+                slug: statusSlug,
+                onSave: onStatusPage
+            )
         }
     }
 

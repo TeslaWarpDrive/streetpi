@@ -19,6 +19,12 @@ public struct StatusPageEndpoint: Sendable, Equatable, Codable {
 
     public static let house = StatusPageEndpoint(host: "192.168.1.78", port: 3001, slug: "house")
 
+    public static func make(base: URL, slug: String) -> StatusPageEndpoint? {
+        guard let host = base.host, !host.isEmpty else { return nil }
+        let port = base.port ?? (base.scheme == "https" ? 443 : 80)
+        return StatusPageEndpoint(host: host, port: port, slug: slug).cleaned()
+    }
+
     public func cleaned() -> StatusPageEndpoint? {
         let host = host.trimmingCharacters(in: .whitespacesAndNewlines)
         let slug = slug.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -3,25 +3,26 @@ import SwiftUI
 
 struct SettingsView: View {
     var theme: StreetTheme
-    var endpoint: StatusPageEndpoint = .house
-    var onEndpoint: (StatusPageEndpoint) -> Void = { _ in }
+    var address: String
+    var slug: String
+    var onSave: (String, String) -> Void
 
-    @State private var host: String
-    @State private var portText: String
-    @State private var slug: String
+    @State private var addressText: String
+    @State private var slugText: String
     @State private var problem: String?
 
     init(
         theme: StreetTheme,
-        endpoint: StatusPageEndpoint = .house,
-        onEndpoint: @escaping (StatusPageEndpoint) -> Void = { _ in }
+        address: String = LiveEndpoints.house.uptimeKuma.absoluteString,
+        slug: String = "house",
+        onSave: @escaping (String, String) -> Void = { _, _ in }
     ) {
         self.theme = theme
-        self.endpoint = endpoint
-        self.onEndpoint = onEndpoint
-        _host = State(initialValue: endpoint.host)
-        _portText = State(initialValue: String(endpoint.port))
-        _slug = State(initialValue: endpoint.slug)
+        self.address = address
+        self.slug = slug
+        self.onSave = onSave
+        _addressText = State(initialValue: address)
+        _slugText = State(initialValue: slug)
     }
 
     var body: some View {
@@ -62,9 +63,8 @@ struct SettingsView: View {
                 .font(.body)
                 .foregroundStyle(theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            field("Host", text: $host, prompt: "192.168.1.78")
-            field("Port", text: $portText, prompt: "3001")
-            field("Slug", text: $slug, prompt: "house")
+            field("Address", text: $addressText, prompt: "http://192.168.1.78:3001")
+            field("Slug", text: $slugText, prompt: "house")
             Button("Save status page", action: commit)
                 .font(.body.weight(.semibold))
                 .foregroundStyle(theme.ink)
@@ -100,13 +100,17 @@ struct SettingsView: View {
     }
 
     private func commit() {
-        let draft = StatusPageEndpoint(host: host, port: Int(portText) ?? 0, slug: slug)
-        guard let clean = draft.cleaned() else {
-            problem = "Use a host, a port, and a slug like house."
+        let trimmedSlug = slugText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard LiveAddress.validated(addressText, schemes: ["http", "https"]) != nil else {
+            problem = "Use a status page address on your home network."
+            return
+        }
+        guard StatusPageEndpoint.isSlug(trimmedSlug) else {
+            problem = "Use a slug like house."
             return
         }
         problem = nil
-        onEndpoint(clean)
+        onSave(addressText.trimmingCharacters(in: .whitespacesAndNewlines), trimmedSlug)
     }
 
     private var versionLine: String {
