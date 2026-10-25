@@ -5,7 +5,7 @@ import UIKit
 import XCTest
 @testable import StreetPi
 
-/// Fails when type or a card is laid out under the tab bar. A changed picture is not the check.
+/// Fails when type sits under the tab bar, or when two pieces of text overlap.
 @MainActor
 final class TabClearanceTests: XCTestCase {
     private let now = Date.streetFixtureNow
@@ -18,8 +18,10 @@ final class TabClearanceTests: XCTestCase {
                 for page in pages {
                     let window = host(page: page, scale: scale, device: device)
                     assertVisibleTextClearsBar(in: window)
+                    assertVisibleTextDoesNotOverlap(in: window)
                     scrollToEnd(window)
                     assertVisibleTextClearsBar(in: window)
+                    assertVisibleTextDoesNotOverlap(in: window)
                     window.isHidden = true
                 }
             }
@@ -34,8 +36,9 @@ final class TabClearanceTests: XCTestCase {
                 window.isHidden = true
                 continue
             }
-            assertStreamingIsWhole(label)
+            assertStreamingIsWhole(label, allowsWrap: scale == .largest)
             assertVisibleTextClearsBar(in: window)
+            assertVisibleTextDoesNotOverlap(in: window)
             let bar = tabBarFrame(in: window)
             guard let fraction = anchor("blocker-fraction", in: window) else {
                 XCTFail("The percent line is not in the view")
@@ -88,7 +91,7 @@ final class TabClearanceTests: XCTestCase {
         }
     }
 
-    private func assertStreamingIsWhole(_ label: UILabel) {
+    private func assertStreamingIsWhole(_ label: UILabel, allowsWrap: Bool) {
         let text = plain(label.text)
         XCTAssertFalse(text.contains("-"), "Streaming is hyphenated: \(text)")
         XCTAssertTrue(text.contains("Streaming"), "Title lost letters: \(text)")
@@ -96,6 +99,7 @@ final class TabClearanceTests: XCTestCase {
         let word = ("Streaming" as NSString).size(withAttributes: [.font: font]).width
         let line = font.lineHeight
         if label.bounds.width + 1 < word {
+            XCTAssertTrue(allowsWrap, "Streaming wrapped at the default text size")
             XCTAssertGreaterThan(
                 label.bounds.height,
                 line * 1.4,
@@ -124,6 +128,33 @@ final class TabClearanceTests: XCTestCase {
                 "\(item.text) sits under the tab bar"
             )
         }
+    }
+
+    private func assertVisibleTextDoesNotOverlap(in window: UIWindow) {
+        let visible = visiblePage(in: window)
+        let tabWords: Set<String> = ["House", "Ad blocker", "Pi", "Settings"]
+        var leaves: [(text: String, frame: CGRect)] = []
+        for item in textFrames(in: window) where tabWords.contains(item.text) == false {
+            let shown = item.frame.intersection(visible)
+            let leaf = shown.width > 2 && shown.height > 2 && shown.height < 72
+            let narrow = shown.width < window.bounds.width * 0.92
+            guard leaf, narrow else { continue }
+            leaves.append((item.text, shown))
+        }
+        for index in leaves.indices {
+            for other in leaves.indices.dropFirst(index + 1) {
+                let left = leaves[index]
+                let right = leaves[other]
+                if covers(left.frame, right.frame) || covers(right.frame, left.frame) { continue }
+                let overlap = left.frame.intersection(right.frame)
+                guard overlap.width > 3, overlap.height > 3 else { continue }
+                XCTFail("\(left.text) overlaps \(right.text)")
+            }
+        }
+    }
+
+    private func covers(_ outer: CGRect, _ inner: CGRect) -> Bool {
+        outer.insetBy(dx: -2, dy: -2).contains(inner)
     }
 
     private func clears(_ frame: CGRect, bar: CGRect, in window: UIWindow) -> Bool {

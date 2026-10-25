@@ -13,20 +13,23 @@ struct ServiceSquareTile: View {
 
     var body: some View {
         Button(action: onOpen) {
-            VStack(spacing: AfterglowShape.tight) {
-                StatusDot(tone: square.tone)
-                Text(square.word)
-                    .font(.headline)
-                    .foregroundStyle(palette.ink)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+            VStack(spacing: 2) {
+                HStack(spacing: 4) {
+                    StatusDot(tone: square.tone)
+                    Text(square.word)
+                        .font(.subheadline.bold())
+                        .foregroundStyle(palette.ink)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 UnbrokenTitle(text: square.title, color: palette.secondary)
                     .fixedSize(horizontal: compresses == false, vertical: true)
             }
-            .padding(AfterglowShape.line)
-            .frame(maxWidth: compresses ? .infinity : nil, minHeight: 96)
-            .fixedSize(horizontal: compresses == false, vertical: false)
+            .padding(.horizontal, AfterglowShape.tight)
+            .padding(.vertical, 4)
+            .frame(maxWidth: compresses ? .infinity : nil)
+            .fixedSize(horizontal: compresses == false, vertical: true)
             .background(palette.panel, in: RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous)
@@ -139,11 +142,14 @@ private final class PinStreamingView: UIView {
         let visible = scroll.bounds.height - scroll.adjustedContentInset.bottom
         guard visible > 1 else { return }
         let maxOffset = max(0, scroll.contentSize.height - visible)
-        var target = frame.maxY - visible + 8
-        if let percentTop = anchorTop("blocker-fraction", in: scroll) {
-            let showPercent = max(0, percentTop - 12)
-            if frame.maxY - showPercent <= visible - 8 {
-                target = showPercent
+        var target: CGFloat = 0
+        if frame.maxY > visible - 8 {
+            target = frame.maxY - visible + 8
+            if let percentTop = anchorTop("blocker-fraction", in: scroll) {
+                let showPercent = max(0, percentTop - 12)
+                if frame.maxY - showPercent <= visible - 8 {
+                    target = showPercent
+                }
             }
         }
         target = min(max(0, target), maxOffset)

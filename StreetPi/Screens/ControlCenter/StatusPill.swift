@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Overall status. The accent word keeps the Aurora sheen. The checked line sits under it.
+/// Overall status on one line. The accent word stays inside the pill.
 struct StatusPill: View {
     var title: String
     var accentWord: String
@@ -10,22 +10,26 @@ struct StatusPill: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        VStack(alignment: .leading, spacing: AfterglowShape.tight) {
-            pill
-            Text(checkedLine)
-                .font(.subheadline)
-                .foregroundStyle(palette.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: AfterglowShape.tight) {
+                pill
+                    .fixedSize(horizontal: true, vertical: true)
+                checked
+                    .fixedSize(horizontal: true, vertical: true)
+            }
+            VStack(alignment: .leading, spacing: AfterglowShape.tight) {
+                pill
+                checked
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var pill: some View {
         words
-            .font(dynamicTypeSize.isAccessibilitySize ? .title3.bold() : .title2.bold())
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .font(dynamicTypeSize.isAccessibilitySize ? .title3.bold() : .subheadline.bold())
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
             .background(palette.panelRaised, in: Capsule())
             .overlay {
                 Capsule().strokeBorder(palette.hairlineInteractive, lineWidth: 1)
@@ -34,23 +38,29 @@ struct StatusPill: View {
             .accessibilityLabel(title)
     }
 
+    private var checked: some View {
+        Text(checkedLine)
+            .font(dynamicTypeSize.isAccessibilitySize ? .subheadline : .caption)
+            .foregroundStyle(palette.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
     @ViewBuilder
     private var words: some View {
         if dynamicTypeSize.isAccessibilitySize {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 ForEach(Array(tokens.enumerated()), id: \.offset) { _, token in
                     styled(token)
-                        .frame(maxWidth: .infinity, alignment: .leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         } else {
-            WordFlow(spacing: 8) {
+            HStack(spacing: 4) {
                 ForEach(Array(tokens.enumerated()), id: \.offset) { _, token in
                     styled(token)
                 }
             }
+            .fixedSize(horizontal: true, vertical: true)
         }
     }
 
@@ -61,12 +71,11 @@ struct StatusPill: View {
     @ViewBuilder
     private func styled(_ token: String) -> some View {
         if isAccent(token) {
-            SheenWord(text: token, minimumScale: dynamicTypeSize.isAccessibilitySize ? 0.3 : 0.5)
+            SheenWord(text: token, minimumScale: 1)
         } else {
             Text(token)
                 .foregroundStyle(palette.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 0.3 : 0.5)
+                .fixedSize(horizontal: true, vertical: true)
                 .accessibilityHidden(true)
         }
     }

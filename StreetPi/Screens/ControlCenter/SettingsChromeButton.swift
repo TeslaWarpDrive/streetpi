@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Settings, beside the bell. Solid when motion is held, so the gear still shows in a snapshot.
+/// Settings, beside the bell. A round icon, solid when motion is held.
 struct SettingsChromeButton: View {
     var action: () -> Void
 
@@ -10,20 +10,19 @@ struct SettingsChromeButton: View {
     var body: some View {
         let labeled = Button("Settings", systemImage: "gearshape", action: action)
             .labelStyle(.iconOnly)
-            .font(AfterglowType.label)
+            .font(.body)
             .foregroundStyle(palette.ink)
-            .frame(minWidth: 44, minHeight: 44)
-            .padding(.horizontal, 12)
+            .frame(width: 44, height: 44)
         if gate.usesSolidPlate {
             labeled
-                .background(palette.panelRaised, in: Capsule())
-                .overlay { Capsule().strokeBorder(palette.hairlineInteractive, lineWidth: 1) }
+                .background(palette.panelRaised, in: Circle())
+                .overlay { Circle().strokeBorder(palette.hairlineInteractive, lineWidth: 1) }
         } else if #available(iOS 26, *) {
-            labeled.glassEffect(.regular.interactive(), in: Capsule())
+            labeled.glassEffect(.regular.interactive(), in: Circle())
         } else {
             labeled
-                .background(.ultraThinMaterial, in: Capsule())
-                .overlay { Capsule().strokeBorder(palette.hairlineInteractive, lineWidth: 1) }
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay { Circle().strokeBorder(palette.hairlineInteractive, lineWidth: 1) }
         }
     }
 }

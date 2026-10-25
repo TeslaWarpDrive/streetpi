@@ -1,45 +1,28 @@
 import StreetPiCore
 import SwiftUI
 
-/// N of N up, with one square for each monitor.
+/// How the monitors are doing, in one short line. Names stay in the spoken label.
 struct MonitorBoardCard: View {
     var tile: MonitorTile
 
-    @Environment(\.afterglowPalette) private var palette
-    @ScaledMetric(relativeTo: .body) private var markSide: CGFloat = 18
-
     var body: some View {
         BoardPanel {
-            VStack(alignment: .leading, spacing: AfterglowShape.line) {
-                Text("Monitors")
-                    .font(.subheadline)
-                    .foregroundStyle(palette.secondary)
-                Text(tile.figure)
-                    .font(.system(.title, design: .rounded).bold())
-                    .foregroundStyle(palette.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(tile.line)
-                    .font(.body)
-                    .foregroundStyle(palette.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                marks
-            }
+            CompactFact(title: "Monitors", value: shortStatus, tone: nil)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spoken)
     }
 
-    private var marks: some View {
-        LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: markSide), spacing: 6)],
-            alignment: .leading,
-            spacing: 6
-        ) {
-            ForEach(tile.marks) { mark in
-                MonitorSquare(up: mark.up, side: markSide)
-            }
+    /// Keeps the live count out of the sample figure. "8 of 8" is not painted.
+    private var shortStatus: String {
+        let line = tile.line
+        if line.hasPrefix("All ") && line.contains("are answering") {
+            return "All answering"
         }
-        .accessibilityHidden(true)
+        if line.contains(" are answering") {
+            return line.replacingOccurrences(of: " are answering.", with: "")
+        }
+        return line
     }
 
     private var spoken: String {

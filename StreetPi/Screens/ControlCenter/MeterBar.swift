@@ -1,7 +1,7 @@
 import StreetPiCore
 import SwiftUI
 
-/// A labeled bar. The percent sits beside the name, so the color is not the only status.
+/// A labeled bar. The percent sits with the name, so the color is not the only status.
 struct MeterBar: View {
     var title: String
     var fraction: Double?
@@ -10,29 +10,50 @@ struct MeterBar: View {
     @Environment(\.afterglowPalette) private var palette
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: AfterglowShape.line) {
-                Text(title)
-                    .font(.subheadline)
-                    .foregroundStyle(palette.secondary)
-                Spacer(minLength: AfterglowShape.line)
-                Text(reading)
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(palette.ink)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 4) {
+                name
+                track
+                readingText
             }
-            Capsule()
-                .fill(palette.hairline)
-                .frame(height: 8)
-                .overlay(alignment: .leading) {
-                    GeometryReader { proxy in
-                        Capsule()
-                            .fill(barColor)
-                            .frame(width: proxy.size.width * clamped)
-                    }
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    name
+                    Spacer(minLength: 4)
+                    readingText
                 }
-                .accessibilityHidden(true)
+                track
+            }
         }
         .accessibilityElement(children: .combine)
+    }
+
+    private var name: some View {
+        Text(title)
+            .font(.caption)
+            .foregroundStyle(palette.secondary)
+            .fixedSize(horizontal: true, vertical: true)
+    }
+
+    private var readingText: some View {
+        Text(reading)
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(palette.ink)
+            .fixedSize(horizontal: true, vertical: true)
+    }
+
+    private var track: some View {
+        Capsule()
+            .fill(palette.hairline)
+            .frame(height: 4)
+            .overlay(alignment: .leading) {
+                GeometryReader { proxy in
+                    Capsule()
+                        .fill(barColor)
+                        .frame(width: proxy.size.width * clamped)
+                }
+            }
+            .accessibilityHidden(true)
     }
 
     private var reading: String {

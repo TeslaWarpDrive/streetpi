@@ -23,9 +23,9 @@ struct HouseHome: View {
             ScrollView {
                 FitOfferedWidth(maxWidth: wide ? 880 : nil) {
                     column(short: short)
-                        .padding(.horizontal, AfterglowShape.page)
-                        .padding(.top, short ? AfterglowShape.line : pageInset)
-                        .padding(.bottom, pageInset)
+                        .padding(.horizontal, compact(short) ? compactGap : AfterglowShape.page)
+                        .padding(.top, compact(short) ? compactGap : pageInset)
+                        .padding(.bottom, compact(short) ? compactGap : pageInset)
                 }
             }
             .scrollIndicators(.hidden)
@@ -42,7 +42,7 @@ struct HouseHome: View {
     }
 
     private func column(short: Bool) -> some View {
-        VStack(alignment: .leading, spacing: short ? AfterglowShape.line : AfterglowShape.block) {
+        VStack(alignment: .leading, spacing: compact(short) ? compactGap : AfterglowShape.block) {
             HouseTitleBar(alertCount: alertCount, onAlerts: onAlerts, onSettings: onSettings)
             StatusPill(
                 title: board.headline,
@@ -82,6 +82,14 @@ struct HouseHome: View {
 
     private var pageInset: CGFloat {
         dynamicTypeSize.isAccessibilitySize ? AfterglowShape.line : AfterglowShape.block
+    }
+
+    /// Room between tiles on a short phone, so the square grid starts on the first screen.
+    private let compactGap: CGFloat = 4
+
+    /// A short phone at the default size keeps the first screen to the mock.
+    private func compact(_ short: Bool) -> Bool {
+        short && dynamicTypeSize.isAccessibilitySize == false
     }
 
     private func refresh() async {

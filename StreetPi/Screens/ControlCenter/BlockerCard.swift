@@ -24,17 +24,18 @@ struct BlockerCard: View {
 
     private var openControl: some View {
         Button(action: onOpen) {
-            VStack(alignment: .leading, spacing: AfterglowShape.line) {
-                headline
-                Text(tile.fractionLine)
-                    .font(.body)
-                    .foregroundStyle(palette.ink)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .center, spacing: 4) {
+                    ring
+                    stateLabel
+                    Spacer(minLength: 32)
+                }
+                .frame(minHeight: 32)
+                Text("Ad blocker · last 24 hours")
+                    .font(.caption)
+                    .foregroundStyle(palette.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                    .background(alignment: .topLeading) {
-                        ScrollAnchor(name: "blocker-fraction")
-                            .frame(width: 1, height: 1)
-                            .accessibilityHidden(true)
-                    }
+                percentRow
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -47,53 +48,54 @@ struct BlockerCard: View {
         .modifier(PauseBlockerAction(enabled: tile.canPause, action: onHold))
     }
 
-    @ViewBuilder
-    private var headline: some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            VStack(alignment: .leading, spacing: AfterglowShape.line) {
-                ring
-                figures
+    private var percentRow: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                percent
+                Text(plainLine)
+                    .font(.caption)
+                    .foregroundStyle(palette.ink)
+                    .fixedSize(horizontal: true, vertical: true)
             }
-        } else {
-            HStack(alignment: .center, spacing: AfterglowShape.line) {
-                ring
-                figures
+            VStack(alignment: .leading, spacing: 2) {
+                percent
+                Text(plainLine)
+                    .font(.caption)
+                    .foregroundStyle(palette.ink)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 
-    private var figures: some View {
-        VStack(alignment: .leading, spacing: AfterglowShape.tight) {
-            HStack(alignment: .center, spacing: AfterglowShape.line) {
-                stateLabel
-                Spacer(minLength: 44)
+    private var percent: some View {
+        Text(tile.percentText)
+            .font(.system(dynamicTypeSize.isAccessibilitySize ? .title : .title2, design: .rounded).bold())
+            .foregroundStyle(palette.ink)
+            .fixedSize(horizontal: false, vertical: true)
+            .background(alignment: .topLeading) {
+                ScrollAnchor(name: "blocker-fraction")
+                    .frame(width: 1, height: 1)
+                    .accessibilityHidden(true)
             }
-            Text("Ad blocker · last 24 hours")
-                .font(.subheadline)
-                .foregroundStyle(palette.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(tile.percentText)
-                .font(.system(.largeTitle, design: .rounded).bold())
-                .foregroundStyle(palette.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The spoken line stays whole. The tile keeps the short "About 1 in 5" clause.
+    private var plainLine: String {
+        let line = tile.fractionLine
+        guard let mark = line.range(of: " things") else { return line }
+        return String(line[..<mark.lowerBound])
     }
 
     private var ring: some View {
         RingArc(fraction: tile.fraction)
-            .frame(width: AfterglowShape.ring, height: AfterglowShape.ring)
-            .scaleEffect(72 / AfterglowShape.ring)
-            .frame(width: 72, height: 72)
+            .frame(width: 24, height: 24)
     }
 
     private var stateLabel: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             StatusDot(tone: tile.canPause ? .calm : .attention)
             Text(tile.stateWord)
-                .font(.headline)
+                .font(.subheadline.bold())
                 .foregroundStyle(palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -104,9 +106,9 @@ struct BlockerCard: View {
         Button("About this percent", systemImage: "info.circle", action: onInfo)
             .labelStyle(.iconOnly)
             .buttonStyle(.plain)
-            .font(.title3)
+            .font(.body)
             .foregroundStyle(palette.accent)
-            .frame(minWidth: 44, minHeight: 44)
+            .frame(width: 32, height: 32)
     }
 
     private var spoken: String {

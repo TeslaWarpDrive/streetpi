@@ -8,22 +8,24 @@ struct SquareRow: View {
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(alignment: .top, spacing: AfterglowShape.line) {
+            HStack(alignment: .top, spacing: gap) {
                 row(squares, compresses: false)
             }
-            VStack(alignment: .leading, spacing: AfterglowShape.line) {
-                HStack(alignment: .top, spacing: AfterglowShape.line) {
-                    row(Array(squares.prefix(2)), compresses: false)
+            VStack(alignment: .leading, spacing: gap) {
+                HStack(alignment: .top, spacing: gap) {
+                    row(Array(squares.prefix(2)), compresses: true)
                 }
-                HStack(alignment: .top, spacing: AfterglowShape.line) {
-                    row(Array(squares.dropFirst(2)), compresses: false)
+                HStack(alignment: .top, spacing: gap) {
+                    row(Array(squares.dropFirst(2)), compresses: true)
                 }
             }
-            VStack(alignment: .leading, spacing: AfterglowShape.line) {
+            VStack(alignment: .leading, spacing: gap) {
                 row(squares, compresses: true)
             }
         }
     }
+
+    private let gap: CGFloat = 4
 
     private func row(_ squares: [ServiceSquare], compresses: Bool) -> some View {
         ForEach(squares) { square in
