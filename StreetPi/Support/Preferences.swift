@@ -5,11 +5,14 @@ enum HouseScreen: Equatable {
     case ready(HouseholdSnapshot)
     case empty
     case failed
+    case explained(PlainEnglishStatus, HouseholdSnapshot?)
 
     func status(now: Date) -> PlainEnglishStatus {
         switch self {
         case .ready(let snapshot):
             StatusNarrator.narrate(snapshot, now: now)
+        case .explained(let status, _):
+            status
         case .empty:
             PlainEnglishStatus(
                 headline: HouseReadingCopy.emptyTitle,
@@ -28,10 +31,14 @@ enum HouseScreen: Equatable {
     }
 
     var snapshot: HouseholdSnapshot? {
-        if case .ready(let snapshot) = self {
-            return snapshot
+        switch self {
+        case .ready(let snapshot):
+            snapshot
+        case .explained(_, let snapshot):
+            snapshot
+        case .empty, .failed:
+            nil
         }
-        return nil
     }
 }
 

@@ -4,6 +4,7 @@ import StreetPiCore
 struct PiholeSetupView: View {
     var theme: StreetTheme
     var wide: Bool
+    var trustNote: String?
     var onSave: (String) -> Void
     var onCancel: () -> Void
 
@@ -64,7 +65,7 @@ struct PiholeSetupView: View {
                     .foregroundStyle(theme.ink)
                     .accessibilityAddTraits(.isHeader)
             }
-            Text(PiholeTrust.explanation(for: certificate))
+            Text(trustNote ?? PiholeTrust.explanation(for: certificate))
                 .font(.body)
                 .foregroundStyle(theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -81,6 +82,10 @@ struct DNSProblemView: View {
     var problem: PiholeProblem
     var theme: StreetTheme
     var wide: Bool
+    var offersSetup = false
+    var onSavePassword: () -> Void = {}
+    var onTrustNewCertificate: () -> Void = {}
+    var onKeepSavedPin: () -> Void = {}
 
     var body: some View {
         DeskScroll(wide: wide) {
@@ -99,6 +104,19 @@ struct DNSProblemView: View {
                 .font(.body)
                 .foregroundStyle(theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            if problem == .certificateChanged {
+                Button("Trust the new certificate", action: onTrustNewCertificate)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(theme.accent)
+                Button("Keep the saved pin", action: onKeepSavedPin)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(theme.ink)
+            }
+            if offersSetup {
+                Button("Set up this phone", action: onSavePassword)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(theme.accent)
+            }
         }
         .accessibilityElement(children: .combine)
     }

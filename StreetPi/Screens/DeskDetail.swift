@@ -12,6 +12,10 @@ struct DNSDeskDetail: View {
     var sessionActive: Bool
     var showsSetup: Bool
     var problem: PiholeProblem?
+    var trustNote: String?
+    var offersSetup = false
+    var onTrustNewCertificate: () -> Void = {}
+    var onKeepSavedPin: () -> Void = {}
     var onPage: (DNSPage?) -> Void
     var onPending: (HouseholdAction?) -> Void
     var onSavePassword: () -> Void
@@ -20,9 +24,23 @@ struct DNSDeskDetail: View {
 
     var body: some View {
         if showsSetup {
-            PiholeSetupView(theme: theme, wide: wide, onSave: onSetupSave, onCancel: onSetupCancel)
+            PiholeSetupView(
+                theme: theme,
+                wide: wide,
+                trustNote: trustNote,
+                onSave: onSetupSave,
+                onCancel: onSetupCancel
+            )
         } else if let problem {
-            DNSProblemView(problem: problem, theme: theme, wide: wide)
+            DNSProblemView(
+                problem: problem,
+                theme: theme,
+                wide: wide,
+                offersSetup: offersSetup,
+                onSavePassword: onSavePassword,
+                onTrustNewCertificate: onTrustNewCertificate,
+                onKeepSavedPin: onKeepSavedPin
+            )
         } else if wide, splits {
             split
         } else if let page {

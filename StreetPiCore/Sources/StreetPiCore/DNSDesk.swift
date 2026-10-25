@@ -18,6 +18,12 @@ public struct DNSDesk: Sendable, Equatable, Codable {
     public var topDomains: [DNSCount]
     public var topClients: [DNSCount]
     public var blockedDomains: [DNSCount]
+    /// Live sentence for the hub and Today. Fixtures leave this empty and keep the fixed line.
+    public var spokenLine: String?
+    /// False when the Pi did not report when the block lists last updated.
+    public var listsUpdateKnown: Bool
+    /// Live upkeep sentence. Fixtures leave this empty and keep the fixed note.
+    public var upkeepNote: String?
 
     public init(
         textLogFileEnabled: Bool,
@@ -36,7 +42,10 @@ public struct DNSDesk: Sendable, Equatable, Codable {
         queries: [DNSQuery],
         topDomains: [DNSCount],
         topClients: [DNSCount],
-        blockedDomains: [DNSCount]
+        blockedDomains: [DNSCount],
+        spokenLine: String? = nil,
+        listsUpdateKnown: Bool = true,
+        upkeepNote: String? = nil
     ) {
         self.textLogFileEnabled = textLogFileEnabled
         self.blocking = blocking
@@ -55,6 +64,9 @@ public struct DNSDesk: Sendable, Equatable, Codable {
         self.topDomains = topDomains
         self.topClients = topClients
         self.blockedDomains = blockedDomains
+        self.spokenLine = spokenLine
+        self.listsUpdateKnown = listsUpdateKnown
+        self.upkeepNote = upkeepNote
     }
 
     public var queriesToday: Int {
@@ -208,6 +220,9 @@ extension DNSDesk {
     )
 
     public var blockingLine: String {
+        if let spokenLine, !spokenLine.isEmpty {
+            return spokenLine
+        }
         if blocking.enabled {
             return "Ads are being blocked."
         }

@@ -14,6 +14,10 @@ public enum PiholeProblem: Error, Sendable, Equatable {
     case notUnderstood
     case invalidDomain
     case invalidPause
+    case notSetUp
+    case dnsOff
+    case certificateChanged
+    case pinKept
 
     public var title: String {
         switch self {
@@ -31,6 +35,14 @@ public enum PiholeProblem: Error, Sendable, Equatable {
             "Choose how long to pause."
         case .notUnderstood:
             "The Pi sent something this phone could not read."
+        case .notSetUp:
+            "The ad blocker is not set up."
+        case .dnsOff:
+            "The ad blocker is not running."
+        case .certificateChanged:
+            "The ad blocker's certificate changed."
+        case .pinKept:
+            "The saved security pin is still in use."
         }
     }
 
@@ -50,6 +62,14 @@ public enum PiholeProblem: Error, Sendable, Equatable {
             "Pick 30 seconds, 5 minutes, 30 minutes, or a custom length up to a day."
         case .notUnderstood:
             "Nothing was changed."
+        case .notSetUp:
+            "Save the app password on this phone, then Raspberry Pi Stats can read the ad blocker."
+        case .dnsOff:
+            "The Pi answered, and name lookup is off. Nothing was changed."
+        case .certificateChanged:
+            PiholePin.question
+        case .pinKept:
+            "This phone did not trust the new certificate. You can change the pin in Settings."
         }
     }
 }

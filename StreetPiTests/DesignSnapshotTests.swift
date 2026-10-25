@@ -211,6 +211,35 @@ final class DesignSnapshotTests: XCTestCase {
         assertMatrix(section: .settings, screen: .ready(house), testName: "settings")
     }
 
+    func testLiveHomeTile() {
+        let board = liveBoard
+        assertMatrix(
+            section: .home,
+            screen: .explained(board.status, board.snapshot),
+            testName: "live-home-tile",
+            desk: board.desk
+        )
+    }
+
+    func testLiveAdBlocker() {
+        let board = liveBoard
+        assertMatrix(
+            section: .group(.adBlockerAndDNS),
+            screen: .explained(board.status, board.snapshot),
+            testName: "live-ad-blocker",
+            desk: board.desk
+        )
+    }
+
+    private var liveBoard: AdBlockerBoard {
+        var desk = DNSDesk.emptyLookups
+        desk.blocking = DNSBlocking(enabled: true)
+        desk.day = [DayChartSample(hour: 14, allowed: 9, blocked: 3)]
+        desk.spokenLine = LookupFraction.line(stopped: 3, lookups: 12)
+        let load = PiholeDeskLoad(desk: desk, total: 12, blocked: 3, blockingEnabled: true)
+        return AdBlockerHome.ready(load, now: now)
+    }
+
     func testSplashFinal() throws {
         let url = try XCTUnwrap(
             Bundle.main.url(forResource: SplashFilm.posterName, withExtension: "png")

@@ -26,6 +26,16 @@ public struct MachineDesk: Sendable, Equatable, Codable {
 }
 
 extension MachineDesk {
+    /// Production stand-in until a Pi reader exists. No sample meters.
+    public static let unread = MachineDesk(
+        modelName: "No reading yet",
+        host: "the Pi",
+        series: [],
+        services: [],
+        containers: [],
+        alerts: []
+    )
+
     public static let houseFixture = MachineDesk(
         modelName: "Pi 5",
         host: "fixture.local",

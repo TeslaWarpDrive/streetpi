@@ -15,6 +15,11 @@ struct AppShell: View {
     var showsSetup: Bool = false
     var dnsProblem: PiholeProblem?
     var sessionActive: Bool = false
+    var trustNote: String?
+    var offersSetup = false
+    var onTrustNewCertificate: () -> Void = {}
+    var onKeepSavedPin: () -> Void = {}
+    var onSettingsSaved: () -> Void = {}
     var onDNSPage: (DNSPage?) -> Void = { _ in }
     var onMachinePage: (MachinePage?) -> Void = { _ in }
     var onPending: (HouseholdAction?) -> Void = { _ in }
@@ -43,6 +48,11 @@ struct AppShell: View {
         showsSetup: Bool = false,
         dnsProblem: PiholeProblem? = nil,
         sessionActive: Bool = false,
+        trustNote: String? = nil,
+        offersSetup: Bool = false,
+        onTrustNewCertificate: @escaping () -> Void = {},
+        onKeepSavedPin: @escaping () -> Void = {},
+        onSettingsSaved: @escaping () -> Void = {},
         onDNSPage: @escaping (DNSPage?) -> Void = { _ in },
         onMachinePage: @escaping (MachinePage?) -> Void = { _ in },
         onPending: @escaping (HouseholdAction?) -> Void = { _ in },
@@ -65,6 +75,11 @@ struct AppShell: View {
         self.showsSetup = showsSetup
         self.dnsProblem = dnsProblem
         self.sessionActive = sessionActive
+        self.trustNote = trustNote
+        self.offersSetup = offersSetup
+        self.onTrustNewCertificate = onTrustNewCertificate
+        self.onKeepSavedPin = onKeepSavedPin
+        self.onSettingsSaved = onSettingsSaved
         self.onDNSPage = onDNSPage
         self.onMachinePage = onMachinePage
         self.onPending = onPending
@@ -283,6 +298,10 @@ struct AppShell: View {
                     sessionActive: sessionActive,
                     showsSetup: showsSetup,
                     problem: dnsProblem,
+                    trustNote: trustNote,
+                    offersSetup: offersSetup,
+                    onTrustNewCertificate: onTrustNewCertificate,
+                    onKeepSavedPin: onKeepSavedPin,
                     onPage: onDNSPage,
                     onPending: onPending,
                     onSavePassword: onSavePassword,
@@ -320,7 +339,7 @@ struct AppShell: View {
 
     private var settings: some View {
         NavigationStack {
-            SettingsView(theme: theme)
+            SettingsView(theme: theme, onSaved: onSettingsSaved)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(theme.background)
                 .toolbar(.hidden, for: .navigationBar)

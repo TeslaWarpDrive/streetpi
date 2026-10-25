@@ -109,6 +109,12 @@ struct DNSServices: View {
                 .font(.body)
                 .foregroundStyle(theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            if services.isEmpty {
+                Text("This phone does not list site categories.")
+                    .font(.body)
+                    .foregroundStyle(theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             ForEach(services) { service in
                 DeskCard(theme: theme) {
                     Text(service.name)

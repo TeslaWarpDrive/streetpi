@@ -203,11 +203,13 @@ struct DNSUpkeep: View {
                 .font(.system(.largeTitle, design: .rounded))
                 .foregroundStyle(theme.ink)
                 .accessibilityAddTraits(.isHeader)
-            Text("Lists updated \(AgePhrase.english(from: desk.listsUpdatedAt, to: now)).")
-                .font(.body)
-                .foregroundStyle(theme.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(DNSCopy.upkeepDetail)
+            if desk.listsUpdateKnown {
+                Text("Lists updated \(AgePhrase.english(from: desk.listsUpdatedAt, to: now)).")
+                    .font(.body)
+                    .foregroundStyle(theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text(desk.upkeepNote ?? DNSCopy.upkeepDetail)
                 .font(.body)
                 .foregroundStyle(theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)

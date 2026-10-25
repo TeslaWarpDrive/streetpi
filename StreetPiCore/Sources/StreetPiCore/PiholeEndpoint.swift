@@ -26,7 +26,7 @@ public struct PiholeEndpoint: Sendable, Equatable {
     }
 }
 
-/// Live sockets stay off in this build. The client is exercised with a scripted transport.
+/// StreetPiCore never opens a socket. Tests keep this false. The app dials on its own, and only outside tests.
 public enum PiholeLiveLink {
     public static let socketsEnabled = false
 }
