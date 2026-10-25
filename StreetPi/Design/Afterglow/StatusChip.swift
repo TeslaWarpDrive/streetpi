@@ -7,6 +7,7 @@ struct StatusChip: View {
     var symbol: String?
 
     @Environment(\.afterglowPalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(title: String, tone: PlainEnglishStatus.Tone, symbol: String? = nil) {
         self.title = title
@@ -15,7 +16,7 @@ struct StatusChip: View {
     }
 
     var body: some View {
-        fitted
+        label
             .font(AfterglowType.chip)
             .foregroundStyle(palette.tone(tone))
             .padding(.horizontal, 12)
@@ -27,6 +28,28 @@ struct StatusChip: View {
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel(title)
+    }
+
+    /// Largest type scrolls the words on one line so the pill does not tower over the headline.
+    @ViewBuilder
+    private var label: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            ScrollView(.horizontal) {
+                oneLine
+            }
+            .scrollIndicators(.visible)
+        } else {
+            fitted
+        }
+    }
+
+    private var oneLine: some View {
+        HStack(alignment: .center, spacing: 6) {
+            mark
+            Text(title)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: true)
+        }
     }
 
     /// One line when it fits. Otherwise the word wraps under the symbol instead of clipping.
