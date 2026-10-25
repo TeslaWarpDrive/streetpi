@@ -172,19 +172,36 @@ final class StatusPageTests: XCTestCase {
 
     func testPreviewSpeaksInPlainWords() {
         let board = StatusPageFixture.previewBoard(now: now)
+        let document = StatusPageFixture.previewDocument()
         XCTAssertEqual(board.services.count, 28)
-        XCTAssertEqual(tile("Monitors", board).summary, "28 of 28 up")
+        XCTAssertEqual(document.sections.map(\.name), [
+            "Streaming", "Smart home", "Remote help", "Internet", "Backups",
+        ])
+        XCTAssertEqual(document.sections.map { $0.monitors.count }, [12, 7, 4, 4, 1])
+        XCTAssertEqual(tile("Monitors", board).summary, "27 of 28 up")
+        XCTAssertEqual(tile("Monitors", board).tone, .attention)
         XCTAssertEqual(tile("Streaming", board).summary, "Streaming is up.")
         XCTAssertEqual(tile("Smart home", board).summary, "Smart home is up.")
         XCTAssertEqual(tile("Remote", board).summary, "Remote help is up.")
         XCTAssertEqual(tile("Internet/DNS", board).summary, "Internet is up.")
-        XCTAssertEqual(tile("Backups", board).summary, "Last backup: Tue 3:17 AM")
+        XCTAssertEqual(tile("Backups", board).summary, "No backup check-in yet.")
+        XCTAssertEqual(tile("Backups", board).tone, .attention)
         XCTAssertEqual(
             tile("Address", board).summary,
             "The home's address on the internet is up to date."
         )
-        XCTAssertEqual(board.briefing.headline, "The house is up.")
+        XCTAssertEqual(board.briefing.headline, "No backup check-in yet.")
+        XCTAssertEqual(service("DuckDNS points home", board).id, "10")
+        XCTAssertEqual(service("Weekly SD backup", board).id, "34")
+        XCTAssertEqual(service("Weekly SD backup", board).state, .unknown)
+        XCTAssertEqual(service("MediaFlow proxy (public)", board).kind, .media)
+        XCTAssertEqual(service("Home Assistant", board).kind, .homeAutomation)
+        let names = board.services.map(\.name)
+        XCTAssertTrue(names.contains("RustDesk ID server TCP 21116"))
+        XCTAssertTrue(names.contains("Pi-hole DNS"))
         XCTAssertFalse(board.tiles.contains { $0.summary.contains("Lights") })
+        XCTAssertFalse(board.tiles.contains { $0.summary.contains("3:17") })
+        XCTAssertFalse(names.contains { $0.hasPrefix("Streaming ") })
         XCTAssertFalse(board.isMissing)
     }
 
@@ -206,6 +223,14 @@ final class StatusPageTests: XCTestCase {
             return HouseStatusTile(id: .monitors, title: title, summary: "", tone: .attention, rows: [])
         }
         return tile
+    }
+
+    private func service(_ name: String, _ board: HouseStatusBoard) -> ServiceHealth {
+        guard let service = board.services.first(where: { $0.name == name }) else {
+            XCTFail("Missing \(name)")
+            return ServiceHealth(id: "", name: name, kind: .other, state: .unknown)
+        }
+        return service
     }
 
     private func backupLoad(success: Date?, latestStatus: Int) async throws -> HouseStatusTile {
