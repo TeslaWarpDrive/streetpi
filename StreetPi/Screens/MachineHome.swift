@@ -75,6 +75,7 @@ struct MachineHome: View {
 
 struct MetricChartScreen: View {
     var series: [MetricSeries]
+    var note: String?
     var theme: StreetTheme
     var wide: Bool
 
@@ -84,14 +85,32 @@ struct MetricChartScreen: View {
                 .font(.system(.largeTitle, design: .rounded))
                 .foregroundStyle(theme.ink)
                 .accessibilityAddTraits(.isHeader)
-            Text("The last day, from the sample. Nothing here can be changed.")
+            Text(intro)
                 .font(.body)
                 .foregroundStyle(theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            ForEach(series) { item in
-                chart(item)
+            if series.isEmpty, note != nil {
+                Text(LiveReadCopy.tryAgain)
+                    .font(.body)
+                    .foregroundStyle(theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                ForEach(series) { item in
+                    chart(item)
+                }
             }
         }
+    }
+
+    private var intro: String {
+        if let note, series.isEmpty {
+            return note
+        }
+        let sample = series.contains { $0.caption.localizedCaseInsensitiveContains("sample") }
+        if sample {
+            return "The last day, from the sample. Nothing here can be changed."
+        }
+        return "The last day. Nothing here can be changed."
     }
 
     private func chart(_ item: MetricSeries) -> some View {

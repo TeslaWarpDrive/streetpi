@@ -7,6 +7,9 @@ public struct MachineDesk: Sendable, Equatable, Codable {
     public var services: [NamedRow]
     public var containers: [NamedRow]
     public var alerts: [HouseAlert]
+    public var chartNote: String?
+    public var containerNote: String?
+    public var alertNote: String?
 
     public init(
         modelName: String,
@@ -14,7 +17,10 @@ public struct MachineDesk: Sendable, Equatable, Codable {
         series: [MetricSeries],
         services: [NamedRow],
         containers: [NamedRow],
-        alerts: [HouseAlert]
+        alerts: [HouseAlert],
+        chartNote: String? = nil,
+        containerNote: String? = nil,
+        alertNote: String? = nil
     ) {
         self.modelName = modelName
         self.host = host
@@ -22,6 +28,9 @@ public struct MachineDesk: Sendable, Equatable, Codable {
         self.services = services
         self.containers = containers
         self.alerts = alerts
+        self.chartNote = chartNote
+        self.containerNote = containerNote
+        self.alertNote = alertNote
     }
 }
 
@@ -44,6 +53,16 @@ extension MachineDesk {
             NamedRow(id: "media", name: "Media helper", detail: "Running"),
             NamedRow(id: "status", name: "Status page", detail: "Running"),
         ],
+        alerts: []
+    )
+
+    /// Empty shell for a real read. Fixtures stay on `houseFixture`.
+    public static let quiet = MachineDesk(
+        modelName: "Pi",
+        host: "This house",
+        series: [],
+        services: [],
+        containers: [],
         alerts: []
     )
 
@@ -83,6 +102,8 @@ public enum NetdataAPI {
 
     public static let routes: [NetdataRoute] = [
         NetdataRoute(method: "GET", path: "/api/v1/info"),
+        NetdataRoute(method: "GET", path: "/api/v1/charts"),
+        NetdataRoute(method: "GET", path: "/api/v1/data"),
         NetdataRoute(method: "GET", path: "/api/v3/data"),
         NetdataRoute(method: "GET", path: "/api/v1/alarms"),
     ]
