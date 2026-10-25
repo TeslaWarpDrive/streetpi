@@ -387,7 +387,7 @@ final class DesignSnapshotTests: XCTestCase {
             assertSnapshot(
                 of: view,
                 as: .image(
-                    drawHierarchyInKeyWindow: true,
+                    drawHierarchyInKeyWindow: false,
                     layout: .device(config: layout),
                     traits: traits(size: size)
                 ),
