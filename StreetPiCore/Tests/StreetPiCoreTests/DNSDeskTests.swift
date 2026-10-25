@@ -67,7 +67,13 @@ final class DNSDeskTests: XCTestCase {
         let writes = DNSAPI.routes.filter { $0.method != "GET" }.map(\.path)
         XCTAssertEqual(
             Set(writes),
-            ["/api/auth", "/api/dns/blocking", "/api/domains/deny/exact", "/api/domains/allow/exact"]
+            [
+                "/api/auth",
+                "/api/dns/blocking",
+                "/api/domains/deny/exact",
+                "/api/domains/allow/exact",
+                "/api/action/gravity",
+            ]
         )
         XCTAssertTrue(DNSAPI.routes.allSatisfy { $0.method != "PATCH" && $0.method != "PUT" })
         XCTAssertTrue(DNSAPI.routes.allSatisfy { !$0.path.contains("192.168") && !$0.path.contains("://") })
@@ -85,6 +91,10 @@ final class DNSDeskTests: XCTestCase {
         let allowed = blocked.applying(.allowDomain(named: "news.example.test"))
         XCTAssertTrue(allowed.domains.contains { $0.name == "news.example.test" && $0.detail == "Allowed" })
         XCTAssertEqual(allowed.lists.count, DNSDesk.houseFixture.lists.count)
+        let lists = allowed.applying(.updateBlockLists)
+        XCTAssertEqual(lists.listsUpdatedAt, .streetFixtureNow)
+        XCTAssertFalse(lists.blocking.enabled)
+        XCTAssertEqual(lists.blocking.pause, .fiveMinutes)
         let custom = try XCTUnwrap(PauseLength(seconds: 90))
         XCTAssertEqual(custom.title, "90 seconds")
         XCTAssertNil(PauseLength(seconds: 0))
@@ -102,7 +112,8 @@ final class DNSDeskTests: XCTestCase {
         XCTAssertEqual(Set(pages), Set(DNSPage.allCases))
         XCTAssertEqual(DNSPage.today.title, "Today")
         XCTAssertTrue(DNSPage.queryLog.blurb.contains("kept"))
-        XCTAssertTrue(DNSPage.upkeep.blurb.contains("Nothing here changes"))
+        XCTAssertTrue(DNSPage.upkeep.blurb.contains("block lists"))
+        XCTAssertTrue(DNSPage.upkeep.blurb.contains("stay as they are"))
     }
 
     func testBannedPhrasesAreGone() throws {

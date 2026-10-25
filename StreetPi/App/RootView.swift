@@ -10,6 +10,8 @@ struct RootView: View {
     @State private var machine: MachineDesk
     @State private var machinePage: MachinePage?
     @State private var pending: HouseholdAction?
+    @State private var actionNotice: ActionNotice?
+    @State private var sending = false
     @State private var passwordSaved = false
     @State private var showsSetup = false
     @State private var dnsSession = DNSSessionHold()
@@ -78,6 +80,7 @@ struct RootView: View {
             machine: machine,
             machinePage: machinePage,
             pendingAction: pending,
+            actionNotice: actionNotice,
             passwordSaved: passwordSaved,
             showsSetup: showsSetup,
             dnsProblem: dnsProblem,
@@ -196,7 +199,10 @@ struct RootView: View {
             return existing
         }
         let previous = dnsSession.client
-        let http = LiveHTTPClient(store: hosts)
+        let configuration = LiveHTTPClient.sessionConfiguration()
+        configuration.timeoutIntervalForRequest = 300
+        configuration.timeoutIntervalForResource = 300
+        let http = LiveHTTPClient(store: hosts, configuration: configuration)
         http.apply(hosts)
         liveClient.apply(hosts)
         let box = PresentedPinBox()
@@ -286,6 +292,102 @@ struct RootView: View {
         return merged
     }
 
+    private func trustPresentedPin() {
+        guard let presentedPin, PiholePin.isSHA256Pin(presentedPin) else { return }
+        let hosts = LiveHostStore()
+        do {
+            try hosts.savePin(presentedPin)
+        } catch {
+            return
+        }
+        dnsSession.http?.apply(hosts)
+        liveClient.apply(hosts)
+        declinedPin = nil
+        self.presentedPin = nil
+        signedOut = false
+        retry += 1
+    }
+
+    private func keepSavedPin() {
+        declinedPin = presentedPin ?? declinedPin
+        apply(AdBlockerHome.failed(.pinKept, now: Date()))
+    }
+
+    private func saveSetup(_ raw: String) {
+        guard raw.isEmpty == false else { return }
+        do {
+            try KeychainSession(store: secretStore).saveAppPassword(raw)
+            passwordSaved = true
+            showsSetup = false
+            signedOut = false
+            retry += 1
+        } catch {
+            showsSetup = true
+        }
+    }
+
+    private func confirm(_ action: HouseholdAction) async {
+        guard !sending else { return }
+        sending = true
+        defer { sending = false }
+        let policy = ActionPolicy.confirmation(for: action)
+        if policy.requiresFaceID {
+            let reason = policy.explanation ?? "Confirm this change."
+            let allowed = await FaceIDGate.allow(reason: reason)
+            guard allowed else { return }
+        }
+        switch action {
+        case .signOutOfAdBlocker:
+            signedOut = true
+            dnsSession.signedIn = false
+            await dnsSession.client?.signOut()
+            try? KeychainSession(store: secretStore).deleteSessionID()
+            actionNotice = nil
+            apply(AdBlockerHome.failed(.needsSignIn, now: Date()))
+            pending = nil
+        case .refresh:
+            pending = nil
+            await refreshNow()
+        default:
+            guard PiholeActionRoute.callsTheAPI(action) else {
+                pending = nil
+                return
+            }
+            await performLive(action)
+        }
+    }
+
+    /// Production calls Pi-hole and shows that answer. It does not edit the fixture desk.
+    private func performLive(_ action: HouseholdAction) async {
+        guard let client = await preparedClient() else {
+            actionNotice = ActionNotice(problem: .needsPassword)
+            pending = nil
+            return
+        }
+        do {
+            let receipt = try await PiholeActions.perform(action, client: client, now: Date())
+            desk = desk.adopting(receipt)
+            actionNotice = ActionNotice(receipt: receipt)
+        } catch let problem as PiholeProblem {
+            actionNotice = ActionNotice(problem: problem)
+        } catch {
+            actionNotice = ActionNotice(problem: .offline)
+        }
+        pending = nil
+    }
+
+    /// Reuses the open reader client, so the next action sends the same session id.
+    private func preparedClient() async -> PiholeClient? {
+        if let client = dnsSession.client {
+            return client
+        }
+        guard LiveReaderGate.opensSockets else { return nil }
+        guard AdBlockerSecrets.password(in: secretStore).isEmpty == false else { return nil }
+        return await clientForCurrentSettings()
+    }
+}
+
+private extension RootView {
     private func pumpMeters() async {
         var failures = 0
         while !Task.isCancelled {
@@ -474,57 +576,4 @@ struct RootView: View {
         return url
     }
 
-    private func trustPresentedPin() {
-        guard let presentedPin, PiholePin.isSHA256Pin(presentedPin) else { return }
-        let hosts = LiveHostStore()
-        do {
-            try hosts.savePin(presentedPin)
-        } catch {
-            return
-        }
-        dnsSession.http?.apply(hosts)
-        liveClient.apply(hosts)
-        declinedPin = nil
-        self.presentedPin = nil
-        signedOut = false
-        retry += 1
-    }
-
-    private func keepSavedPin() {
-        declinedPin = presentedPin ?? declinedPin
-        apply(AdBlockerHome.failed(.pinKept, now: Date()))
-    }
-
-    private func saveSetup(_ raw: String) {
-        guard raw.isEmpty == false else { return }
-        do {
-            try KeychainSession(store: secretStore).saveAppPassword(raw)
-            passwordSaved = true
-            showsSetup = false
-            signedOut = false
-            retry += 1
-        } catch {
-            showsSetup = true
-        }
-    }
-
-    private func confirm(_ action: HouseholdAction) async {
-        let policy = ActionPolicy.confirmation(for: action)
-        if policy.requiresFaceID {
-            let reason = policy.explanation ?? "Confirm this change."
-            let allowed = await FaceIDGate.allow(reason: reason)
-            guard allowed else { return }
-        }
-        switch action {
-        case .signOutOfAdBlocker:
-            signedOut = true
-            dnsSession.signedIn = false
-            await dnsSession.client?.signOut()
-            try? KeychainSession(store: secretStore).deleteSessionID()
-            apply(AdBlockerHome.failed(.needsSignIn, now: Date()))
-        case .pauseAdBlocking, .resumeAdBlocking, .blockDomain, .allowDomain, .refresh:
-            break
-        }
-        pending = nil
-    }
 }

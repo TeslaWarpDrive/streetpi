@@ -16,6 +16,7 @@ struct DNSDeskDetail: View {
     var offersSetup = false
     var onTrustNewCertificate: () -> Void = {}
     var onKeepSavedPin: () -> Void = {}
+    var actionNotice: ActionNotice?
     var onPage: (DNSPage?) -> Void
     var onPending: (HouseholdAction?) -> Void
     var onSavePassword: () -> Void
@@ -41,7 +42,21 @@ struct DNSDeskDetail: View {
                 onTrustNewCertificate: onTrustNewCertificate,
                 onKeepSavedPin: onKeepSavedPin
             )
-        } else if wide, splits {
+        } else if let actionNotice {
+            VStack(alignment: .leading, spacing: 0) {
+                ActionNoticeBanner(notice: actionNotice, theme: theme)
+                    .padding(.horizontal, Rhythm.page)
+                    .padding(.top, Rhythm.line)
+                deskBody
+            }
+        } else {
+            deskBody
+        }
+    }
+
+    @ViewBuilder
+    private var deskBody: some View {
+        if wide, splits {
             split
         } else if let page {
             stacked(page)

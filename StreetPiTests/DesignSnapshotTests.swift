@@ -32,7 +32,12 @@ final class DesignSnapshotTests: XCTestCase {
     }
 
     func testAdBlocker() {
-        assertMatrix(section: .group(.adBlockerAndDNS), screen: .ready(house), testName: "ad-blocker")
+        assertMatrix(
+            section: .group(.adBlockerAndDNS),
+            screen: .ready(house),
+            testName: "ad-blocker",
+            record: .all
+        )
     }
 
     func testDNSToday() {
@@ -130,7 +135,8 @@ final class DesignSnapshotTests: XCTestCase {
             section: .group(.adBlockerAndDNS),
             screen: .ready(house),
             testName: "dns-upkeep",
-            dnsPage: .upkeep
+            dnsPage: .upkeep,
+            record: .all
         )
     }
 
@@ -140,7 +146,8 @@ final class DesignSnapshotTests: XCTestCase {
             screen: .ready(house),
             testName: "dns-confirm",
             dnsPage: .today,
-            pending: .pauseAdBlocking(.fiveMinutes)
+            pending: .pauseAdBlocking(.fiveMinutes),
+            record: .all
         )
     }
 
@@ -150,7 +157,8 @@ final class DesignSnapshotTests: XCTestCase {
             screen: .ready(house),
             testName: "dns-allow",
             dnsPage: .queryLog,
-            pending: .allowDomain(named: "news.example.test")
+            pending: .allowDomain(named: "news.example.test"),
+            record: .all
         )
     }
 

@@ -5,14 +5,24 @@ public struct PiholeRequest: Sendable, Equatable, CustomStringConvertible {
     public var path: String
     public var headers: [String: String]
     public var body: Data?
+    /// Seconds to wait. Gravity can take a few minutes. Nil keeps the transport default.
+    public var timeout: TimeInterval?
 
-    public init(method: String, path: String, headers: [String: String], body: Data?) {
+    public init(
+        method: String,
+        path: String,
+        headers: [String: String],
+        body: Data?,
+        timeout: TimeInterval? = nil
+    ) {
         self.method = method
         self.path = path
         self.headers = headers
         self.body = body
+        self.timeout = timeout
     }
 
+    /// Headers stay out of this text. The session id and the password are not logged.
     public var description: String {
         let note = path == "/api/auth" ? "redacted" : "\(body?.count ?? 0) bytes"
         return "\(method) \(path) body:\(note)"

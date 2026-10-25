@@ -65,7 +65,7 @@ struct DNSPageBody: View {
         case .localNames:
             LocalNamesScreen(hosts: desk.hosts, cnames: desk.cnames, theme: theme, wide: wide)
         case .upkeep:
-            DNSUpkeep(desk: desk, theme: theme, wide: wide, now: now)
+            DNSUpkeep(desk: desk, theme: theme, wide: wide, now: now, onAction: onAction)
         }
     }
 }

@@ -18,6 +18,8 @@ public enum PiholeProblem: Error, Sendable, Equatable {
     case dnsOff
     case certificateChanged
     case pinKept
+    case busy
+    case gravityFailed
 
     public var title: String {
         switch self {
@@ -33,6 +35,10 @@ public enum PiholeProblem: Error, Sendable, Equatable {
             "That name does not look right."
         case .invalidPause:
             "Choose how long to pause."
+        case .busy:
+            "That is already running."
+        case .gravityFailed:
+            "Block lists did not update."
         case .notUnderstood:
             "The Pi sent something this phone could not read."
         case .notSetUp:
@@ -60,6 +66,10 @@ public enum PiholeProblem: Error, Sendable, Equatable {
             "Use a name like news.example.test."
         case .invalidPause:
             "Pick 30 seconds, 5 minutes, 30 minutes, or a custom length up to a day."
+        case .busy:
+            "Block lists are already updating. Nothing else was started."
+        case .gravityFailed:
+            "The Pi could not finish updating the lists. Nothing else was changed."
         case .notUnderstood:
             "Nothing was changed."
         case .notSetUp:
@@ -106,6 +116,17 @@ public enum PiholeWrites {
 
     public static func allow(domain: String) -> PiholeRequest? {
         domainRequest(domain, path: "/api/domains/allow/exact")
+    }
+
+    /// Rebuilds the block lists the Pi already has. It does not change settings.
+    public static func gravity() -> PiholeRequest {
+        PiholeRequest(
+            method: "POST",
+            path: "/api/action/gravity",
+            headers: [:],
+            body: Data("{}".utf8),
+            timeout: 300
+        )
     }
 
     private static func domainRequest(_ domain: String, path: String) -> PiholeRequest? {
