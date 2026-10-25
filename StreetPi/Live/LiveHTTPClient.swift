@@ -32,7 +32,8 @@ enum LiveHostError: Error, Equatable {
 }
 
 /// Settings reads and writes these keys. Nothing here opens a connection.
-struct LiveHostStore: Sendable {
+/// `UserDefaults` is thread-safe and is not marked `Sendable` in this SDK.
+struct LiveHostStore: @unchecked Sendable {
     static let piholeKey = "settings.live.pihole"
     static let netdataKey = "settings.live.netdata"
     static let uptimeKumaKey = "settings.live.uptimeKuma"
