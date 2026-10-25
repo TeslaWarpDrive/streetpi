@@ -48,7 +48,7 @@ struct HeadlineWords: View {
 }
 
 /// Aurora stops painted through the glyphs. A gradient style on `Text` does not hold.
-private struct SheenWord: View {
+struct SheenWord: View {
     var text: String
 
     @Environment(\.afterglowPalette) private var palette
@@ -72,7 +72,7 @@ private struct SheenWord: View {
 }
 
 /// Wraps headline words onto the next line instead of squeezing them together.
-private struct WordFlow: Layout {
+struct WordFlow: Layout {
     var spacing: CGFloat
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

@@ -78,10 +78,6 @@ struct AppShell: View {
 
     private var theme: StreetTheme { .house }
 
-    private var status: PlainEnglishStatus {
-        screen.status(now: now)
-    }
-
     private var groups: [GroupBrief] {
         guard let snapshot = screen.snapshot else { return [] }
         return HouseGuide.groups(in: snapshot)
@@ -154,6 +150,16 @@ struct AppShell: View {
                         AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: true)
                     }
             }
+        } else if wide {
+            HStack(alignment: .top, spacing: 0) {
+                AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: false)
+                    .frame(minWidth: 200, idealWidth: 240, maxWidth: 280)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                tabs(wide: wide)
+                    .tabViewStyle(.tabBarOnly)
+                    .toolbar(.hidden, for: .tabBar)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
         } else {
             tabs(wide: wide)
                 .tabViewStyle(.sidebarAdaptable)
@@ -201,17 +207,35 @@ struct AppShell: View {
     @ViewBuilder
     private func houseBody(wide: Bool) -> some View {
         HouseHome(
-            snapshot: screen.snapshot,
-            status: status,
-            lines: lines,
-            groups: groups,
+            board: HouseBoard.make(screen: screen, desk: desk, now: now),
             alertCount: machine.alerts.count,
-            now: now,
             wide: wide,
             onRefresh: onRefresh,
             onAlerts: { showAlerts = true },
-            onOpen: openRoom
+            onSettings: { onSection(.settings) },
+            onOpen: openRoom,
+            onOpenBlocker: openBlockerDetail,
+            onPauseBlocker: pauseBlocker,
+            onOpenDevices: openDevices
         )
+    }
+
+    private func openBlockerDetail() {
+        roomPath = []
+        onDNSPage(.today)
+        onSection(.group(.adBlockerAndDNS))
+    }
+
+    private func pauseBlocker() {
+        let board = HouseBoard.make(screen: screen, desk: desk, now: now)
+        guard board.blocker.canPause else { return }
+        onPending(.pauseAdBlocking(.thirtySeconds))
+    }
+
+    private func openDevices() {
+        roomPath = []
+        onDNSPage(.clients)
+        onSection(.group(.adBlockerAndDNS))
     }
 
     @ViewBuilder
@@ -312,15 +336,9 @@ struct AppShell: View {
     private var splitsDesk: Bool {
         dynamicTypeSize.isAccessibilitySize == false
     }
-
-    private var lines: [String] {
-        guard let snapshot = screen.snapshot, snapshot.isEmptyHouse == false else { return [] }
-        return HouseholdVoice.porchLines(snapshot)
-    }
 }
 
-/// Regular width asks the adaptable tab view for the iPad sidebar.
-/// Compact is left to the phone, so the tab content keeps its normal height.
+/// Regular width is the iPad. Compact stays with the phone, so tab content keeps its height.
 private struct WideSizeClass: ViewModifier {
     var wide: Bool
 

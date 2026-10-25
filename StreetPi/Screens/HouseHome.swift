@@ -1,120 +1,78 @@
 import StreetPiCore
 import SwiftUI
 
-/// House: kicker, link, aura, headline, Briefing, vitals, and rooms.
+/// House control center. The tiles read a `ControlBoard`, so a later source can replace the fixture.
 struct HouseHome: View {
-    var snapshot: HouseholdSnapshot?
-    var status: PlainEnglishStatus
-    var lines: [String]
-    var groups: [GroupBrief]
+    var board: ControlBoard
     var alertCount: Int
-    var now: Date
     var wide: Bool
     var onRefresh: @MainActor () async -> Void
     var onAlerts: () -> Void
+    var onSettings: () -> Void
     var onOpen: (HouseGroup) -> Void
+    var onOpenBlocker: () -> Void
+    var onPauseBlocker: () -> Void
+    var onOpenDevices: () -> Void
 
-    @Environment(\.afterglowGate) private var gate
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @State private var showGlint = false
+    @State private var showMeaning = false
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: dynamicTypeSize.isAccessibilitySize ? AfterglowShape.line : AfterglowShape.block) {
-                header
-                briefing
-                if let machine = snapshot?.machine, hasVitals(machine) {
-                    HouseVitals(machine: machine)
+            VStack(alignment: .leading, spacing: AfterglowShape.block) {
+                HouseTitleBar(alertCount: alertCount, onAlerts: onAlerts, onSettings: onSettings)
+                StatusPill(
+                    title: board.headline,
+                    accentWord: HeadlineAccent.word(in: board.headline),
+                    checkedLine: board.checkedLine
+                )
+                BoardColumns {
+                    BlockerCard(
+                        tile: board.blocker,
+                        onOpen: onOpenBlocker,
+                        onHold: onPauseBlocker,
+                        onInfo: { showMeaning = true }
+                    )
+                } trailing: {
+                    PiBoardCard(tile: board.pi) {
+                        onOpen(.piHealth)
+                    }
                 }
-                if groups.isEmpty == false {
-                    HouseRooms(groups: groups, snapshot: snapshot, onOpen: onOpen)
+                SquareRow(squares: board.squares, onOpen: onOpen)
+                BoardColumns {
+                    MonitorBoardCard(tile: board.monitors)
+                } trailing: {
+                    BackupBoardCard(tile: board.backups) {
+                        onOpen(.backups)
+                    }
                 }
+                BoardColumns {
+                    RunningBoardCard(tile: board.running) {
+                        onOpen(.piHealth)
+                    }
+                } trailing: {
+                    DevicesBoardCard(tile: board.devices, onOpen: onOpenDevices)
+                }
+                HouseFooter()
             }
             .padding(.horizontal, AfterglowShape.page)
-            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? AfterglowShape.tight : AfterglowShape.block)
-            .frame(maxWidth: wide ? 880 : 560)
+            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? AfterglowShape.line : AfterglowShape.block)
+            .frame(maxWidth: wide ? 880 : 560, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollIndicators(.hidden)
         .refreshable {
             await refresh()
         }
-    }
-
-    private var header: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .center, spacing: AfterglowShape.line) {
-                heading
-                Spacer(minLength: AfterglowShape.line)
-                AlertsBell(alertCount: alertCount, action: onAlerts)
-            }
-            VStack(alignment: .leading, spacing: AfterglowShape.line) {
-                HStack(alignment: .center, spacing: AfterglowShape.line) {
-                    KickerLabel(text: "Raspberry Pi Stats")
-                    Spacer(minLength: AfterglowShape.line)
-                    AlertsBell(alertCount: alertCount, action: onAlerts)
-                }
-                StatusChip(title: status.linkLine, tone: status.tone, symbol: "house.fill")
+        .sheet(isPresented: $showMeaning) {
+            PercentMeaningSheet(text: board.blocker.explainer) {
+                showMeaning = false
             }
         }
-    }
-
-    private var heading: some View {
-        VStack(alignment: .leading, spacing: AfterglowShape.tight) {
-            KickerLabel(text: "Raspberry Pi Stats")
-            StatusChip(title: status.linkLine, tone: status.tone, symbol: "house.fill")
-        }
-    }
-
-    private var briefing: some View {
-        VStack(alignment: .leading, spacing: AfterglowShape.line) {
-            StatusHeadline(title: status.headline, accentWord: accentWord, tone: status.tone)
-            GlassPanel(showsGlint: showGlint) {
-                VStack(alignment: .leading, spacing: AfterglowShape.line) {
-                    if spoken.isEmpty == false {
-                        ComposeText(lines: spoken)
-                    }
-                    MonoReading(text: updated)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private var accentWord: String {
-        HeadlineAccent.word(in: status.headline)
-    }
-
-    private var spoken: [String] {
-        if lines.isEmpty == false {
-            return lines
-        }
-        if let detail = status.detail, detail.isEmpty == false {
-            return [detail]
-        }
-        return []
-    }
-
-    private var updated: String {
-        guard let snapshot else { return "No reading yet" }
-        return "Updated \(AgePhrase.english(from: snapshot.referenceDate, to: now))"
-    }
-
-    private func hasVitals(_ machine: MachineReading) -> Bool {
-        machine.cpuUsedFraction != nil
-            || machine.temperatureCelsius != nil
-            || machine.memoryUsedFraction != nil
-            || machine.diskUsedFraction != nil
     }
 
     private func refresh() async {
-        showGlint = true
-        defer { showGlint = false }
         await onRefresh()
-        if gate.holdsMotion {
-            try? await Task.sleep(for: .seconds(AfterglowMotion.slow))
-        }
     }
 }
 
