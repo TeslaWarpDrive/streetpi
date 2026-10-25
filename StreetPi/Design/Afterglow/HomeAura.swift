@@ -1,7 +1,7 @@
 import StreetPiCore
 import SwiftUI
 
-/// Aurora wash behind the current Home screen. The porch layout stays as it is.
+/// Full-screen Aurora wash. House uses the headline band; this stays for the launch handoff.
 struct HomeAura: View {
     var tone: PlainEnglishStatus.Tone
 

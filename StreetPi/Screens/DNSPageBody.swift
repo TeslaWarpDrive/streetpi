@@ -12,7 +12,7 @@ struct DNSPageBody: View {
     var body: some View {
         switch page {
         case .today:
-            DNSToday(desk: desk, theme: theme, wide: wide, now: now, onAction: onAction)
+            DNSToday(desk: desk, theme: theme, wide: wide, onAction: onAction)
         case .statistics:
             DNSStatistics(desk: desk, theme: theme, wide: wide)
         case .queryLog:

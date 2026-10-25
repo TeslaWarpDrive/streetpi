@@ -16,7 +16,7 @@ Tabs are House, Ad blocker, Pi, and Settings. The iPad uses a sidebar.
 
 The launch film is one file, `StreetPi/Resources/launch-film.mp4`. A new film replaces that file. There is no second video asset. It is silent and plays full-screen on the Aurora ground. Tap to skip. It fades into the Home aura. Reduce Motion shows `launch-poster.png`, then fades, and does not play the video. `LaunchOverlay` is the seam.
 
-Keep Home compact and good-looking. A vertical stack is fine when the content fits. When a screen has a lot of data, many stat cards, graphs, or other dense information, do not make it a long one-card column. Choose the arrangement that looks best for that amount of content. There is no fixed column count. Large text must wrap or scroll, and nothing truncates or overlaps. The Home screen follows this when it is built. Do not build that screen in this phase.
+Keep Home compact and good-looking. A vertical stack is fine when the content fits. When a screen has a lot of data, many stat cards, graphs, or other dense information, do not make it a long one-card column. Choose the arrangement that looks best for that amount of content. There is no fixed column count. Large text must wrap or scroll, and nothing truncates or overlaps. The House screen is that Briefing: kicker, link, aura, headline, Briefing card, ring gauges, and rooms.
 
 The only gradient is the Aurora glow family: the Home aura, the ring arcs, and the headline accent word (like “good”). No gradients elsewhere. There is no stock purple AI gradient.
 

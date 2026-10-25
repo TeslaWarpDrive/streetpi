@@ -53,7 +53,8 @@ struct RootView: View {
             },
             onSavePassword: { showsSetup = true },
             onSetupSave: saveSetup,
-            onSetupCancel: { showsSetup = false }
+            onSetupCancel: { showsSetup = false },
+            onRefresh: refreshNow
         )
         .launchOverlay(isPresented: $showLaunch)
         .preferredColorScheme(.dark)
@@ -80,13 +81,24 @@ struct RootView: View {
         }
         while !Task.isCancelled {
             let tick = await poller.tick()
-            if tick.unreachable {
-                screen = .failed
-            } else if let snapshot = tick.snapshot {
-                clock = Date()
-                screen = .ready(snapshot)
-            }
+            apply(tick)
             try? await Task.sleep(for: .seconds(tick.waitSeconds))
+        }
+    }
+
+    private func refreshNow() async {
+        let poller = HousePoller {
+            try await HouseholdStatusLoader.healthyFixture(now: { Date() }).load()
+        }
+        apply(await poller.tick())
+    }
+
+    private func apply(_ tick: HousePollTick) {
+        if tick.unreachable {
+            screen = .failed
+        } else if let snapshot = tick.snapshot {
+            clock = Date()
+            screen = .ready(snapshot)
         }
     }
 
