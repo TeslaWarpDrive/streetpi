@@ -25,18 +25,22 @@ struct BlockerCard: View {
         Button(action: onOpen) {
             VStack(alignment: .leading, spacing: AfterglowShape.line) {
                 HStack(alignment: .center, spacing: AfterglowShape.line) {
-                    stateLabel
-                    Spacer(minLength: 44)
+                    ring
+                    VStack(alignment: .leading, spacing: AfterglowShape.tight) {
+                        HStack(alignment: .center, spacing: AfterglowShape.line) {
+                            stateLabel
+                            Spacer(minLength: 44)
+                        }
+                        Text("Ad blocker · last 24 hours")
+                            .font(.subheadline)
+                            .foregroundStyle(palette.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(tile.percentText)
+                            .font(.system(.largeTitle, design: .rounded).bold())
+                            .foregroundStyle(palette.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
-                ring
-                Text("Ad blocker · last 24 hours")
-                    .font(.subheadline)
-                    .foregroundStyle(palette.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(tile.percentText)
-                    .font(.system(.largeTitle, design: .rounded).bold())
-                    .foregroundStyle(palette.ink)
-                    .fixedSize(horizontal: false, vertical: true)
                 Text(tile.fractionLine)
                     .font(.body)
                     .foregroundStyle(palette.ink)
@@ -56,8 +60,8 @@ struct BlockerCard: View {
     private var ring: some View {
         RingArc(fraction: tile.fraction)
             .frame(width: AfterglowShape.ring, height: AfterglowShape.ring)
-            .scaleEffect(80 / AfterglowShape.ring)
-            .frame(width: 80, height: 80)
+            .scaleEffect(72 / AfterglowShape.ring)
+            .frame(width: 72, height: 72)
     }
 
     private var stateLabel: some View {

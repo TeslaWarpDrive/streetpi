@@ -26,10 +26,10 @@ struct StatusPill: View {
                 styled(token)
             }
         }
-        .font(dynamicTypeSize.isAccessibilitySize ? .title.bold() : .title2.bold())
+        .font(dynamicTypeSize.isAccessibilitySize ? .headline.bold() : .title2.bold())
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .frame(minHeight: 44, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         .background(palette.panelRaised, in: Capsule())
         .overlay {
             Capsule().strokeBorder(palette.hairlineInteractive, lineWidth: 1)
