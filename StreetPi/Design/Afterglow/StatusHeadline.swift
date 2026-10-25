@@ -29,6 +29,6 @@ struct StatusHeadline: View {
 
     /// Large type keeps a shorter band so the words stay on screen. The band never covers the text.
     private var glowBand: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? 28 : 72
+        dynamicTypeSize.isAccessibilitySize ? 8 : 72
     }
 }

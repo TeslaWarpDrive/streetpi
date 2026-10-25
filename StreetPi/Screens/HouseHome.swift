@@ -15,11 +15,12 @@ struct HouseHome: View {
     var onOpen: (HouseGroup) -> Void
 
     @Environment(\.afterglowGate) private var gate
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var showGlint = false
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: AfterglowShape.block) {
+            VStack(alignment: .leading, spacing: dynamicTypeSize.isAccessibilitySize ? AfterglowShape.line : AfterglowShape.block) {
                 header
                 briefing
                 if let machine = snapshot?.machine, hasVitals(machine) {
@@ -30,7 +31,7 @@ struct HouseHome: View {
                 }
             }
             .padding(.horizontal, AfterglowShape.page)
-            .padding(.vertical, AfterglowShape.block)
+            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? AfterglowShape.tight : AfterglowShape.block)
             .frame(maxWidth: wide ? 880 : 560)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
