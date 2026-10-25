@@ -335,6 +335,7 @@ final class DesignSnapshotTests: XCTestCase {
                 of: view,
                 as: .image(
                     drawHierarchyInKeyWindow: true,
+                    perceptualPrecision: 0.99,
                     layout: .device(config: layout),
                     traits: traits(size: size)
                 ),
