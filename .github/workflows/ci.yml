@@ -66,6 +66,8 @@ jobs:
           xcode-select -p
 
       - name: Snapshot tests
+        env:
+          STREETPI_RECORD_SNAPSHOTS: failed
         run: |
           set -euo pipefail
           DEST="$(bash scripts/pick-simulator.sh)"

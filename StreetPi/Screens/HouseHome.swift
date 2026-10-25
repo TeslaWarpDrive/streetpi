@@ -1,134 +1,154 @@
 import StreetPiCore
 import SwiftUI
 
-/// House: kicker, link, aura, headline, Briefing, vitals, and rooms.
+/// Control-center Home. The board is the only content the view reads.
 struct HouseHome: View {
-    var snapshot: HouseholdSnapshot?
-    var status: PlainEnglishStatus
-    var lines: [String]
-    var groups: [GroupBrief]
+    var board: HomeBoard
     var alertCount: Int
-    var now: Date
     var wide: Bool
     var onRefresh: @MainActor () async -> Void
     var onAlerts: () -> Void
+    var onSettings: () -> Void
+    var onOpenAdBlocker: () -> Void
+    var onHoldAdBlocker: () -> Void
     var onOpen: (HouseGroup) -> Void
+    var onOpenDevices: () -> Void
 
-    @Environment(\.afterglowGate) private var gate
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @State private var showGlint = false
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: dynamicTypeSize.isAccessibilitySize ? AfterglowShape.line : AfterglowShape.block) {
+            VStack(alignment: .leading, spacing: AfterglowShape.block) {
                 header
-                briefing
-                if let machine = snapshot?.machine, hasVitals(machine) {
-                    HouseVitals(machine: machine)
-                }
-                if groups.isEmpty == false {
-                    HouseRooms(groups: groups, snapshot: snapshot, onOpen: onOpen)
-                }
+                HomeStatusRow(board: board)
+                hero
+                services
+                monitorsAndBackups
+                facts
+                Text(board.footer)
+                    .font(.footnote)
+                    .foregroundStyle(palette.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, AfterglowShape.page)
             .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? AfterglowShape.tight : AfterglowShape.block)
-            .frame(maxWidth: wide ? 880 : 560)
+            .frame(maxWidth: wide ? 980 : 560)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollIndicators(.hidden)
         .refreshable {
-            await refresh()
+            await onRefresh()
         }
     }
+
+    @Environment(\.afterglowPalette) private var palette
 
     private var header: some View {
         ViewThatFits(in: .horizontal) {
             HStack(alignment: .center, spacing: AfterglowShape.line) {
-                heading
+                title
                 Spacer(minLength: AfterglowShape.line)
-                AlertsBell(alertCount: alertCount, action: onAlerts)
+                chrome
             }
             VStack(alignment: .leading, spacing: AfterglowShape.line) {
-                HStack(alignment: .center, spacing: AfterglowShape.line) {
-                    KickerLabel(text: "Raspberry Pi Stats")
-                    Spacer(minLength: AfterglowShape.line)
-                    AlertsBell(alertCount: alertCount, action: onAlerts)
-                }
-                StatusChip(title: status.linkLine, tone: status.tone, symbol: "house.fill")
+                title
+                chrome
             }
         }
     }
 
-    private var heading: some View {
-        VStack(alignment: .leading, spacing: AfterglowShape.tight) {
-            KickerLabel(text: "Raspberry Pi Stats")
-            StatusChip(title: status.linkLine, tone: status.tone, symbol: "house.fill")
-        }
+    private var title: some View {
+        Text(board.title)
+            .font(dynamicTypeSize.isAccessibilitySize ? .title.bold() : .largeTitle.bold())
+            .foregroundStyle(palette.ink)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityAddTraits(.isHeader)
     }
 
-    private var briefing: some View {
-        VStack(alignment: .leading, spacing: AfterglowShape.line) {
-            StatusHeadline(title: status.headline, accentWord: accentWord, tone: status.tone)
-            GlassPanel(showsGlint: showGlint) {
-                VStack(alignment: .leading, spacing: AfterglowShape.line) {
-                    if spoken.isEmpty == false {
-                        ComposeText(lines: spoken)
-                    }
-                    MonoReading(text: updated)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+    private var chrome: some View {
+        ChromeButtonPair(
+            first: AlertsBell(alertCount: alertCount, action: onAlerts),
+            second: IconChromeButton(title: "Settings", systemImage: "gearshape", action: onSettings)
+        )
+    }
+
+    private var hero: some View {
+        AfterglowTileGrid(
+            spacing: AfterglowShape.line,
+            minimumColumnWidth: dynamicTypeSize.isAccessibilitySize ? 10_000 : 168,
+            maximumColumns: dynamicTypeSize.isAccessibilitySize ? 1 : 2
+        ) {
+            AdBlockerHomeCard(
+                reading: board.adBlocker,
+                onOpen: onOpenAdBlocker,
+                onHold: onHoldAdBlocker
+            )
+            PiHomeTile(reading: board.pi) {
+                onOpen(.piHealth)
             }
         }
-        .accessibilityElement(children: .combine)
     }
 
-    private var accentWord: String {
-        HeadlineAccent.word(in: status.headline)
-    }
-
-    private var spoken: [String] {
-        if lines.isEmpty == false {
-            return lines
-        }
-        if let detail = status.detail, detail.isEmpty == false {
-            return [detail]
-        }
-        return []
-    }
-
-    private var updated: String {
-        guard let snapshot else { return "No reading yet" }
-        return "Updated \(AgePhrase.english(from: snapshot.referenceDate, to: now))"
-    }
-
-    private func hasVitals(_ machine: MachineReading) -> Bool {
-        machine.cpuUsedFraction != nil
-            || machine.temperatureCelsius != nil
-            || machine.memoryUsedFraction != nil
-            || machine.diskUsedFraction != nil
-    }
-
-    private func refresh() async {
-        showGlint = true
-        defer { showGlint = false }
-        await onRefresh()
-        if gate.holdsMotion {
-            try? await Task.sleep(for: .seconds(AfterglowMotion.slow))
+    private var services: some View {
+        AfterglowTileGrid(
+            spacing: AfterglowShape.line,
+            minimumColumnWidth: dynamicTypeSize.isAccessibilitySize ? 10_000 : 132,
+            maximumColumns: serviceColumns
+        ) {
+            ForEach(board.services) { square in
+                HomeServiceSquareView(square: square) {
+                    onOpen(square.group)
+                }
+            }
         }
     }
-}
 
-/// The word in a headline that takes the Aurora sheen.
-enum HeadlineAccent {
-    static func word(in title: String) -> String {
-        let folded = title.lowercased()
-        let keys = [
-            "good", "look", "down", "hot", "paused", "full", "memory",
-            "answering", "trouble", "warmer", "yet",
-        ]
-        for key in keys where folded.contains(key) {
-            return key
+    private var serviceColumns: Int {
+        if dynamicTypeSize.isAccessibilitySize {
+            return 1
         }
-        return ""
+        return wide ? 4 : 2
+    }
+
+    private var monitorsAndBackups: some View {
+        AfterglowTileGrid(
+            spacing: AfterglowShape.line,
+            minimumColumnWidth: dynamicTypeSize.isAccessibilitySize || wide == false ? 10_000 : 280,
+            maximumColumns: dynamicTypeSize.isAccessibilitySize || wide == false ? 1 : 2
+        ) {
+            HomeMonitorBoardView(board: board.monitors, onOpen: onOpen)
+            HomeFactCard(
+                title: board.backups.title,
+                value: board.backups.value,
+                line: board.backups.line,
+                spoken: board.backups.spoken
+            ) {
+                onOpen(board.backups.group)
+            }
+        }
+    }
+
+    private var facts: some View {
+        AfterglowTileGrid(
+            spacing: AfterglowShape.line,
+            minimumColumnWidth: dynamicTypeSize.isAccessibilitySize ? 10_000 : 160,
+            maximumColumns: dynamicTypeSize.isAccessibilitySize ? 1 : 2
+        ) {
+            HomeFactCard(
+                title: board.uptime.title,
+                value: board.uptime.value,
+                line: board.uptime.line,
+                spoken: board.uptime.spoken
+            ) {
+                onOpen(.piHealth)
+            }
+            HomeFactCard(
+                title: board.devices.title,
+                value: board.devices.value,
+                line: board.devices.line,
+                spoken: board.devices.spoken,
+                action: onOpenDevices
+            )
+        }
     }
 }

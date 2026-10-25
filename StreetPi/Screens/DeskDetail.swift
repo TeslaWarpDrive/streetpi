@@ -6,6 +6,7 @@ struct DNSDeskDetail: View {
     var splits: Bool
     var desk: DNSDesk
     var page: DNSPage?
+    var showsDirectory: Bool
     var theme: StreetTheme
     var now: Date
     var passwordSaved: Bool
@@ -13,6 +14,7 @@ struct DNSDeskDetail: View {
     var showsSetup: Bool
     var problem: PiholeProblem?
     var onPage: (DNSPage?) -> Void
+    var onDirectory: () -> Void
     var onPending: (HouseholdAction?) -> Void
     var onSavePassword: () -> Void
     var onSetupSave: (String) -> Void
@@ -27,31 +29,39 @@ struct DNSDeskDetail: View {
             split
         } else if let page {
             stacked(page)
-        } else {
+        } else if showsDirectory {
             hub
+        } else {
+            detail(wide: wide)
         }
     }
 
     private var split: some View {
         DeskColumns(theme: theme) {
             DNSIndex(
-                selected: page ?? .today,
+                overviewSelected: page == nil,
+                selected: page,
                 theme: theme,
                 passwordSaved: passwordSaved,
                 sessionActive: sessionActive,
+                onOverview: { onPage(nil) },
                 onPage: { onPage($0) },
                 onSavePassword: onSavePassword,
                 onSignOut: { onPending(.signOutOfAdBlocker) }
             )
         } page: {
-            DNSPageBody(
-                page: page ?? .today,
-                desk: desk,
-                theme: theme,
-                wide: true,
-                now: now,
-                onAction: { onPending($0) }
-            )
+            if let page {
+                DNSPageBody(
+                    page: page,
+                    desk: desk,
+                    theme: theme,
+                    wide: true,
+                    now: now,
+                    onAction: { onPending($0) }
+                )
+            } else {
+                detail(wide: true)
+            }
         }
     }
 
@@ -72,6 +82,22 @@ struct DNSDeskDetail: View {
                 wide: wide,
                 now: now,
                 onAction: { onPending($0) }
+            )
+        }
+    }
+
+    private func detail(wide: Bool) -> some View {
+        AfterglowScope {
+            AdBlockerDetailView(
+            reading: HomeAdBlockerReading.from(desk: desk),
+            wide: wide,
+            passwordSaved: passwordSaved,
+            sessionActive: sessionActive,
+            onAction: { onPending($0) },
+            showsDirectoryLink: wide == false,
+            onDirectory: onDirectory,
+            onSavePassword: onSavePassword,
+            onSignOut: { onPending(.signOutOfAdBlocker) }
             )
         }
     }

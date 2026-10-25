@@ -317,7 +317,7 @@ final class DesignSnapshotTests: XCTestCase {
         named: String,
         testName: String = #function
     ) {
-        withSnapshotTesting(record: .never) {
+        withSnapshotTesting(record: snapshotRecord) {
             assertSnapshot(
                 of: view,
                 as: .image(
@@ -338,13 +338,26 @@ final class DesignSnapshotTests: XCTestCase {
         named: String,
         testName: String
     ) {
-        withSnapshotTesting(record: .never) {
+        withSnapshotTesting(record: snapshotRecord) {
             assertSnapshot(
                 of: view,
                 as: .image(layout: .sizeThatFits, traits: traits(size: size)),
                 named: named,
                 testName: testName
             )
+        }
+    }
+
+    /// `STREETPI_RECORD_SNAPSHOTS=failed` writes mismatched references and still fails.
+    /// `all` rewrites every reference. The committed tests compare with `never`.
+    private var snapshotRecord: SnapshotTestingConfiguration.Record {
+        switch ProcessInfo.processInfo.environment["STREETPI_RECORD_SNAPSHOTS"] {
+        case "all":
+            .all
+        case "failed":
+            .failed
+        default:
+            .never
         }
     }
 

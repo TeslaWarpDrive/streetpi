@@ -8,6 +8,13 @@ import SwiftUI
 struct HeadlineWords: View {
     var title: String
     var accentWord: String
+    var font: Font?
+
+    init(title: String, accentWord: String, font: Font? = nil) {
+        self.title = title
+        self.accentWord = accentWord
+        self.font = font
+    }
 
     @Environment(\.afterglowPalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -18,7 +25,7 @@ struct HeadlineWords: View {
                 styled(token)
             }
         }
-        .font(dynamicTypeSize.isAccessibilitySize ? AfterglowType.title : AfterglowType.display)
+        .font(font ?? (dynamicTypeSize.isAccessibilitySize ? AfterglowType.title : AfterglowType.display))
         .tracking(dynamicTypeSize.isAccessibilitySize ? 0 : -0.5)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)

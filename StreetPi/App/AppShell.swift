@@ -8,6 +8,7 @@ struct AppShell: View {
     var onSection: (AppSection) -> Void
     var desk: DNSDesk = .houseFixture
     var dnsPage: DNSPage?
+    var showsDNSDirectory: Bool = false
     var machine: MachineDesk = .houseFixture
     var machinePage: MachinePage?
     var pendingAction: HouseholdAction?
@@ -16,6 +17,7 @@ struct AppShell: View {
     var dnsProblem: PiholeProblem?
     var sessionActive: Bool = false
     var onDNSPage: (DNSPage?) -> Void = { _ in }
+    var onDNSDirectory: (Bool) -> Void = { _ in }
     var onMachinePage: (MachinePage?) -> Void = { _ in }
     var onPending: (HouseholdAction?) -> Void = { _ in }
     var onConfirm: (HouseholdAction) -> Void = { _ in }
@@ -36,6 +38,7 @@ struct AppShell: View {
         onSection: @escaping (AppSection) -> Void,
         desk: DNSDesk = .houseFixture,
         dnsPage: DNSPage? = nil,
+        showsDNSDirectory: Bool = false,
         machine: MachineDesk = .houseFixture,
         machinePage: MachinePage? = nil,
         pendingAction: HouseholdAction? = nil,
@@ -44,6 +47,7 @@ struct AppShell: View {
         dnsProblem: PiholeProblem? = nil,
         sessionActive: Bool = false,
         onDNSPage: @escaping (DNSPage?) -> Void = { _ in },
+        onDNSDirectory: @escaping (Bool) -> Void = { _ in },
         onMachinePage: @escaping (MachinePage?) -> Void = { _ in },
         onPending: @escaping (HouseholdAction?) -> Void = { _ in },
         onConfirm: @escaping (HouseholdAction) -> Void = { _ in },
@@ -58,6 +62,7 @@ struct AppShell: View {
         self.onSection = onSection
         self.desk = desk
         self.dnsPage = dnsPage
+        self.showsDNSDirectory = showsDNSDirectory
         self.machine = machine
         self.machinePage = machinePage
         self.pendingAction = pendingAction
@@ -66,6 +71,7 @@ struct AppShell: View {
         self.dnsProblem = dnsProblem
         self.sessionActive = sessionActive
         self.onDNSPage = onDNSPage
+        self.onDNSDirectory = onDNSDirectory
         self.onMachinePage = onMachinePage
         self.onPending = onPending
         self.onConfirm = onConfirm
@@ -201,16 +207,21 @@ struct AppShell: View {
     @ViewBuilder
     private func houseBody(wide: Bool) -> some View {
         HouseHome(
-            snapshot: screen.snapshot,
-            status: status,
-            lines: lines,
-            groups: groups,
+            board: HomeBoard.make(
+                snapshot: screen.snapshot,
+                desk: desk,
+                status: status,
+                now: now
+            ),
             alertCount: machine.alerts.count,
-            now: now,
             wide: wide,
             onRefresh: onRefresh,
             onAlerts: { showAlerts = true },
-            onOpen: openRoom
+            onSettings: { onSection(.settings) },
+            onOpenAdBlocker: openAdBlocker,
+            onHoldAdBlocker: holdAdBlocker,
+            onOpen: openRoom,
+            onOpenDevices: openDevices
         )
     }
 
@@ -229,11 +240,32 @@ struct AppShell: View {
         }
     }
 
+    private func openAdBlocker() {
+        roomPath = []
+        onDNSDirectory(false)
+        onDNSPage(nil)
+        onSection(.group(.adBlockerAndDNS))
+    }
+
+    private func openDevices() {
+        roomPath = []
+        onDNSDirectory(false)
+        onSection(.group(.adBlockerAndDNS))
+        onDNSPage(.clients)
+    }
+
+    private func holdAdBlocker() {
+        if desk.blocking.enabled {
+            onPending(.pauseAdBlocking(.fiveMinutes))
+        } else {
+            onPending(.resumeAdBlocking)
+        }
+    }
+
     private func openRoom(_ group: HouseGroup) {
         switch group {
         case .adBlockerAndDNS:
-            roomPath = []
-            onSection(.group(.adBlockerAndDNS))
+            openAdBlocker()
         case .piHealth:
             roomPath = []
             onSection(.group(.piHealth))
@@ -253,6 +285,7 @@ struct AppShell: View {
                     splits: splitsDesk,
                     desk: desk,
                     page: dnsPage,
+                    showsDirectory: showsDNSDirectory,
                     theme: theme,
                     now: now,
                     passwordSaved: passwordSaved,
@@ -260,6 +293,7 @@ struct AppShell: View {
                     showsSetup: showsSetup,
                     problem: dnsProblem,
                     onPage: onDNSPage,
+                    onDirectory: { onDNSDirectory(true) },
                     onPending: onPending,
                     onSavePassword: onSavePassword,
                     onSetupSave: onSetupSave,
@@ -313,10 +347,6 @@ struct AppShell: View {
         dynamicTypeSize.isAccessibilitySize == false
     }
 
-    private var lines: [String] {
-        guard let snapshot = screen.snapshot, snapshot.isEmptyHouse == false else { return [] }
-        return HouseholdVoice.porchLines(snapshot)
-    }
 }
 
 /// Regular width asks the adaptable tab view for the iPad sidebar.

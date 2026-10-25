@@ -7,6 +7,7 @@ struct RootView: View {
     @State private var section = AppSection.home
     @State private var desk = DNSDesk.houseFixture
     @State private var dnsPage: DNSPage?
+    @State private var dnsDirectory = false
     @State private var machine = MachineDesk.houseFixture
     @State private var machinePage: MachinePage?
     @State private var pending: HouseholdAction?
@@ -39,6 +40,7 @@ struct RootView: View {
             },
             desk: desk,
             dnsPage: dnsPage,
+            showsDNSDirectory: dnsDirectory,
             machine: machine,
             machinePage: machinePage,
             pendingAction: pending,
@@ -46,6 +48,7 @@ struct RootView: View {
             showsSetup: showsSetup,
             sessionActive: dnsSession.client != nil,
             onDNSPage: { dnsPage = $0 },
+            onDNSDirectory: { dnsDirectory = $0 },
             onMachinePage: { machinePage = $0 },
             onPending: { pending = $0 },
             onConfirm: { action in
