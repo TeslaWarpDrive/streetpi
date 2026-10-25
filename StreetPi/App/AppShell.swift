@@ -267,7 +267,7 @@ struct AppShell: View {
                 onGroup: { onSection(.group($0)) }
             )
         case .alerts:
-            AlertsScreen(alerts: machine.alerts, theme: theme, wide: wide)
+            AlertsScreen(alerts: machine.alerts, note: machine.alertNote, theme: theme, wide: wide)
         case .group(let group):
             if group == .adBlockerAndDNS {
                 DNSDeskDetail(

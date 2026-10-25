@@ -8,6 +8,7 @@ enum LiveGate {
         if environment["XCTestBundlePath"] != nil { return true }
         if environment["XCTestSessionIdentifier"] != nil { return true }
         if environment["STREETPI_FIXTURES"] == "1" { return true }
+        if environment["STREETPI_DISABLE_NETWORK"] == "1" { return true }
         if environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" { return true }
         return NSClassFromString("XCTestCase") != nil
     }

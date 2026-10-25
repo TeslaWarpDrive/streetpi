@@ -45,6 +45,19 @@ public enum PiholeDecode {
         }
     }
 
+    public static func textLog(from data: Data) throws -> TextLogPage {
+        let root = try object(data)
+        let next = int(root["nextID"]) ?? 0
+        let pid = int(root["pid"])
+        let file = root["file"] as? String
+        return TextLogPage(
+            lines: try logLines(root["log"]),
+            nextID: next,
+            pid: pid,
+            fileEnabled: fileIsOn(file)
+        )
+    }
+
     public static func queries(from data: Data) throws -> [DNSQuery] {
         let root = try object(data)
         guard let rows = root["queries"] as? [[String: Any]] else { throw PiholeProblem.notUnderstood }
@@ -146,8 +159,38 @@ public enum PiholeDecode {
         throw PiholeProblem.notUnderstood
     }
 
+    private static func logLines(_ value: Any?) throws -> [String] {
+        if let rows = value as? [String] {
+            return rows.map(cleanLine).filter { !$0.isEmpty }
+        }
+        guard let rows = value as? [[String: Any]] else { throw PiholeProblem.notUnderstood }
+        return rows.compactMap { row in
+            guard let message = row["message"] as? String else { return nil }
+            let cleaned = cleanLine(message)
+            return cleaned.isEmpty ? nil : cleaned
+        }
+    }
+
+    private static func cleanLine(_ line: String) -> String {
+        line.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func fileIsOn(_ file: String?) -> Bool {
+        guard let file else { return false }
+        let word = file.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if word.isEmpty || word == "none" || word == "null" || word == "/dev/null" {
+            return false
+        }
+        return true
+    }
+
     private static func object(_ data: Data) throws -> [String: Any] {
-        let value = try JSONSerialization.jsonObject(with: data)
+        let value: Any
+        do {
+            value = try JSONSerialization.jsonObject(with: data)
+        } catch {
+            throw PiholeProblem.notUnderstood
+        }
         guard let root = value as? [String: Any] else { throw PiholeProblem.notUnderstood }
         return root
     }
