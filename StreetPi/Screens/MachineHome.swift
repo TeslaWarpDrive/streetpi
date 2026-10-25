@@ -11,42 +11,28 @@ struct MachineHome: View {
     var onPage: (MachinePage) -> Void
 
     var body: some View {
-        DeskScroll(wide: wide) {
-            VStack(alignment: .leading, spacing: Rhythm.tight) {
-                Text("The Pi")
-                    .font(.system(.largeTitle, design: .rounded))
-                    .foregroundStyle(theme.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Text(placeLine)
-                    .font(.title3)
+        ControlScreen(wide: wide) {
+            ControlTitle(title: "The Pi", line: placeLine, theme: theme)
+            if machine?.hasSignal != true, let piNotice {
+                Text(piNotice)
+                    .font(.body)
                     .foregroundStyle(theme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                if machine?.hasSignal != true, let piNotice {
-                    Text(piNotice)
-                        .font(.body)
-                        .foregroundStyle(theme.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
             }
-            if let cpu = machine?.cpuUsedFraction {
-                meter("Processor", ReadingText.percent(cpu), cpu)
-            }
-            if let temperature = machine?.temperatureCelsius {
-                meter("Temperature", "\(ReadingText.celsius(temperature))  \(ReadingText.warmth(temperature))", nil)
-            }
-            if let memory = machine?.memoryUsedFraction {
-                meter("Memory", ReadingText.percent(memory), memory)
-            }
-            if let disk = machine?.diskUsedFraction {
-                meter("Disk", ReadingText.percent(disk), disk)
-            }
-            if let uptime = machine?.uptimeSeconds {
-                meter("Uptime", ReadingText.uptime(uptime), nil)
+            ControlGrid {
+                readings
             }
             if showsDestinations {
-                ForEach(MachinePage.allCases.filter { $0 != .dashboard }) { page in
-                    DeskLink(title: page.title, blurb: page.blurb, symbol: page.symbolName, theme: theme) {
-                        onPage(page)
+                ControlSection(title: "More", theme: theme)
+                ControlGrid {
+                    ForEach(MachinePage.allCases.filter { $0 != .dashboard }) { page in
+                        LinkTile(
+                            title: page.title,
+                            line: page.blurb,
+                            symbol: page.symbolName,
+                            theme: theme,
+                            action: { onPage(page) }
+                        )
                     }
                 }
             }
@@ -59,30 +45,75 @@ struct MachineHome: View {
         return "\(desk.modelName) at \(desk.host)"
     }
 
-    private func meter(_ label: String, _ value: String, _ fraction: Double?) -> some View {
-        VStack(alignment: .leading, spacing: Rhythm.tight) {
-            ViewThatFits(in: .horizontal) {
-                HStack {
-                    Text(label).font(.subheadline).foregroundStyle(theme.secondary).fixedSize()
-                    Spacer(minLength: Rhythm.line)
-                    Text(value)
-                        .font(.system(.title3, design: .rounded))
-                        .foregroundStyle(theme.ink)
-                        .fixedSize()
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(label).font(.subheadline).foregroundStyle(theme.secondary)
-                    Text(value)
-                        .font(.system(.title3, design: .rounded))
-                        .foregroundStyle(theme.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            if let fraction {
-                FractionTrack(fraction: fraction, theme: theme)
-            }
+    @ViewBuilder
+    private var readings: some View {
+        if let cpu = machine?.cpuUsedFraction {
+            NumberTile(
+                label: "Processor",
+                number: ReadingText.percent(cpu),
+                line: "In use right now.",
+                theme: theme
+            )
         }
-        .accessibilityElement(children: .combine)
+        if let temperature = machine?.temperatureCelsius {
+            NumberTile(
+                label: "Temperature",
+                number: ReadingText.celsius(temperature),
+                line: ReadingText.warmth(temperature),
+                theme: theme
+            )
+        }
+        if let memory = machine?.memoryUsedFraction {
+            NumberTile(
+                label: "Memory",
+                number: ReadingText.percent(memory),
+                line: "In use right now.",
+                theme: theme
+            )
+        }
+        if let disk = machine?.diskUsedFraction {
+            NumberTile(
+                label: "Disk",
+                number: ReadingText.percent(disk),
+                line: diskLine(disk),
+                theme: theme
+            )
+        }
+        if let uptime = machine?.uptimeSeconds {
+            NumberTile(
+                label: "Uptime",
+                number: uptimeNumber(uptime),
+                line: uptimeLine(uptime),
+                theme: theme
+            )
+        }
+    }
+
+    private func diskLine(_ fraction: Double) -> String {
+        fraction >= MachineLimits.diskAttention ? "Almost full." : "Space in use."
+    }
+
+    private func uptimeNumber(_ seconds: TimeInterval) -> String {
+        if seconds < 3_600 {
+            return "<1"
+        }
+        let hours = Int(seconds / 3_600)
+        if hours < 48 {
+            return "\(hours)"
+        }
+        return "\(max(1, Int(seconds / 86_400)))"
+    }
+
+    private func uptimeLine(_ seconds: TimeInterval) -> String {
+        if seconds < 3_600 {
+            return "Hour since the Pi started."
+        }
+        let hours = Int(seconds / 3_600)
+        if hours < 48 {
+            return hours == 1 ? "Hour since the Pi started." : "Hours since the Pi started."
+        }
+        let days = max(1, Int(seconds / 86_400))
+        return days == 1 ? "Day since the Pi started." : "Days since the Pi started."
     }
 }
 
@@ -93,15 +124,8 @@ struct MetricChartScreen: View {
     var wide: Bool
 
     var body: some View {
-        DeskScroll(wide: wide) {
-            Text("Charts")
-                .font(.system(.largeTitle, design: .rounded))
-                .foregroundStyle(theme.ink)
-                .accessibilityAddTraits(.isHeader)
-            Text(intro)
-                .font(.body)
-                .foregroundStyle(theme.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+        ControlScreen(wide: wide) {
+            ControlTitle(title: "Charts", line: intro, theme: theme)
             if series.isEmpty, note != nil {
                 Text(LiveReadCopy.tryAgain)
                     .font(.body)
@@ -119,10 +143,6 @@ struct MetricChartScreen: View {
         if let note, series.isEmpty {
             return note
         }
-        let sample = series.contains { $0.caption.localizedCaseInsensitiveContains("sample") }
-        if sample {
-            return "The last day, from the sample. Nothing here can be changed."
-        }
         return "The last day. Nothing here can be changed."
     }
 
@@ -131,15 +151,50 @@ struct MetricChartScreen: View {
             Text(item.title)
                 .font(.headline)
                 .foregroundStyle(theme.ink)
+                .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
-            bars(item.points)
-            Text(item.caption)
-                .font(.footnote)
+            if let figure = latestFigure(item) {
+                Text(figure)
+                    .font(.system(.largeTitle, design: .rounded))
+                    .foregroundStyle(theme.accent)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text(plainLine(item))
+                .font(.subheadline)
                 .foregroundStyle(theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            bars(item.points)
         }
+        .controlPlate(theme: theme)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(item.title). \(item.caption)")
+        .accessibilityLabel(spoken(item))
+    }
+
+    private func spoken(_ item: MetricSeries) -> String {
+        if let figure = latestFigure(item) {
+            return "\(item.title). \(figure). \(plainLine(item))"
+        }
+        return "\(item.title). \(plainLine(item))"
+    }
+
+    private func latestFigure(_ item: MetricSeries) -> String? {
+        guard item.id != "temperature", let last = item.points.last else { return nil }
+        return ReadingText.percent(last.value)
+    }
+
+    private func plainLine(_ item: MetricSeries) -> String {
+        switch item.id {
+        case "cpu":
+            "Share of the processor over the last day."
+        case "temperature":
+            "How warm the Pi stayed."
+        case "memory":
+            "Share of memory over the last day."
+        case "disk":
+            "Share of the disk over the last day."
+        default:
+            "The last day."
+        }
     }
 
     private func bars(_ points: [MetricPoint]) -> some View {
@@ -148,10 +203,11 @@ struct MetricChartScreen: View {
             ForEach(points) { point in
                 Rectangle()
                     .fill(theme.accent)
-                    .frame(height: max(4, CGFloat(point.value / peak) * 120))
+                    .frame(height: max(4, CGFloat(point.value / peak) * 72))
                     .frame(maxWidth: .infinity)
             }
         }
-        .frame(height: 120, alignment: .bottom)
+        .frame(height: 72, alignment: .bottom)
+        .accessibilityHidden(true)
     }
 }

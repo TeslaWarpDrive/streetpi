@@ -76,7 +76,7 @@ struct DNSIndex: View {
                         .font(.headline)
                         .foregroundStyle(theme.ink)
                         .accessibilityAddTraits(.isHeader)
-                    ForEach(shelf.pages) { page in
+                    ForEach(shelf.pages.filter { $0 != .services }) { page in
                         DeskIndexButton(
                             title: page.title,
                             symbol: page.symbolName,

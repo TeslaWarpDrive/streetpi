@@ -13,16 +13,12 @@ struct PiholeSetupView: View {
     private var certificate: PiholeCertificate { .houseFixture }
 
     var body: some View {
-        DeskScroll(wide: wide) {
-            Text("Set up this phone")
-                .font(.system(.largeTitle, design: .rounded))
-                .foregroundStyle(theme.ink)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
-            Text("The app password is entered once and saved on this phone. Raspberry Pi Stats does not show it again.")
-                .font(.body)
-                .foregroundStyle(theme.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+        ControlScreen(wide: wide) {
+            ControlTitle(
+                title: "Set up this phone",
+                line: "The app password is entered once and saved on this phone. Raspberry Pi Stats does not show it again.",
+                theme: theme
+            )
             SecureField("App password", text: $entry)
                 .textContentType(.password)
                 .textInputAutocapitalization(.never)
@@ -50,11 +46,12 @@ struct PiholeSetupView: View {
             Button("Cancel", action: onCancel)
                 .font(.body.weight(.semibold))
                 .foregroundStyle(theme.ink)
+                .frame(minHeight: 44, alignment: .leading)
         }
     }
 
     private var trustCard: some View {
-        DeskCard(theme: theme) {
+        VStack(alignment: .leading, spacing: Rhythm.line) {
             HStack(alignment: .firstTextBaseline, spacing: Rhythm.line) {
                 Image(systemName: "lock.shield")
                     .font(.title3)
@@ -74,6 +71,7 @@ struct PiholeSetupView: View {
                 .foregroundStyle(theme.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .controlPlate(theme: theme)
         .accessibilityElement(children: .combine)
     }
 }
@@ -121,7 +119,7 @@ struct DNSProblemView: View {
     var onKeepSavedPin: () -> Void = {}
 
     var body: some View {
-        DeskScroll(wide: wide) {
+        ControlScreen(wide: wide) {
             HStack(alignment: .firstTextBaseline, spacing: Rhythm.line) {
                 Image(systemName: symbol)
                     .font(.title2)
