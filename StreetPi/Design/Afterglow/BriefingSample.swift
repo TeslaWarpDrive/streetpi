@@ -3,21 +3,12 @@ import SwiftUI
 struct BriefingSample: View {
     @Environment(\.afterglowPalette) private var palette
     @Environment(\.afterglowGate) private var gate
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: AfterglowShape.line) {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .center, spacing: AfterglowShape.line) {
-                    heading
-                    Spacer(minLength: AfterglowShape.line)
-                    AfterglowButton(title: "Check again", systemImage: "arrow.clockwise", action: checkAgain)
-                }
-                VStack(alignment: .leading, spacing: AfterglowShape.line) {
-                    heading
-                    AfterglowButton(title: "Check again", systemImage: "arrow.clockwise", action: checkAgain)
-                }
-            }
-            StatusHeadline(title: "Everything's good.", tone: .calm)
+            header
+            StatusHeadline(title: "Everything's good.", accentWord: "good", tone: .calm)
             GlassPanel(showsGlint: true) {
                 VStack(alignment: .leading, spacing: AfterglowShape.line) {
                     ComposeText(lines: [
@@ -32,18 +23,42 @@ struct BriefingSample: View {
         }
     }
 
+    private var header: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: AfterglowShape.line) {
+                    heading
+                    refresh
+                }
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .center, spacing: AfterglowShape.line) {
+                        heading
+                        Spacer(minLength: AfterglowShape.line)
+                        refresh
+                    }
+                    VStack(alignment: .leading, spacing: AfterglowShape.line) {
+                        heading
+                        refresh
+                    }
+                }
+            }
+        }
+    }
+
+    private var refresh: some View {
+        AfterglowButton(title: "Check again", systemImage: "arrow.clockwise", action: checkAgain)
+    }
+
     private var heading: some View {
         VStack(alignment: .leading, spacing: AfterglowShape.tight) {
             KickerLabel(text: "StreetPi")
-            HStack(spacing: AfterglowShape.tight) {
-                Image(systemName: "circle.fill")
-                    .font(.caption2)
-                    .foregroundStyle(palette.calm)
-                    .symbolEffect(.pulse, options: .repeating, isActive: gate.holdsMotion)
-                    .accessibilityHidden(true)
+            HStack(alignment: .center, spacing: AfterglowShape.tight) {
+                StatusDot(tone: .calm)
                 Text("Home network")
                     .font(AfterglowType.metadata)
                     .foregroundStyle(palette.secondary)
+                    .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
                 statusMark
             }

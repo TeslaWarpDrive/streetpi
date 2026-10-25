@@ -22,6 +22,7 @@ struct RoomsSample: View {
                                 symbol: room.symbol,
                                 tone: room.tone,
                                 prominent: room.prominent,
+                                samples: room.id == "ad-blocker" ? blockedToday : [],
                                 action: openRoom
                             )
                         }
@@ -109,6 +110,10 @@ struct RoomsSample: View {
                 prominent: false
             ),
         ]
+    }
+
+    private var blockedToday: [Double] {
+        [0.32, 0.4, 0.36, 0.52, 0.44, 0.61, 0.5, 0.72, 0.58, 0.8, 0.7, 0.88]
     }
 
     private func openRoom() {}

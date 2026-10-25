@@ -104,8 +104,8 @@ private final class SplashPlayerCanvas: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         isOpaque = true
-        backgroundColor = SplashPlayerCanvas.backdrop
-        playerLayer.backgroundColor = SplashPlayerCanvas.backdrop.cgColor
+        backgroundColor = StreetColor.uiColor(StreetColor.auroraGround)
+        playerLayer.backgroundColor = StreetColor.uiColor(StreetColor.auroraGround).cgColor
         playerLayer.videoGravity = .resizeAspectFill
         playerLayer.isOpaque = true
         layer.addSublayer(playerLayer)
@@ -128,7 +128,4 @@ private final class SplashPlayerCanvas: UIView {
         super.layoutSubviews()
         playerLayer.frame = bounds
     }
-
-    /// Same lampblack as the dark house background and LaunchBackground, so the first frame has no white gap.
-    private static let backdrop = UIColor(red: 26.0 / 255, green: 22.0 / 255, blue: 20.0 / 255, alpha: 1)
 }

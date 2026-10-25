@@ -14,7 +14,7 @@ struct GlintBorder: View {
         if showsBeam {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .trim(from: max(0, progress - 0.18), to: progress)
-                .stroke(palette.ember, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                .stroke(palette.auraBlue, style: StrokeStyle(lineWidth: 2, lineCap: .round))
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
                 .onAppear(perform: play)

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Injects the Afterglow palette and motion gate, and paints the ground.
+/// Injects the Aurora palette and motion gate, and paints the ground.
 struct AfterglowScope<Content: View>: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var contrast
@@ -24,7 +24,8 @@ struct AfterglowScope<Content: View>: View {
                     palette.ground
                     if colorScheme == .dark {
                         GroundGrain()
-                            .opacity(0.035)
+                            .opacity(0.07)
+                            .blendMode(.overlay)
                             .accessibilityHidden(true)
                     }
                 }

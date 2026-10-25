@@ -16,7 +16,7 @@ struct MonoReading: View {
     private var reading: some View {
         let line = Text(text)
             .font(emphasize ? AfterglowType.reading : AfterglowType.metadata)
-            .foregroundStyle(emphasize ? palette.ember : palette.secondary)
+            .foregroundStyle(emphasize ? palette.ink : palette.secondary)
         if gate.holdsMotion {
             line
                 .contentTransition(.numericText())

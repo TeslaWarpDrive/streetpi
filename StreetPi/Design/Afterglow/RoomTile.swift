@@ -8,6 +8,7 @@ struct RoomTile: View {
     var symbol: String
     var tone: PlainEnglishStatus.Tone
     var prominent: Bool = false
+    var samples: [Double] = []
     var action: () -> Void
 
     @Environment(\.afterglowPalette) private var palette
@@ -20,10 +21,7 @@ struct RoomTile: View {
                 contentPadding: AfterglowShape.tilePadding
             ) {
                 VStack(alignment: .leading, spacing: AfterglowShape.tight) {
-                    Image(systemName: symbol)
-                        .font(.title2)
-                        .foregroundStyle(palette.ember)
-                        .accessibilityHidden(true)
+                    IconChip(systemImage: symbol)
                     Text(title)
                         .font(.headline)
                         .foregroundStyle(palette.ink)
@@ -31,13 +29,30 @@ struct RoomTile: View {
                     if showsDetail {
                         MonoReading(text: detail, emphasize: prominent)
                     }
-                    StatusChip(title: word, tone: tone)
+                    if samples.count > 1 {
+                        Sparkline(samples: samples)
+                    }
+                    statusRow
                 }
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(spoken)
+    }
+
+    private var statusRow: some View {
+        HStack(alignment: .center, spacing: AfterglowShape.tight) {
+            StatusDot(tone: tone)
+            Image(systemName: AfterglowSymbol.status(tone))
+                .accessibilityHidden(true)
+            Text(word)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(AfterglowType.label)
+        .foregroundStyle(palette.tone(tone))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(word)
     }
 
     private var showsDetail: Bool {

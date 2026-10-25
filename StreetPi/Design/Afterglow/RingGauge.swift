@@ -28,15 +28,10 @@ struct RingGauge: View {
     private var dial: some View {
         VStack(spacing: AfterglowShape.tight) {
             ZStack {
-                Circle()
-                    .stroke(palette.hairline, lineWidth: 8)
-                Circle()
-                    .trim(from: 0, to: clamped)
-                    .stroke(palette.ember, style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
+                RingArc(fraction: fraction)
                 MonoReading(text: value, emphasize: true)
             }
-            .frame(width: 108, height: 108)
+            .frame(width: AfterglowShape.ring, height: AfterglowShape.ring)
             .accessibilityHidden(true)
             Label {
                 Text(label)
@@ -58,11 +53,7 @@ struct RingGauge: View {
 
     private var row: some View {
         HStack(alignment: .center, spacing: AfterglowShape.line) {
-            Image(systemName: symbol)
-                .font(.title2)
-                .foregroundStyle(palette.ember)
-                .frame(width: 44, height: 44)
-                .accessibilityHidden(true)
+            IconChip(systemImage: symbol)
             VStack(alignment: .leading, spacing: AfterglowShape.tight) {
                 Text(label)
                     .font(.headline)
@@ -76,9 +67,5 @@ struct RingGauge: View {
             MonoReading(text: value, emphasize: true)
         }
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-    }
-
-    private var clamped: Double {
-        min(max(fraction, 0), 1)
     }
 }

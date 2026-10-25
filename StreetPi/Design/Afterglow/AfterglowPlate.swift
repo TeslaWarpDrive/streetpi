@@ -9,6 +9,7 @@ struct AfterglowPlate<Content: View>: View {
 
     @Environment(\.afterglowPalette) private var palette
     @Environment(\.afterglowGate) private var gate
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -35,6 +36,15 @@ struct AfterglowPlate<Content: View>: View {
                     .overlay { shape.strokeBorder(hairline, lineWidth: 1) }
             }
         }
+        .overlay(alignment: .top) {
+            Capsule()
+                .fill(Color.white.opacity(colorScheme == .dark ? 0.2 : 0.7))
+                .frame(height: 1)
+                .padding(.horizontal, cornerRadius)
+                .padding(.top, 1)
+                .accessibilityHidden(true)
+        }
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.35 : 0.1), radius: 12, y: 6)
     }
 
     private var hairline: Color {

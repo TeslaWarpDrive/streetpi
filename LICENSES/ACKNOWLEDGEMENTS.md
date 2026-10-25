@@ -2,6 +2,8 @@
 
 StreetPi does not copy Open Pi, Pi-hole Remote, their text, their icons, or their screenshots.
 
+The Aurora text, accent, and status colors are adapted from the Catppuccin palette (MIT): https://github.com/catppuccin/catppuccin. The moving glow is a native SwiftUI mesh rebuilt from the mesh-gradient idea in paper-design/shaders (Apache-2.0): https://github.com/paper-design/shaders. No shader source is copied, and that project is not a dependency.
+
 StreetPi vendors no third-party source trees. Dependencies are fetched by Swift Package Manager:
 
 | Project | Use | License | URL |

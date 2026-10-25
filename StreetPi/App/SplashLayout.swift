@@ -15,8 +15,10 @@ enum SplashLayout {
     static let resourceName = "StreetPiSplash"
     static let endImageName = "StreetPiSplashEnd"
 
+    /// Aurora ground, so the film ends on the same color as the house.
+    /// A moving crossfade from the film into the Home aura is not built yet.
     static var backdrop: Color {
-        StreetTheme.house(.dark).background
+        StreetColor.rgb(StreetColor.auroraGround)
     }
 
     static func fit(viewSize: CGSize, mediaSize: CGSize = authoredMedia) -> SplashFit {

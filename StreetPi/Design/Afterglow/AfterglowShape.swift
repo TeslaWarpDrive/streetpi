@@ -10,4 +10,6 @@ enum AfterglowShape {
     static let panelPadding: CGFloat = 16
     static let tilePadding: CGFloat = 16
     static let plateInset: CGFloat = 5
+    static let ring: CGFloat = 108
+    static let arcWidth: CGFloat = 8
 }

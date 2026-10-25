@@ -10,11 +10,11 @@ Pi health is look-only. It shows the processor, temperature, memory, disk, and u
 
 ## Look
 
-Afterglow. Dark is designed first. Light mode is Daylight, and it is a real design. Home is a Briefing and ring gauges for Processor, Temperature, Memory, and Disk. The Porch card and the Lampblack bar meters are retired. The only gradient is one status-tinted glow behind the Home headline. The video splash stays, and the handoff reuses that same glow.
+Aurora. Dark is designed first. Light mode is Daylight, and it is a real design. Home is a Briefing and ring gauges for Processor, Temperature, Memory, and Disk. The Porch card and the Lampblack bar meters are retired. The only gradient is the Aurora glow family: the Home aura, the ring arcs, and the headline accent word. The video splash stays. Its end tint is the Aurora ground.
 
 Tabs are House, Ad blocker, Pi, and Settings. The iPad uses a sidebar. Settings has Appearance: System, Dark, Light.
 
-Closed decisions are in `docs/project-context.md`. The rules are in `AGENTS.md`. Version 1.0.0 still draws the earlier porch screens. This section is the rule from 2026-10-24.
+Closed decisions are in `docs/project-context.md`. The rules are in `AGENTS.md`. Version 1.0.0 still draws the earlier porch screens, in Aurora colors. This section is the rule from 2026-10-24.
 
 ## Layout
 

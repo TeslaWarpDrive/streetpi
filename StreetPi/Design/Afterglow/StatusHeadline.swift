@@ -1,35 +1,34 @@
 import StreetPiCore
 import SwiftUI
 
+/// Headline on an opaque plate, with an uncovered Aurora band above it.
+/// The band stays visible on a narrow phone, where a full-bleed plate used to hide the glow.
 struct StatusHeadline: View {
     var title: String
+    var accentWord: String
     var tone: PlainEnglishStatus.Tone
 
     @Environment(\.afterglowPalette) private var palette
-    @Environment(\.afterglowGate) private var gate
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .bottomLeading) {
             AuraView(tone: tone)
-            Text(title)
-                .font(dynamicTypeSize.isAccessibilitySize ? AfterglowType.title : AfterglowType.display)
-                .tracking(dynamicTypeSize.isAccessibilitySize ? 0 : -0.5)
-                .foregroundStyle(palette.ink)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(AfterglowShape.block)
-                .background(plate, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .padding(AfterglowShape.line)
+            HeadlineWords(title: title, accentWord: accentWord)
+                .padding(.horizontal, AfterglowShape.block)
+                .padding(.vertical, AfterglowShape.line)
+                .background(palette.panelRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .padding(.horizontal, AfterglowShape.line)
+                .padding(.top, glowBand)
+                .padding(.bottom, AfterglowShape.line)
         }
-        .frame(minHeight: dynamicTypeSize.isAccessibilitySize ? 0 : 148)
-        .clipShape(RoundedRectangle(cornerRadius: AfterglowShape.panel, style: .continuous))
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
     }
 
-    private var plate: Color {
-        palette.panelRaised.opacity(gate.usesSolidPlate ? 1 : 0.90)
+    /// Large type keeps a shorter band so the words stay on screen. The band never covers the text.
+    private var glowBand: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? 28 : 72
     }
 }

@@ -6,21 +6,21 @@ Agents follow `AGENTS.md`. This file records decisions that are already closed.
 
 ## Design
 
-Bradley approved Afterglow on 2026-10-24. That approval covers this rule change and the design system that follows it. Later phases are not approved yet.
+Bradley approved the Briefing and ring-gauge layout on 2026-10-24, then rejected the warm near-black and orange glow the same day and picked Aurora. Layout, features, and motion stay. Later phases are not approved yet.
 
-Afterglow replaces the Porch card and the Lampblack bar meters. Home uses a Briefing and ring gauges. Each ring keeps its label and a plain word. The word for warmth belongs with Temperature.
+Aurora replaces the Porch card and the Lampblack bar meters. Home uses a Briefing and ring gauges. Each ring keeps its label and a plain word. The word for warmth belongs with Temperature.
 
 Dark is designed first. Light mode is Daylight, and it is a real design.
 
 Tabs are House, Ad blocker, Pi, and Settings. The iPad uses a sidebar.
 
-The video splash stays.
+The video splash stays. Its end tint is the Aurora ground. A moving crossfade from the film into the Home aura is not built yet.
 
-The only allowed gradient is one status-tinted glow behind the Home headline. The splash handoff reuses that same glow. It is not a second gradient. There is no stock purple AI gradient.
+The only gradient is the Aurora glow family: the Home aura, the ring arcs, and the headline accent word (like “good”). No gradients elsewhere. There is no stock purple AI gradient.
 
 The app icon refresh waits for the release phase. This decision does not change the icon.
 
-Version 1.0.0 still draws the porch card and the bar meters. Those screens change in later work. The rule from here is Afterglow.
+Version 1.0.0 still draws the porch card and the bar meters. Those screens change in later work. The rule from here is Aurora.
 
 Mockups show mood. They are not final pixels. Do not copy a "Cool" label under Memory, a duplicate gear on the Pi screen, a static border where a beam should move, alert copy that names a person, or a missing slice on the icon pie. Alerts never name a person.
 

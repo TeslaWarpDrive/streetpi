@@ -7,6 +7,11 @@ struct ComponentBoard: View {
             BriefingSample()
             VitalsSample()
             RoomsSample()
+            VStack(alignment: .leading, spacing: AfterglowShape.line) {
+                KickerLabel(text: "Tabs")
+                GalleryTabBar()
+            }
+            .padding(.bottom, AfterglowShape.line)
         }
         .padding(AfterglowShape.page)
         .frame(maxWidth: .infinity, alignment: .topLeading)
