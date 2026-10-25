@@ -77,7 +77,7 @@ public struct HouseStatusBoard: Sendable, Equatable {
     ) -> HouseStatusBoard {
         let services = StatusServices.list(sections: document.sections, history: history, now: now)
         let tiles = [
-            MonitorTile.make(sections: document.sections, history: history, services: services),
+            StatusMonitorTile.make(sections: document.sections, history: history, services: services),
             SectionRollup.tile(
                 group: .streaming,
                 title: "Streaming",
@@ -115,7 +115,7 @@ public struct HouseStatusBoard: Sendable, Equatable {
                 services: services
             ),
             AddressTile.make(sections: document.sections, history: history, services: services),
-            BackupTile.make(sections: document.sections, history: history, services: services, now: now),
+            StatusBackupTile.make(sections: document.sections, history: history, services: services, now: now),
         ]
         return HouseStatusBoard(tiles: tiles, services: services, isMissing: false)
     }
@@ -263,7 +263,7 @@ enum StatusServices {
     ) -> Reachability {
         if StatusNames.same(section.name, StatusPageCopy.backupSection),
            StatusNames.same(monitor.name, StatusPageCopy.backupMonitor) {
-            return BackupTile.reachability(monitorID: monitor.id, history: history, now: now)
+            return StatusBackupTile.reachability(monitorID: monitor.id, history: history, now: now)
         }
         switch history.condition(for: monitor.id) {
         case .up:
@@ -323,7 +323,7 @@ enum SectionRollup {
     }
 }
 
-enum MonitorTile {
+enum StatusMonitorTile {
     static func make(
         sections: [StatusSection],
         history: StatusHistory,
@@ -401,7 +401,7 @@ enum AddressTile {
     }
 }
 
-enum BackupTile {
+enum StatusBackupTile {
     static func make(
         sections: [StatusSection],
         history: StatusHistory,
