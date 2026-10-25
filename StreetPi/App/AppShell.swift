@@ -22,6 +22,10 @@ struct AppShell: View {
     var onSavePassword: () -> Void = {}
     var onSetupSave: (String) -> Void = { _ in }
     var onSetupCancel: () -> Void = {}
+    var statusBoard: HouseStatusBoard? = nil
+    var statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString
+    var statusSlug: String = "house"
+    var onStatusPage: (String, String) -> Void = { _, _ in }
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -36,10 +40,21 @@ struct AppShell: View {
     }
 
     private var status: PlainEnglishStatus {
-        screen.status(now: now)
+        if statusBoard?.isMissing == true {
+            return PlainEnglishStatus(
+                headline: StatusPageCopy.notSetUp,
+                detail: StatusPageCopy.notSetUpDetail,
+                tone: .attention,
+                linkLine: "On the home network"
+            )
+        }
+        return screen.status(now: now)
     }
 
     private var groups: [GroupBrief] {
+        if let statusBoard {
+            return statusBoard.tiles.map(\.brief)
+        }
         guard let snapshot = screen.snapshot else { return [] }
         return HouseGuide.groups(in: snapshot)
     }
@@ -195,6 +210,9 @@ struct AppShell: View {
         if group == .piHealth, let machinePage {
             return machinePage.title
         }
+        if let brief = groups.first(where: { $0.id == group }) {
+            return brief.title
+        }
         return group.title
     }
 
@@ -316,11 +334,17 @@ struct AppShell: View {
                 )
             }
         case .settings:
-            SettingsView(theme: theme)
+            SettingsView(
+                theme: theme,
+                address: statusAddress,
+                slug: statusSlug,
+                onSave: onStatusPage
+            )
         }
     }
 
     private var lines: [String] {
+        if statusBoard?.isMissing == true { return [] }
         guard let snapshot = screen.snapshot, !snapshot.isEmptyHouse else { return [] }
         return HouseholdVoice.porchLines(snapshot)
     }

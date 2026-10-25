@@ -208,7 +208,29 @@ final class DesignSnapshotTests: XCTestCase {
     }
 
     func testSettings() {
-        assertMatrix(section: .settings, screen: .ready(house), testName: "settings")
+        assertMatrix(
+            section: .settings,
+            screen: .ready(house),
+            testName: "settings"
+        )
+    }
+
+    func testStatusNotSetUp() {
+        assertMatrix(
+            section: .home,
+            screen: .ready(.emptyFixture),
+            testName: "status-not-set-up",
+            board: .notSetUp()
+        )
+    }
+
+    func testStatusReady() {
+        assertMatrix(
+            section: .home,
+            screen: .ready(StatusPageFixture.previewSnapshot(now: now)),
+            testName: "status-ready",
+            board: StatusPageFixture.previewBoard(now: now)
+        )
     }
 
     func testSplashFinal() throws {
@@ -279,7 +301,9 @@ final class DesignSnapshotTests: XCTestCase {
         machinePage: MachinePage? = nil,
         pending: HouseholdAction? = nil,
         showsSetup: Bool = false,
-        dnsProblem: PiholeProblem? = nil
+        dnsProblem: PiholeProblem? = nil,
+        board: HouseStatusBoard? = nil,
+        recordMode: SnapshotTestingConfiguration.Record = .never
     ) {
         for size in SnapshotScale.allCases {
             for device in SnapshotDevice.allCases {
@@ -293,7 +317,8 @@ final class DesignSnapshotTests: XCTestCase {
                     machinePage: machinePage,
                     pendingAction: pending,
                     showsSetup: showsSetup,
-                    dnsProblem: dnsProblem
+                    dnsProblem: dnsProblem,
+                    statusBoard: board
                 )
                 .preferredColorScheme(.dark)
                 .environment(\.colorScheme, .dark)
@@ -304,7 +329,8 @@ final class DesignSnapshotTests: XCTestCase {
                     layout: device.config,
                     size: size,
                     named: "dark-\(size.rawValue)-\(device.rawValue)",
-                    testName: testName
+                    testName: testName,
+                    recordMode: recordMode
                 )
             }
         }
@@ -315,9 +341,10 @@ final class DesignSnapshotTests: XCTestCase {
         layout: ViewImageConfig,
         size: SnapshotScale,
         named: String,
-        testName: String = #function
+        testName: String = #function,
+        recordMode: SnapshotTestingConfiguration.Record = .never
     ) {
-        withSnapshotTesting(record: .never) {
+        withSnapshotTesting(record: recordMode) {
             assertSnapshot(
                 of: view,
                 as: .image(layout: .device(config: layout), traits: traits(size: size)),
