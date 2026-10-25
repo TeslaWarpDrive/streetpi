@@ -111,7 +111,7 @@ class ClearanceCase: XCTestCase {
         outer.insetBy(dx: -2, dy: -2).contains(inner)
     }
 
-    file    private func clears(_ frame: CGRect, bar: CGRect, in window: UIWindow) -> Bool {
+    fileprivate func clears(_ frame: CGRect, bar: CGRect, in window: UIWindow) -> Bool {
         let shown = frame.intersection(visiblePage(in: window))
         guard shown.height > 1 else { return false }
         let overlap = shown.intersection(bar)
@@ -119,7 +119,7 @@ class ClearanceCase: XCTestCase {
     }
 
     /// A line that is still below the fold is not under the bar. The part on screen must clear it.
-    private func visibleClears(_ frame: CGRect, bar: CGRect, in window: UIWindow) -> Bool {
+    fileprivate func visibleClears(_ frame: CGRect, bar: CGRect, in window: UIWindow) -> Bool {
         let shown = frame.intersection(visiblePage(in: window))
         guard shown.height > 1 else { return true }
         let overlap = shown.intersection(bar)
