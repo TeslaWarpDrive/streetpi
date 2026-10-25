@@ -252,7 +252,7 @@ struct AppShell: View {
     @ViewBuilder
     private func houseBody(wide: Bool) -> some View {
         HouseHome(
-            board: HouseBoard.make(screen: screen, desk: desk, now: now, piNotice: piNotice),
+            board: houseBoard,
             alertCount: machine.alerts.count,
             wide: wide,
             onRefresh: onRefresh,
@@ -367,6 +367,27 @@ struct AppShell: View {
             .background(theme.background)
             .toolbar(.hidden, for: .navigationBar)
         }
+    }
+
+    private var houseBoard: ControlBoard {
+        var board = HouseBoard.make(screen: screen, desk: desk, now: now, piNotice: piNotice)
+        guard let statusBoard else { return board }
+        board.headline = statusBoard.briefing.headline
+        let wanted: [HouseGroup] = [.streaming, .remoteHelp, .internet, .address]
+        let chosen = wanted.compactMap { group in
+            statusBoard.tiles.first { $0.id == group }
+        }
+        let tiles = chosen.isEmpty ? Array(statusBoard.tiles.prefix(4)) : chosen
+        board.squares = tiles.map { tile in
+            ServiceSquare(
+                id: tile.title,
+                title: tile.title,
+                word: tile.summary,
+                tone: tile.tone,
+                group: tile.id
+            )
+        }
+        return board
     }
 
     private var settings: some View {
