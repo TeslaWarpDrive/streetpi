@@ -73,6 +73,18 @@ public actor PiholeClient {
         try PiholeDecode.queries(from: try await get("/api/queries"))
     }
 
+    /// Newest lookups. The caller polls this and folds the rows into `LiveLogFeed`.
+    public func liveQueries() async throws -> [DNSQuery] {
+        let rows = try PiholeDecode.queries(from: try await get("/api/queries?length=40"))
+        return rows.sorted { $0.at > $1.at }
+    }
+
+    /// Dnsmasq text log. Pass the previous `nextID` to read only the new lines.
+    public func textLog(after nextID: Int?) async throws -> TextLogPage {
+        let path = nextID.map { "/api/logs/dnsmasq?nextID=\($0)" } ?? "/api/logs/dnsmasq"
+        return try PiholeDecode.textLog(from: try await get(path))
+    }
+
     public func clients() async throws -> [NamedRow] {
         try PiholeDecode.clients(from: try await get("/api/clients"))
     }

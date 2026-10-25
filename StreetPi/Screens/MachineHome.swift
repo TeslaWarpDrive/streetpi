@@ -7,6 +7,7 @@ struct MachineHome: View {
     var theme: StreetTheme
     var wide: Bool
     var showsDestinations: Bool = true
+    var piNotice: String?
     var onPage: (MachinePage) -> Void
 
     var body: some View {
@@ -16,10 +17,16 @@ struct MachineHome: View {
                     .font(.system(.largeTitle, design: .rounded))
                     .foregroundStyle(theme.ink)
                     .accessibilityAddTraits(.isHeader)
-                Text("\(desk.modelName) at \(desk.host)")
+                Text(placeLine)
                     .font(.title3)
                     .foregroundStyle(theme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                if machine?.hasSignal != true, let piNotice {
+                    Text(piNotice)
+                        .font(.body)
+                        .foregroundStyle(theme.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             if let cpu = machine?.cpuUsedFraction {
                 meter("Processor", ReadingText.percent(cpu), cpu)
@@ -44,6 +51,12 @@ struct MachineHome: View {
                 }
             }
         }
+    }
+
+    private var placeLine: String {
+        if desk.host.isEmpty { return desk.modelName }
+        if desk.modelName.isEmpty { return desk.host }
+        return "\(desk.modelName) at \(desk.host)"
     }
 
     private func meter(_ label: String, _ value: String, _ fraction: Double?) -> some View {
@@ -75,6 +88,7 @@ struct MachineHome: View {
 
 struct MetricChartScreen: View {
     var series: [MetricSeries]
+    var note: String?
     var theme: StreetTheme
     var wide: Bool
 
@@ -84,14 +98,32 @@ struct MetricChartScreen: View {
                 .font(.system(.largeTitle, design: .rounded))
                 .foregroundStyle(theme.ink)
                 .accessibilityAddTraits(.isHeader)
-            Text("The last day, from the sample. Nothing here can be changed.")
+            Text(intro)
                 .font(.body)
                 .foregroundStyle(theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            ForEach(series) { item in
-                chart(item)
+            if series.isEmpty, note != nil {
+                Text(LiveReadCopy.tryAgain)
+                    .font(.body)
+                    .foregroundStyle(theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                ForEach(series) { item in
+                    chart(item)
+                }
             }
         }
+    }
+
+    private var intro: String {
+        if let note, series.isEmpty {
+            return note
+        }
+        let sample = series.contains { $0.caption.localizedCaseInsensitiveContains("sample") }
+        if sample {
+            return "The last day, from the sample. Nothing here can be changed."
+        }
+        return "The last day. Nothing here can be changed."
     }
 
     private func chart(_ item: MetricSeries) -> some View {

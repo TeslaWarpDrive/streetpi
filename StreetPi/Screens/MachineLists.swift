@@ -5,6 +5,7 @@ struct MachineListScreen: View {
     var title: String
     var intro: String
     var rows: [NamedRow]
+    var note: String?
     var theme: StreetTheme
     var wide: Bool
 
@@ -18,6 +19,16 @@ struct MachineListScreen: View {
                 .font(.body)
                 .foregroundStyle(theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            if let note {
+                Text(note)
+                    .font(.body)
+                    .foregroundStyle(theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(LiveReadCopy.tryAgain)
+                    .font(.subheadline)
+                    .foregroundStyle(theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             ForEach(rows) { row in
                 VStack(alignment: .leading, spacing: Rhythm.tight) {
                     Text(row.name).font(.headline).foregroundStyle(theme.ink)
@@ -33,6 +44,7 @@ struct MachineListScreen: View {
 
 struct AlertsScreen: View {
     var alerts: [HouseAlert]
+    var note: String?
     var theme: StreetTheme
     var wide: Bool
 
@@ -42,7 +54,16 @@ struct AlertsScreen: View {
                 .font(.system(.largeTitle, design: .rounded))
                 .foregroundStyle(theme.ink)
                 .accessibilityAddTraits(.isHeader)
-            if alerts.isEmpty {
+            if let note, alerts.isEmpty {
+                Text(note)
+                    .font(.body)
+                    .foregroundStyle(theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(LiveReadCopy.tryAgain)
+                    .font(.subheadline)
+                    .foregroundStyle(theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if alerts.isEmpty {
                 EmptyNote(
                     title: "No alarms are raised.",
                     detail: "These stay in the app. Raspberry Pi Stats does not send push notifications.",

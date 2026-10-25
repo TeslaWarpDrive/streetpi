@@ -8,6 +8,7 @@ struct MachinePageBody: View {
     var theme: StreetTheme
     var wide: Bool
     var showsDestinations: Bool = true
+    var piNotice: String?
     var onPage: (MachinePage) -> Void
 
     var body: some View {
@@ -19,10 +20,11 @@ struct MachinePageBody: View {
                 theme: theme,
                 wide: wide,
                 showsDestinations: showsDestinations,
+                piNotice: piNotice,
                 onPage: onPage
             )
         case .chart:
-            MetricChartScreen(series: desk.series, theme: theme, wide: wide)
+            MetricChartScreen(series: desk.series, note: desk.chartNote, theme: theme, wide: wide)
         case .services:
             MachineListScreen(
                 title: page.title,
@@ -36,6 +38,7 @@ struct MachinePageBody: View {
                 title: page.title,
                 intro: "These are the boxed jobs on the charts. Nothing here can be changed.",
                 rows: desk.containers,
+                note: desk.containerNote,
                 theme: theme,
                 wide: wide
             )
