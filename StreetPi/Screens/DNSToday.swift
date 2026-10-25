@@ -29,7 +29,7 @@ struct DNSToday: View {
     @ViewBuilder
     private var day: some View {
         if desk.hasDayLookups {
-            StoppedHourChart(samples: desk.day, theme: theme, stopped: share.stopped)
+            StoppedHourChart(samples: desk.day, stopped: share.stopped, theme: theme)
         } else {
             EmptyNote(title: DNSCopy.emptyChartTitle, detail: DNSCopy.emptyChartDetail, theme: theme)
         }
