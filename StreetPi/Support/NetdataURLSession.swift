@@ -2,13 +2,15 @@ import Foundation
 import StreetPiCore
 
 struct PiMeterRefresh: Sendable {
-    var endpoint: NetdataEndpoint
+    var client: LiveHTTPClient
+    var base: URL
 
-    func load() async -> Result<NetdataMeters, NetdataProblem> {
-        guard endpoint.isLocalAgent else { return .failure(.notUnderstood) }
-        let reader = NetdataReader(transport: NetdataURLSession(endpoint: endpoint))
+    func load() async -> Result<NetdataMeters, NetdataProblem>? {
+        let reader = NetdataReader(transport: NetdataLiveTransport(client: client, base: base))
         do {
             return .success(try await reader.load())
+        } catch is CancellationError {
+            return nil
         } catch let problem as NetdataProblem {
             return .failure(problem)
         } catch {
@@ -17,45 +19,48 @@ struct PiMeterRefresh: Sendable {
     }
 }
 
-struct NetdataURLSession: NetdataTransport {
-    var endpoint: NetdataEndpoint
+struct NetdataLiveTransport: NetdataTransport {
+    var client: LiveHTTPClient
+    var base: URL
 
     func get(_ path: String) async throws -> NetdataReply {
-        guard let url = endpoint.url(for: path) else { throw NetdataProblem.notUnderstood }
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.timeoutInterval = 8
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        let delegate = NetdataRedirectStop()
-        let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
-        defer { session.finishTasksAndInvalidate() }
+        guard let url = LivePaths.url(base: base, path: path), Self.isHouseAgent(url) else {
+            throw NetdataProblem.notUnderstood
+        }
+        if Self.isCloud(url) {
+            throw NetdataProblem.redirected
+        }
+        let response = try await reply(for: url)
+        if (300..<400).contains(response.status) {
+            throw NetdataProblem.redirected
+        }
+        return NetdataReply(status: response.status, body: response.body)
+    }
+
+    private func reply(for url: URL) async throws -> LiveHTTPResponse {
         do {
-            let (data, response) = try await session.data(for: request)
-            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            if let host = response.url?.host?.lowercased(), Self.isCloud(host) {
-                throw NetdataProblem.redirected
+            return try await client.get(url, headers: ["Accept": "application/json"])
+        } catch let problem as LiveHTTPProblem {
+            switch problem {
+            case .badAddress:
+                throw NetdataProblem.notUnderstood
+            case .untrusted, .unreachable:
+                throw NetdataProblem.offline
             }
-            return NetdataReply(status: status, body: data)
-        } catch let problem as NetdataProblem {
-            throw problem
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             throw NetdataProblem.offline
         }
     }
 
-    private static func isCloud(_ host: String) -> Bool {
-        host.contains("netdata.cloud") || host.contains("my-netdata.io")
+    private static func isHouseAgent(_ url: URL) -> Bool {
+        guard url.user == nil, url.password == nil, let scheme = url.scheme?.lowercased() else { return false }
+        return scheme == "http" || scheme == "https"
     }
-}
 
-private final class NetdataRedirectStop: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
-    func urlSession(
-        _ session: URLSession,
-        task: URLSessionTask,
-        willPerformHTTPRedirection response: HTTPURLResponse,
-        newRequest request: URLRequest,
-        completionHandler: @escaping (URLRequest?) -> Void
-    ) {
-        completionHandler(nil)
+    private static func isCloud(_ url: URL) -> Bool {
+        let host = url.host?.lowercased() ?? ""
+        return host.contains("netdata.cloud") || host.contains("my-netdata.io")
     }
 }
