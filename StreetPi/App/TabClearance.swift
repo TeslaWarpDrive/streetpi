@@ -43,7 +43,7 @@ final class ScrollAnchorView: UIView {
 }
 
 /// The phone strip and the iPad sidebar sit beside the page, so the page is not padded.
-private struct ShellChrome<Page: View>: View {
+struct ShellChrome<Page: View>: View {
     var wide: Bool
     @Binding var selection: HouseTab
     var roomy: Bool
