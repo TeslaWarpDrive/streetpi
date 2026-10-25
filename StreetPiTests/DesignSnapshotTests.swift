@@ -211,8 +211,7 @@ final class DesignSnapshotTests: XCTestCase {
         assertMatrix(
             section: .settings,
             screen: .ready(house),
-            testName: "settings",
-            recordMode: .failed
+            testName: "settings"
         )
     }
 
@@ -221,8 +220,7 @@ final class DesignSnapshotTests: XCTestCase {
             section: .home,
             screen: .ready(.emptyFixture),
             testName: "status-not-set-up",
-            board: .notSetUp(),
-            recordMode: .failed
+            board: .notSetUp()
         )
     }
 
@@ -231,8 +229,7 @@ final class DesignSnapshotTests: XCTestCase {
             section: .home,
             screen: .ready(StatusPageFixture.previewSnapshot(now: now)),
             testName: "status-ready",
-            board: StatusPageFixture.previewBoard(now: now),
-            recordMode: .failed
+            board: StatusPageFixture.previewBoard(now: now)
         )
     }
 
