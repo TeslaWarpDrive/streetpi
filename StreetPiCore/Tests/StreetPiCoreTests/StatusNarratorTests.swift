@@ -92,7 +92,12 @@ final class StatusNarratorTests: XCTestCase {
 
     func testGroupsCoverTheHouse() {
         let groups = HouseGuide.groups(in: .healthyFixture)
-        XCTAssertEqual(groups.map(\.id), HouseGroup.allCases)
+        XCTAssertEqual(
+            groups.map(\.id),
+            [.adBlockerAndDNS, .streaming, .smartHome, .remoteHelp, .internet, .piHealth, .backups]
+        )
+        XCTAssertNil(HouseGuide.brief(.monitors, in: .healthyFixture))
+        XCTAssertNil(HouseGuide.brief(.address, in: .healthyFixture))
         XCTAssertEqual(groups[0].summary, "Ads are being blocked.")
         XCTAssertEqual(groups[0].tone, .calm)
         XCTAssertEqual(

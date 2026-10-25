@@ -3,7 +3,7 @@ import StreetPiCore
 
 struct RootView: View {
     @State private var clock: Date
-    @State private var screen = HouseScreen.ready(.healthyFixture)
+    @State private var screen: HouseScreen
     @State private var section = AppSection.home
     @State private var desk = DNSDesk.houseFixture
     @State private var dnsPage: DNSPage?
@@ -14,6 +14,8 @@ struct RootView: View {
     @State private var showsSetup = false
     @State private var dnsSession = DNSSessionHold()
     @State private var showLaunch: Bool
+    @State private var statusEndpoint: StatusPageEndpoint
+    @State private var statusBoard: HouseStatusBoard?
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.secretStore) private var secretStore
 
@@ -21,6 +23,9 @@ struct RootView: View {
         _clock = State(initialValue: now)
         let testing = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         _showLaunch = State(initialValue: !testing)
+        _screen = State(initialValue: testing ? .ready(.healthyFixture) : .empty)
+        _statusEndpoint = State(initialValue: testing ? .house : StatusPageStore.current())
+        _statusBoard = State(initialValue: nil)
     }
 
     var body: some View {
@@ -53,7 +58,10 @@ struct RootView: View {
             },
             onSavePassword: { showsSetup = true },
             onSetupSave: saveSetup,
-            onSetupCancel: { showsSetup = false }
+            onSetupCancel: { showsSetup = false },
+            statusBoard: statusBoard,
+            statusEndpoint: statusEndpoint,
+            onStatusEndpoint: saveStatusEndpoint
         )
         .launchOverlay(isPresented: $showLaunch)
         .preferredColorScheme(.dark)
@@ -65,7 +73,7 @@ struct RootView: View {
                 await client?.appDidEnterBackground()
             }
         }
-        .task(id: scenePhase) {
+        .task(id: watchKey) {
             guard scenePhase == .active else { return }
             let stored = try? secretStore.load(for: AppPassword.account)
             passwordSaved = stored != nil
@@ -73,21 +81,57 @@ struct RootView: View {
         }
     }
 
-    /// Fixture refresh only. The poller is an actor, and the live socket stays off.
+    private var watchKey: String {
+        "\(scenePhase) \(statusEndpoint.host) \(statusEndpoint.port) \(statusEndpoint.slug)"
+    }
+
+    private static var underTest: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+
     private func watchHouse() async {
-        let poller = HousePoller {
-            try await HouseholdStatusLoader.healthyFixture(now: { Date() }).load()
+        if HouseRefreshSource.choose(underTest: Self.underTest) == .fixtures {
+            let poller = HousePoller {
+                try await HouseholdStatusLoader.healthyFixture(now: { Date() }).load()
+            }
+            await apply(poller, hold: nil)
+            return
         }
+        let endpoint = statusEndpoint
+        let hold = StatusPageHold()
+        let poller = HousePoller {
+            let reader = StatusPageReader(
+                transport: StatusPageURLSession(endpoint: endpoint),
+                endpoint: endpoint,
+                now: { Date() }
+            )
+            let load = try await reader.load()
+            hold.store(load.board)
+            return load.snapshot
+        }
+        await apply(poller, hold: hold)
+    }
+
+    private func apply(_ poller: HousePoller, hold: StatusPageHold?) async {
         while !Task.isCancelled {
             let tick = await poller.tick()
             if tick.unreachable {
                 screen = .failed
+                statusBoard = nil
             } else if let snapshot = tick.snapshot {
                 clock = Date()
                 screen = .ready(snapshot)
+                if let board = hold?.take() {
+                    statusBoard = board
+                }
             }
             try? await Task.sleep(for: .seconds(tick.waitSeconds))
         }
+    }
+
+    private func saveStatusEndpoint(_ endpoint: StatusPageEndpoint) {
+        statusEndpoint = endpoint
+        StatusPageStore.save(endpoint)
     }
 
     private func saveSetup(_ raw: String) {
