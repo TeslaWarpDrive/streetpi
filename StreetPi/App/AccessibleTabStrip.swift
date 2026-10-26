@@ -5,6 +5,8 @@ import SwiftUI
 struct AccessibleTabStrip: View {
     @Binding var selection: HouseTab
     var scrollsHorizontally: Bool
+    /// Phone pages other than House use a shorter strip so the next row clears it.
+    var compact: Bool = false
 
     @Environment(\.afterglowPalette) private var palette
     @Environment(\.afterglowGate) private var gate
@@ -31,7 +33,7 @@ struct AccessibleTabStrip: View {
                         buttons
                     }
                     .padding(.horizontal, AfterglowShape.line)
-                    .padding(.vertical, AfterglowShape.tight)
+                    .padding(.vertical, compact ? 0 : AfterglowShape.tight)
                 }
                 .scrollIndicators(.visible)
                 .scrollClipDisabled(false)
@@ -55,7 +57,8 @@ struct AccessibleTabStrip: View {
             AccessibleTabButton(
                 tab: tab,
                 selected: tab == selection,
-                scrollsHorizontally: scrollsHorizontally
+                scrollsHorizontally: scrollsHorizontally,
+                compact: compact
             ) {
                 selection = tab
             }
@@ -81,6 +84,7 @@ private struct AccessibleTabButton: View {
     var tab: HouseTab
     var selected: Bool
     var scrollsHorizontally: Bool
+    var compact: Bool
     var action: () -> Void
 
     @Environment(\.afterglowPalette) private var palette
@@ -102,7 +106,7 @@ private struct AccessibleTabButton: View {
             .foregroundStyle(selected ? palette.accent : palette.secondary)
             .frame(minWidth: 44, minHeight: 44, alignment: scrollsHorizontally ? .center : .leading)
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.vertical, compact ? 0 : 8)
             .background {
                 if selected {
                     Capsule().fill(palette.accent.opacity(0.16))

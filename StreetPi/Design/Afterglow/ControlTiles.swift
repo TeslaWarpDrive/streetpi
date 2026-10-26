@@ -11,7 +11,8 @@ struct ControlScreen<Content: View>: View {
                 content()
             }
             .padding(.horizontal, Rhythm.page)
-            .padding(.vertical, Rhythm.line)
+            .padding(.top, wide ? Rhythm.line : 0)
+            .padding(.bottom, Rhythm.line + (wide ? 0 : TabClearance.contentInset))
             .frame(maxWidth: wide ? 880 : 560)
             .frame(maxWidth: .infinity, alignment: .leading)
         }

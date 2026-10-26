@@ -7,6 +7,10 @@ enum TabClearance {
 
     /// Sheets and confirmations sit over the bar, so they keep a taller inset.
     static let sheet: CGFloat = 49
+
+    /// The page scrolls. This keeps the last line above the phone strip,
+    /// including after the last row has been scrolled into view.
+    static let contentInset: CGFloat = 20
 }
 
 /// A one-point mark a test can find when it scrolls a page.
@@ -60,8 +64,12 @@ struct ShellChrome<Page: View>: View {
         } else {
             VStack(spacing: 0) {
                 laidOut
-                AccessibleTabStrip(selection: $selection, scrollsHorizontally: true)
-                    .fixedSize(horizontal: false, vertical: true)
+                AccessibleTabStrip(
+                    selection: $selection,
+                    scrollsHorizontally: true,
+                    compact: selection != .house
+                )
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
