@@ -40,9 +40,18 @@ struct MachineHome: View {
     }
 
     private var placeLine: String {
-        if desk.host.isEmpty { return desk.modelName }
-        if desk.modelName.isEmpty { return desk.host }
-        return "\(desk.modelName) at \(desk.host)"
+        let model = desk.modelName
+        let host = displayedHost
+        if model.isEmpty { return host.isEmpty ? "The Pi" : host }
+        if host.isEmpty { return model }
+        return "\(model) at \(host)"
+    }
+
+    /// The fixture host is not a machine the house can open.
+    private var displayedHost: String {
+        let host = desk.host.trimmingCharacters(in: .whitespacesAndNewlines)
+        if host.isEmpty || host == "fixture.local" { return "" }
+        return host
     }
 
     @ViewBuilder
