@@ -27,7 +27,7 @@ struct BlockerCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .center, spacing: 6) {
                     ShieldRing(fraction: tile.fraction)
-                        .frame(width: 28, height: 28)
+                        .frame(width: 32, height: 32)
                     stateLabel
                     Spacer(minLength: 36)
                 }
