@@ -176,7 +176,24 @@ struct AppShell: View {
         .background(theme.background)
     }
 
+    /// House keeps the system tab bar the Home snapshots already show.
+    /// Ad blocker, Pi, and Settings do not. That bar was floating over the
+    /// bottom cards, with the phone strip drawn again underneath it.
+    @ViewBuilder
     private func tabs(wide: Bool) -> some View {
+        switch tabBinding.wrappedValue {
+        case .house:
+            houseTabs(wide: wide)
+        case .adBlocker:
+            adBlocker(wide: wide)
+        case .pi:
+            pi(wide: wide)
+        case .settings:
+            settings
+        }
+    }
+
+    private func houseTabs(wide: Bool) -> some View {
         TabView(selection: tabBinding) {
             Tab(HouseTab.house.title, systemImage: HouseTab.house.symbol, value: HouseTab.house) {
                 house(wide: wide)
