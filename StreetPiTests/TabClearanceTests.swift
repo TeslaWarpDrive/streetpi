@@ -67,8 +67,17 @@ class ClearanceCase: XCTestCase {
 
     fileprivate func assertVisibleTextClearsBar(in window: UIWindow) {
         let bar = tabBarFrame(in: window)
-        let texts = textFrames(in: window)
-        XCTAssertFalse(texts.isEmpty, "No text was found to compare with the tab bar")
+        var texts = textFrames(in: window)
+        if texts.isEmpty {
+            CATransaction.flush()
+            window.layoutIfNeeded()
+            pump()
+            texts = textFrames(in: window)
+        }
+        XCTAssertFalse(
+            texts.isEmpty,
+            "No text was found to compare with the tab bar. \(viewOutline(window))"
+        )
         let visible = visiblePage(in: window)
         let tabWords: Set<String> = ["House", "Ad blocker", "Pi", "Settings", "Tabs"]
         for item in texts where tabWords.contains(item.text) == false {
@@ -181,15 +190,20 @@ class ClearanceCase: XCTestCase {
         controller.traitOverrides.preferredContentSizeCategory = scale.category
         controller.traitOverrides.userInterfaceStyle = .dark
         let size = device.config.size ?? CGSize(width: 320, height: 568)
-        controller.view.bounds = CGRect(origin: .zero, size: size)
+        controller.view.frame = CGRect(origin: .zero, size: size)
         let window = UIWindow(frame: CGRect(origin: .zero, size: size))
         window.rootViewController = controller
         window.overrideUserInterfaceStyle = .dark
         window.makeKeyAndVisible()
-        pump()
-        controller.view.setNeedsLayout()
-        controller.view.layoutIfNeeded()
-        pump()
+        controller.beginAppearanceTransition(true, animated: false)
+        controller.endAppearanceTransition()
+        // Pages outside the system tab bar install their labels on a later turn.
+        for _ in 0..<4 {
+            CATransaction.flush()
+            window.layoutIfNeeded()
+            controller.view.layoutIfNeeded()
+            pump()
+        }
         return window
     }
 
@@ -253,6 +267,14 @@ class ClearanceCase: XCTestCase {
             found.append(contentsOf: views(named: name, in: child))
         }
         return found
+    }
+
+    fileprivate func viewOutline(_ view: UIView, depth: Int = 0) -> String {
+        guard depth < 4 else { return "" }
+        let name = String(describing: type(of: view))
+        let line = String(repeating: " ", count: depth) + "\(name) \(Int(view.bounds.width))x\(Int(view.bounds.height))"
+        let children = view.subviews.prefix(6).map { viewOutline($0, depth: depth + 1) }
+        return ([line] + children).joined(separator: " | ")
     }
 
     fileprivate func textFrames(in window: UIWindow) -> [(text: String, frame: CGRect)] {
