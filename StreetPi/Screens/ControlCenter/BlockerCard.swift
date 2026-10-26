@@ -14,7 +14,7 @@ struct BlockerCard: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        BoardPanel(lavender: true) {
+        BoardPanel(lavender: true, inset: 10) {
             openControl
                 .overlay(alignment: .topTrailing) {
                     infoButton
@@ -24,18 +24,32 @@ struct BlockerCard: View {
 
     private var openControl: some View {
         Button(action: onOpen) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .center, spacing: 4) {
-                    ring
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .center, spacing: 8) {
+                    ShieldRing(fraction: tile.fraction)
+                        .frame(width: 36, height: 36)
                     stateLabel
-                    Spacer(minLength: 32)
+                    Spacer(minLength: 36)
                 }
-                .frame(minHeight: 32)
-                Text("Ad blocker · last 24 hours")
-                    .font(.caption)
-                    .foregroundStyle(palette.secondary)
+                Text(tile.percentText)
+                    .font(.system(dynamicTypeSize.isAccessibilitySize ? .title : .title2, design: .rounded).bold())
+                    .foregroundStyle(palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
-                percentRow
+                    .background(alignment: .topLeading) {
+                        ScrollAnchor(name: "blocker-fraction")
+                            .frame(width: 1, height: 1)
+                            .accessibilityHidden(true)
+                    }
+                FittingText(
+                    text: tile.fractionLine,
+                    color: palette.ink,
+                    style: .caption1,
+                    weight: .regular,
+                    identifier: "blocker-plain",
+                    breaksWords: false
+                )
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -48,65 +62,12 @@ struct BlockerCard: View {
         .modifier(PauseBlockerAction(enabled: tile.canPause, action: onHold))
     }
 
-    private var percentRow: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                percent
-                plainText
-                    .fixedSize(horizontal: true, vertical: true)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                percent
-                plainText
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-    }
-
-    private var plainText: some View {
-        FittingText(
-            text: plainLine,
-            color: palette.ink,
-            style: .caption1,
-            weight: .regular,
-            identifier: "blocker-plain",
-            breaksWords: false
-        )
-    }
-
-    private var percent: some View {
-        Text(tile.percentText)
-            .font(.system(dynamicTypeSize.isAccessibilitySize ? .title : .title2, design: .rounded).bold())
-            .foregroundStyle(palette.ink)
-            .fixedSize(horizontal: false, vertical: true)
-            .background(alignment: .topLeading) {
-                ScrollAnchor(name: "blocker-fraction")
-                    .frame(width: 1, height: 1)
-                    .accessibilityHidden(true)
-            }
-    }
-
-    /// The spoken line stays whole. The tile keeps the short "About 1 in 5" clause.
-    private var plainLine: String {
-        let line = tile.fractionLine
-        guard let mark = line.range(of: " things") else { return line }
-        return String(line[..<mark.lowerBound])
-    }
-
-    private var ring: some View {
-        RingArc(fraction: tile.fraction)
-            .frame(width: 24, height: 24)
-    }
-
     private var stateLabel: some View {
-        HStack(spacing: 4) {
-            StatusDot(tone: tile.canPause ? .calm : .attention)
-            Text(tile.stateWord)
-                .font(.subheadline.bold())
-                .foregroundStyle(palette.ink)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .accessibilityHidden(true)
+        Text(tile.stateWord)
+            .font(.subheadline.bold())
+            .foregroundStyle(palette.calm)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityHidden(true)
     }
 
     private var infoButton: some View {
@@ -120,5 +81,40 @@ struct BlockerCard: View {
 
     private var spoken: String {
         "Ad blocker, \(tile.stateWord), \(tile.percentText). \(tile.fractionLine)"
+    }
+}
+
+/// A full ring with a shield in the middle. The arc is the Aurora glow.
+private struct ShieldRing: View {
+    var fraction: Double
+
+    @Environment(\.afterglowPalette) private var palette
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(palette.hairline, lineWidth: 3)
+            Circle()
+                .trim(from: 0, to: clamped)
+                .stroke(ringGradient, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            Image(systemName: "shield.fill")
+                .font(.caption2)
+                .foregroundStyle(palette.accent)
+                .accessibilityHidden(true)
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var clamped: Double {
+        min(max(fraction, 0), 1)
+    }
+
+    private var ringGradient: LinearGradient {
+        LinearGradient(
+            colors: [palette.auraTeal, palette.auraBlue, palette.auraViolet],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 }

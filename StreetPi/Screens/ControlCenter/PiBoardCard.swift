@@ -1,7 +1,7 @@
 import StreetPiCore
 import SwiftUI
 
-/// Temperature, a Cool / Warm / Hot word, and CPU, RAM, and Disk.
+/// A chip, the warmth dot, a big temperature, and the three meters.
 struct PiBoardCard: View {
     var tile: PiTile
     var onOpen: () -> Void
@@ -10,9 +10,28 @@ struct PiBoardCard: View {
 
     var body: some View {
         Button(action: onOpen) {
-            BoardPanel {
+            BoardPanel(inset: 10) {
                 VStack(alignment: .leading, spacing: 4) {
-                    header
+                    HStack(alignment: .center, spacing: 6) {
+                        Image(systemName: "cpu")
+                            .font(.body)
+                            .foregroundStyle(palette.accent)
+                            .accessibilityHidden(true)
+                        Spacer(minLength: 4)
+                        StatusDot(tone: warmthTone)
+                        Text(tile.warmth)
+                            .font(.caption.bold())
+                            .foregroundStyle(palette.tone(warmthTone))
+                            .fixedSize(horizontal: true, vertical: true)
+                    }
+                    Text(tile.temperature)
+                        .font(.system(.title2, design: .rounded).bold())
+                        .foregroundStyle(palette.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("The Pi")
+                        .font(.caption)
+                        .foregroundStyle(palette.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     MeterBar(title: "CPU", fraction: tile.cpu, limit: nil)
                     MeterBar(title: "RAM", fraction: tile.memory, limit: MachineLimits.memoryAttention)
                     MeterBar(title: "Disk", fraction: tile.disk, limit: MachineLimits.diskAttention)
@@ -21,41 +40,6 @@ struct PiBoardCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Pi, \(tile.temperature), \(tile.warmth). \(tile.line)")
-    }
-
-    private var header: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline, spacing: AfterglowShape.tight) {
-                title
-                temperature
-                warmth
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                title
-                temperature
-                warmth
-            }
-        }
-    }
-
-    private var title: some View {
-        Text("Pi")
-            .font(.caption)
-            .foregroundStyle(palette.secondary)
-    }
-
-    private var temperature: some View {
-        Text(tile.temperature)
-            .font(.system(.title3, design: .rounded).bold())
-            .foregroundStyle(palette.ink)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private var warmth: some View {
-        Text(tile.warmth)
-            .font(.subheadline.bold())
-            .foregroundStyle(palette.tone(warmthTone))
-            .fixedSize(horizontal: false, vertical: true)
     }
 
     private var warmthTone: PlainEnglishStatus.Tone {

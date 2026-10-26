@@ -23,9 +23,9 @@ struct HouseHome: View {
             ScrollView {
                 FitOfferedWidth(maxWidth: wide ? 880 : nil) {
                     column(short: short)
-                        .padding(.horizontal, compact(short) ? compactGap : AfterglowShape.page)
-                        .padding(.top, compact(short) ? compactGap : pageInset)
-                        .padding(.bottom, compact(short) ? compactGap : pageInset)
+                        .padding(.horizontal, AfterglowShape.page)
+                        .padding(.top, compact(short) ? 8 : pageInset)
+                        .padding(.bottom, compact(short) ? 8 : pageInset)
                 }
             }
             .scrollIndicators(.hidden)
