@@ -197,7 +197,8 @@ class ClearanceCase: XCTestCase {
         window.makeKeyAndVisible()
         controller.beginAppearanceTransition(true, animated: false)
         controller.endAppearanceTransition()
-        // Pages outside the system tab bar install their labels on a later turn.
+        // Ad blocker, Pi, and Settings are not inside the system tab bar, so their
+        // labels show up on a later layout turn than House.
         for _ in 0..<4 {
             CATransaction.flush()
             window.layoutIfNeeded()
