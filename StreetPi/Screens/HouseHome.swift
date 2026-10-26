@@ -25,8 +25,8 @@ struct HouseHome: View {
                 FitOfferedWidth(maxWidth: wide ? 880 : nil) {
                     column(short: short)
                         .padding(.horizontal, AfterglowShape.page)
-                        .padding(.top, compact(short) ? 8 : pageInset)
-                        .padding(.bottom, compact(short) ? 4 : pageInset)
+                        .padding(.top, compact(short) ? 6 : pageInset)
+                        .padding(.bottom, compact(short) ? 0 : pageInset)
                 }
             }
             .scrollIndicators(.hidden)

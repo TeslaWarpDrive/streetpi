@@ -42,7 +42,7 @@ struct ServiceSquareTile: View {
             .padding(.horizontal, 2)
             .padding(.vertical, 4)
             .frame(maxWidth: .infinity, alignment: .top)
-            .frame(height: readsAsSquare ? 56 : nil)
+            .frame(height: readsAsSquare ? 52 : nil)
             .background(palette.panel, in: RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous)

@@ -14,7 +14,7 @@ struct BlockerCard: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        BoardPanel(lavender: true, inset: 6) {
+        BoardPanel(lavender: true, inset: 4) {
             openControl
                 .overlay(alignment: .topTrailing) {
                     infoButton
@@ -24,14 +24,14 @@ struct BlockerCard: View {
 
     private var openControl: some View {
         Button(action: onOpen) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .center, spacing: 6) {
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(alignment: .center, spacing: 4) {
                     ShieldRing(fraction: tile.fraction)
-                        .frame(width: 28, height: 28)
+                        .frame(width: 22, height: 22)
                     Spacer(minLength: 4)
                     stateLabel
                     Color.clear
-                        .frame(width: 28, height: 28)
+                        .frame(width: 22, height: 22)
                         .accessibilityHidden(true)
                 }
                 Text("Ad blocker · last 24 hours")
@@ -87,7 +87,7 @@ struct BlockerCard: View {
             .buttonStyle(.plain)
             .font(.body)
             .foregroundStyle(onLavender)
-            .frame(width: 28, height: 28)
+            .frame(width: 22, height: 22)
     }
 
     private var spoken: String {
