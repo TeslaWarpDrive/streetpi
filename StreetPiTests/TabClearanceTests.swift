@@ -302,7 +302,24 @@ class ClearanceCase: XCTestCase {
     fileprivate func textFrames(in window: UIWindow) -> [(text: String, frame: CGRect)] {
         var found: [(text: String, frame: CGRect)] = []
         collectText(in: window, window: window, into: &found)
+        if found.isEmpty {
+            materializeAccessibility(window)
+            collectText(in: window, window: window, into: &found)
+        }
         return found
+    }
+
+    /// Pages outside the system tab bar do not install UILabel until accessibility is asked.
+    fileprivate func materializeAccessibility(_ view: UIView) {
+        let count = view.accessibilityElementCount()
+        if count > 0 {
+            for index in 0..<count {
+                _ = view.accessibilityElement(at: index)
+            }
+        }
+        for child in view.subviews {
+            materializeAccessibility(child)
+        }
     }
 
     fileprivate func collectText(in view: UIView, window: UIWindow, into found: inout [(text: String, frame: CGRect)]) {
