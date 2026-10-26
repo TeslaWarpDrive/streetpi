@@ -13,30 +13,43 @@ struct ServiceSquareTile: View {
 
     var body: some View {
         Button(action: onOpen) {
-            VStack(spacing: 2) {
-                HStack(spacing: 4) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .center, spacing: 4) {
+                    Image(systemName: symbol)
+                        .font(.caption2)
+                        .foregroundStyle(palette.accent)
+                        .accessibilityHidden(true)
+                    Spacer(minLength: 2)
                     StatusDot(tone: square.tone)
-                    FittingText(
-                        text: square.word,
-                        color: palette.ink,
-                        style: .subheadline,
-                        weight: .bold,
-                        identifier: "square-word",
-                        breaksWords: false
-                    )
-                    .fixedSize(horizontal: false, vertical: true)
                 }
-                UnbrokenTitle(text: square.title, color: palette.secondary)
-                    .fixedSize(horizontal: compresses == false, vertical: true)
+                UnbrokenTitle(
+                    text: square.title,
+                    color: palette.ink,
+                    alignment: .left,
+                    bold: true,
+                    style: .caption2
+                )
+                .fixedSize(horizontal: compresses == false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Text(square.word)
+                    .font(.caption2)
+                    .foregroundStyle(palette.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, AfterglowShape.tight)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 3)
+            .padding(.vertical, 3)
             .frame(maxWidth: compresses ? .infinity : nil)
             .fixedSize(horizontal: compresses == false, vertical: true)
             .background(palette.panel, in: RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous)
                     .strokeBorder(palette.hairline, lineWidth: 1)
+            }
+            .background(alignment: .topLeading) {
+                SpokenMark(text: square.word)
+                    .frame(width: 1, height: 1)
+                    .accessibilityHidden(true)
             }
             .background(alignment: .bottom) {
                 if square.id == "streaming", pinsStreamingTitle {
@@ -48,6 +61,29 @@ struct ServiceSquareTile: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(square.title), \(square.word)")
+    }
+
+    private var symbol: String {
+        switch square.group {
+        case .streaming:
+            "play.tv"
+        case .remoteHelp:
+            "display.and.arrow.down"
+        case .adBlockerAndDNS:
+            "shield.lefthalf.filled"
+        case .internet:
+            "globe"
+        case .address:
+            "network"
+        case .piHealth:
+            "cpu"
+        case .backups:
+            "externaldrive.badge.timemachine"
+        case .monitors:
+            "list.bullet.rectangle"
+        case .smartHome:
+            "homekit"
+        }
     }
 }
 
@@ -67,11 +103,14 @@ extension EnvironmentValues {
 struct UnbrokenTitle: UIViewRepresentable {
     var text: String
     var color: Color
+    var alignment: NSTextAlignment = .center
+    var bold: Bool = false
+    var style: UIFont.TextStyle = .subheadline
 
     func makeUIView(context: Context) -> UILabel {
         let label = UILabel()
         label.numberOfLines = 0
-        label.textAlignment = .center
+        label.textAlignment = alignment
         label.lineBreakMode = .byCharWrapping
         label.adjustsFontSizeToFitWidth = false
         label.adjustsFontForContentSizeCategory = true
@@ -88,7 +127,7 @@ struct UnbrokenTitle: UIViewRepresentable {
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize? {
         apply(uiView)
-        let font = uiView.font ?? UIFont.preferredFont(forTextStyle: .subheadline)
+        let font = uiView.font ?? UIFont.preferredFont(forTextStyle: style)
         let full = (text as NSString).size(withAttributes: [.font: font])
         let limit = proposal.width ?? .greatestFiniteMagnitude
         if limit >= full.width - 0.5 {
@@ -99,11 +138,13 @@ struct UnbrokenTitle: UIViewRepresentable {
     }
 
     private func apply(_ label: UILabel) {
-        let font = UIFont.preferredFont(forTextStyle: .subheadline, compatibleWith: label.traitCollection)
+        let base = UIFont.preferredFont(forTextStyle: style, compatibleWith: label.traitCollection)
+        let font = bold ? UIFont.systemFont(ofSize: base.pointSize, weight: .bold) : base
+        label.textAlignment = alignment
         let paragraph = NSMutableParagraphStyle()
         paragraph.hyphenationFactor = 0
         paragraph.lineBreakMode = .byCharWrapping
-        paragraph.alignment = .center
+        paragraph.alignment = alignment
         label.attributedText = NSAttributedString(
             string: text,
             attributes: [
