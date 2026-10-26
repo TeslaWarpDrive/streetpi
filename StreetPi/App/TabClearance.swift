@@ -7,8 +7,9 @@ enum TabClearance {
     /// on a small phone without covering the percent that sits just above it.
     static let phoneBar: CGFloat = 20
 
-    /// Ad blocker, Pi, and Settings use one bar. This lifts the last card clear of it.
-    static let cardBar: CGFloat = 56
+    /// A short ground gap above the one phone bar. The page scrolls; this does not
+    /// hide the next row.
+    static let cardBar: CGFloat = 12
 
     /// Sheets and confirmations sit over the bar, so they keep a taller inset.
     static let sheet: CGFloat = 49
@@ -59,8 +60,10 @@ private struct PhoneTabClearance: ViewModifier {
     var inset: CGFloat
 
     func body(content: Content) -> some View {
-        if wide || inset == TabClearance.phoneBar {
-            content.padding(.bottom, wide ? 0 : inset)
+        if wide {
+            content
+        } else if inset == TabClearance.phoneBar {
+            content.padding(.bottom, inset)
         } else {
             content
                 .padding(.bottom, inset)
