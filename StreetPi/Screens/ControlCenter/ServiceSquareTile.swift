@@ -46,6 +46,11 @@ struct ServiceSquareTile: View {
                 RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous)
                     .strokeBorder(palette.hairline, lineWidth: 1)
             }
+            .background(alignment: .topLeading) {
+                SpokenMark(text: square.word)
+                    .frame(width: 1, height: 1)
+                    .accessibilityHidden(true)
+            }
             .background(alignment: .bottom) {
                 if square.id == "streaming", pinsStreamingTitle {
                     PinStreamingTitle()

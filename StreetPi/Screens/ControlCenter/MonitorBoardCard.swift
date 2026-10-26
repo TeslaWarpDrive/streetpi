@@ -11,6 +11,11 @@ struct MonitorBoardCard: View {
                 marks
             }
         }
+        .background(alignment: .topLeading) {
+            SpokenMark(text: countLine)
+                .frame(width: 1, height: 1)
+                .accessibilityHidden(true)
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spoken)
     }

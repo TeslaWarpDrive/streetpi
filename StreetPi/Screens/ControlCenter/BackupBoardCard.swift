@@ -19,6 +19,11 @@ struct BackupBoardCard: View {
             }
         }
         .buttonStyle(.plain)
+        .background(alignment: .topLeading) {
+            SpokenMark(text: detail)
+                .frame(width: 1, height: 1)
+                .accessibilityHidden(true)
+        }
         .accessibilityLabel("Backups. \(detail)")
     }
 

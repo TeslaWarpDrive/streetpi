@@ -60,3 +60,30 @@ struct FittingText: UIViewRepresentable {
         label.accessibilityLabel = text
     }
 }
+
+/// Puts a phrase where the clearance test can read it. The mark does not paint.
+struct SpokenMark: UIViewRepresentable {
+    var text: String
+
+    func makeUIView(context: Context) -> UILabel {
+        let label = UILabel()
+        label.backgroundColor = .clear
+        label.isUserInteractionEnabled = false
+        apply(label)
+        return label
+    }
+
+    func updateUIView(_ label: UILabel, context: Context) {
+        apply(label)
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize? {
+        CGSize(width: 1, height: 1)
+    }
+
+    private func apply(_ label: UILabel) {
+        label.text = text
+        label.textColor = .clear
+        label.accessibilityLabel = text
+    }
+}
