@@ -12,10 +12,11 @@ struct HouseTitleBar: View {
     var body: some View {
         HStack(alignment: .center, spacing: AfterglowShape.line) {
             Text("Pi Stats")
-                .font(dynamicTypeSize.isAccessibilitySize ? .largeTitle.bold() : .title.bold())
+                .font(dynamicTypeSize.isAccessibilitySize ? .title2.bold() : .title.bold())
                 .foregroundStyle(palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
                 .accessibilityAddTraits(.isHeader)
             ChromeButtonPair(
                 first: AlertsBell(alertCount: alertCount, action: onAlerts),

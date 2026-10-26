@@ -87,17 +87,19 @@ struct HouseHome: View {
     /// Room between tiles on a short phone, so the square grid starts on the first screen.
     private let compactGap: CGFloat = 4
 
-    /// A short phone at the default size keeps the first screen to the mock.
-    /// Large text stays on the text styles and uses a tighter gap so the status can wrap.
+    /// A short phone keeps the first screen to the mock, including at the largest text.
     private func compact(_ short: Bool) -> Bool {
-        short && dynamicTypeSize.isAccessibilitySize == false
+        short
     }
 
     private func stackSpacing(short: Bool) -> CGFloat {
+        if short {
+            return compactGap
+        }
         if dynamicTypeSize.isAccessibilitySize {
             return AfterglowShape.line
         }
-        return compact(short) ? compactGap : AfterglowShape.block
+        return AfterglowShape.block
     }
 
     private func refresh() async {

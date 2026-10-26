@@ -176,20 +176,17 @@ struct AppShell: View {
         .background(theme.background)
     }
 
+    @ViewBuilder
     private func tabs(wide: Bool) -> some View {
-        TabView(selection: tabBinding) {
-            Tab(HouseTab.house.title, systemImage: HouseTab.house.symbol, value: HouseTab.house) {
-                house(wide: wide)
-            }
-            Tab(HouseTab.adBlocker.title, systemImage: HouseTab.adBlocker.symbol, value: HouseTab.adBlocker) {
-                adBlocker(wide: wide)
-            }
-            Tab(HouseTab.pi.title, systemImage: HouseTab.pi.symbol, value: HouseTab.pi) {
-                pi(wide: wide)
-            }
-            Tab(HouseTab.settings.title, systemImage: HouseTab.settings.symbol, value: HouseTab.settings) {
-                settings
-            }
+        switch HouseTab(section: section) {
+        case .house:
+            house(wide: wide)
+        case .adBlocker:
+            adBlocker(wide: wide)
+        case .pi:
+            pi(wide: wide)
+        case .settings:
+            settings
         }
     }
 

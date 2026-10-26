@@ -42,7 +42,8 @@ final class ScrollAnchorView: UIView {
     }
 }
 
-/// The phone strip and the iPad sidebar sit beside the page, so the page is not padded.
+/// The phone strip and the iPad sidebar sit beside the page.
+/// The page is clipped to that space, so nothing draws under the strip.
 struct ShellChrome<Page: View>: View {
     var wide: Bool
     @Binding var selection: HouseTab
@@ -68,8 +69,7 @@ struct ShellChrome<Page: View>: View {
 
     private var laidOut: some View {
         page()
-            .tabViewStyle(.tabBarOnly)
-            .toolbar(.hidden, for: .tabBar)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .clipped()
     }
 }

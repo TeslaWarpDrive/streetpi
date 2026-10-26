@@ -140,19 +140,20 @@ private final class PinStreamingView: UIView {
 
     func pin() {
         guard window != nil, let scroll = enclosingScroll() else { return }
-        let frame = convert(bounds, to: scroll)
-        guard frame.maxY > 1, scroll.contentSize.height > scroll.bounds.height else { return }
-        let visible = scroll.bounds.height - scroll.adjustedContentInset.bottom
+        let streaming = streamingFrame(in: scroll)
+        guard streaming.maxY > 1 else { return }
+        let visible = scroll.bounds.height - scroll.adjustedContentInset.top - scroll.adjustedContentInset.bottom
         guard visible > 1 else { return }
-        let maxOffset = max(0, scroll.contentSize.height - visible)
-        var target: CGFloat = 0
-        if frame.maxY > visible - 8 {
-            target = frame.maxY - visible + 8
-            if let percentTop = anchorTop("blocker-fraction", in: scroll) {
-                let showPercent = max(0, percentTop - 12)
-                if frame.maxY - showPercent <= visible - 8 {
-                    target = showPercent
-                }
+        let maxOffset = max(0, scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom)
+        let showStreaming = max(0, streaming.maxY - visible + 8)
+        var target = showStreaming
+        if let checked = find("checked-line", in: scroll),
+           let plain = find("blocker-plain", in: scroll) {
+            let checkedTop = checked.convert(checked.bounds, to: scroll).minY
+            let plainFrame = plain.convert(plain.bounds, to: scroll)
+            let span = streaming.maxY - min(checkedTop, plainFrame.minY)
+            if span > visible - 16 {
+                target = max(0, checkedTop - 4)
             }
         }
         target = min(max(0, target), maxOffset)
@@ -160,9 +161,25 @@ private final class PinStreamingView: UIView {
         scroll.setContentOffset(CGPoint(x: 0, y: target), animated: false)
     }
 
-    private func anchorTop(_ name: String, in scroll: UIScrollView) -> CGFloat? {
-        guard let mark = find(name, in: scroll) else { return nil }
-        return mark.convert(mark.bounds, to: scroll).minY
+    private func streamingFrame(in scroll: UIScrollView) -> CGRect {
+        let pin = convert(bounds, to: scroll)
+        guard let title = findLabel(containing: "Streaming", in: scroll) else { return pin }
+        return title.convert(title.bounds, to: scroll).union(pin)
+    }
+
+    private func findLabel(containing word: String, in view: UIView) -> UILabel? {
+        if let label = view as? UILabel, labelMentions(label, word) {
+            return label
+        }
+        for child in view.subviews {
+            if let found = findLabel(containing: word, in: child) { return found }
+        }
+        return nil
+    }
+
+    private func labelMentions(_ label: UILabel, _ word: String) -> Bool {
+        if label.text?.contains(word) == true { return true }
+        return label.accessibilityLabel?.contains(word) == true
     }
 
     private func find(_ name: String, in view: UIView) -> UIView? {

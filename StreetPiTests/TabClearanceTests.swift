@@ -37,8 +37,7 @@ class ClearanceCase: XCTestCase {
         XCTAssertTrue(plain(label.text).contains("just now"), "Checked line lost its words: \(plain(label.text))")
         assertFullyDrawn(label)
         let frame = label.convert(label.bounds, to: window)
-        let bar = tabBarFrame(in: window)
-        XCTAssertTrue(visibleClears(frame, bar: bar, in: window), "Checked just now sits under the tab bar")
+        XCTAssertTrue(clearsEveryBar(frame, in: window), "Checked just now sits under the tab bar")
     }
 
     fileprivate func assertAccentClearsCheckedLine(in window: UIWindow) {
@@ -66,7 +65,7 @@ class ClearanceCase: XCTestCase {
     }
 
     fileprivate func assertVisibleTextClearsBar(in window: UIWindow) {
-        let bar = tabBarFrame(in: window)
+        XCTAssertTrue(systemTabBars(in: window).isEmpty, "The system tab bar is still on screen")
         let texts = textFrames(in: window)
         XCTAssertFalse(texts.isEmpty, "No text was found to compare with the tab bar")
         let visible = visiblePage(in: window)
@@ -76,9 +75,8 @@ class ClearanceCase: XCTestCase {
             let coversWindow = shown.height > window.bounds.height * 0.9
                 && shown.width > window.bounds.width * 0.9
             guard shown.height > 1, coversWindow == false else { continue }
-            let overlap = shown.intersection(bar)
             XCTAssertTrue(
-                overlap.isNull || overlap.height < 1,
+                clearsEveryBar(shown, in: window),
                 "\(item.text) sits under the tab bar"
             )
         }
@@ -162,13 +160,15 @@ class ClearanceCase: XCTestCase {
         device: SnapshotDevice,
         pinStreaming: Bool = false,
         status: HouseStatusBoard? = nil,
-        snapshot: HouseholdSnapshot? = nil
+        snapshot: HouseholdSnapshot? = nil,
+        dnsPage: DNSPage? = nil
     ) -> UIWindow {
         let root = AppShell(
             section: page,
             screen: .ready(snapshot ?? house),
             now: now,
             onSection: { _ in },
+            dnsPage: dnsPage,
             statusBoard: status
         )
         .preferredColorScheme(.dark)
@@ -190,7 +190,21 @@ class ClearanceCase: XCTestCase {
         controller.view.setNeedsLayout()
         controller.view.layoutIfNeeded()
         pump()
+        controller.view.setNeedsLayout()
+        controller.view.layoutIfNeeded()
+        pump()
         return window
+    }
+
+    fileprivate func assertFullyInside(_ label: UILabel, in window: UIWindow, name: String) {
+        let frame = label.convert(label.bounds, to: window)
+        let visible = visiblePage(in: window).insetBy(dx: -1, dy: -1)
+        XCTAssertTrue(visible.contains(frame), "\(name) is off the screen")
+        XCTAssertTrue(clearsEveryBar(frame, in: window), "\(name) sits under the tab bar")
+    }
+
+    fileprivate func visibleClearsEvery(_ frame: CGRect, in window: UIWindow) -> Bool {
+        bars(in: window).allSatisfy { visibleClears(frame, bar: $0, in: window) }
     }
 
     fileprivate func streamingLabel(in window: UIWindow) -> UILabel? {
@@ -226,22 +240,53 @@ class ClearanceCase: XCTestCase {
             .max { $0.contentSize.height < $1.contentSize.height }
     }
 
-    fileprivate func tabBarFrame(in window: UIWindow) -> CGRect {
-        let frames = views(named: "phone-tab-strip", in: window).map {
+    fileprivate func clearsEveryBar(_ frame: CGRect, in window: UIWindow) -> Bool {
+        bars(in: window).allSatisfy { clears(frame, bar: $0, in: window) }
+    }
+
+    fileprivate func bars(in window: UIWindow) -> [CGRect] {
+        var frames = views(named: "phone-tab-strip", in: window).map {
             $0.convert($0.bounds, to: window)
-        }.filter { frame in
+        }
+        frames.append(contentsOf: systemTabBars(in: window).map {
+            $0.convert($0.bounds, to: window)
+        })
+        let usable = frames.filter { frame in
             frame.width > 1 && frame.height > 1 && frame.height < window.bounds.height * 0.8
         }
-        if let frame = frames.max(by: { $0.width * $0.height < $1.width * $1.height }) {
-            return frame
+        if usable.isEmpty == false {
+            return usable
         }
         let reservedHeight = min(TabClearance.phoneBar, window.bounds.height)
-        return CGRect(
-            x: 0,
-            y: window.bounds.height - reservedHeight,
-            width: window.bounds.width,
-            height: reservedHeight
-        )
+        return [
+            CGRect(
+                x: 0,
+                y: window.bounds.height - reservedHeight,
+                width: window.bounds.width,
+                height: reservedHeight
+            ),
+        ]
+    }
+
+    fileprivate func systemTabBars(in view: UIView) -> [UIView] {
+        var found: [UIView] = []
+        let shown = view.isHidden == false && view.alpha > 0.01 && view.bounds.height > 1 && view.bounds.width > 1
+        if view is UITabBar, shown {
+            found.append(view)
+        }
+        for child in view.subviews {
+            found.append(contentsOf: systemTabBars(in: child))
+        }
+        return found
+    }
+
+    fileprivate func tabBarFrame(in window: UIWindow) -> CGRect {
+        let widest = bars(in: window).max { $0.width * $0.height < $1.width * $1.height }
+        if let widest {
+            return widest
+        }
+        let height = min(TabClearance.phoneBar, window.bounds.height)
+        return CGRect(x: 0, y: window.bounds.height - height, width: window.bounds.width, height: height)
     }
 
     fileprivate func views(named name: String, in view: UIView) -> [UIView] {
@@ -311,11 +356,17 @@ class ClearanceCase: XCTestCase {
 @MainActor
 final class TabClearanceTests: ClearanceCase {
     func testVisibleTextClearsTheTabBar() {
-        let pages: [AppSection] = [.home, .group(.adBlockerAndDNS), .group(.piHealth), .settings]
+        let pages: [(AppSection, DNSPage?)] = [
+            (.home, nil),
+            (.group(.adBlockerAndDNS), nil),
+            (.group(.adBlockerAndDNS), .today),
+            (.group(.piHealth), nil),
+            (.settings, nil),
+        ]
         for device in [SnapshotDevice.smallPhone, .largePhone] {
             for scale in SnapshotScale.allCases {
                 for page in pages {
-                    let window = host(page: page, scale: scale, device: device)
+                    let window = host(page: page.0, scale: scale, device: device, dnsPage: page.1)
                     assertVisibleTextClearsBar(in: window)
                     assertVisibleTextDoesNotOverlap(in: window)
                     scrollToEnd(window)
@@ -338,9 +389,7 @@ final class TabClearanceTests: ClearanceCase {
             assertStreamingIsWhole(label, allowsWrap: scale == .largest)
             assertVisibleTextClearsBar(in: window)
             assertVisibleTextDoesNotOverlap(in: window)
-            let bar = tabBarFrame(in: window)
-            let streamingFrame = label.convert(label.bounds, to: window)
-            XCTAssertTrue(clears(streamingFrame, bar: bar, in: window), "Streaming is not above the tab bar")
+            assertFullyInside(label, in: window, name: "Streaming")
             window.isHidden = true
         }
     }
@@ -359,7 +408,7 @@ final class TabClearanceTests: ClearanceCase {
                     assertFullyDrawn(plain)
                     let frame = plain.convert(plain.bounds, to: window)
                     XCTAssertTrue(
-                        visibleClears(frame, bar: tabBarFrame(in: window), in: window),
+                        visibleClearsEvery(frame, in: window),
                         "The ad blocker line sits under the tab bar"
                     )
                 }
@@ -387,6 +436,30 @@ final class TabClearanceTests: ClearanceCase {
         window.isHidden = true
     }
 
+    /// The small-phone proof shows the checked line, the ad blocker sentence, and Streaming above the bar.
+    func testHomeProofStaysAboveTheTabBar() {
+        for scale in SnapshotScale.allCases {
+            let window = host(page: .home, scale: scale, device: .smallPhone, pinStreaming: true)
+            assertVisibleTextClearsBar(in: window)
+            assertVisibleTextDoesNotOverlap(in: window)
+            assertAccentClearsCheckedLine(in: window)
+            let checked = requireLabel("checked-line", in: window)
+            assertFullyDrawn(checked)
+            assertFullyInside(checked, in: window, name: "Checked just now")
+            let plain = requireLabel("blocker-plain", in: window)
+            assertFullyDrawn(plain)
+            assertFullyInside(plain, in: window, name: "The ad blocker line")
+            guard let streaming = streamingLabel(in: window) else {
+                XCTFail("Streaming is off the screen. Saw: \(labelTexts(in: window).joined(separator: " | "))")
+                window.isHidden = true
+                continue
+            }
+            assertStreamingIsWhole(streaming, allowsWrap: scale == .largest)
+            assertFullyInside(streaming, in: window, name: "Streaming")
+            window.isHidden = true
+        }
+    }
+
     /// Small-phone shots at both text sizes. Recording is on until the new references land.
     func testHomeClearProof() {
         for scale in SnapshotScale.allCases {
@@ -400,7 +473,7 @@ final class TabClearanceTests: ClearanceCase {
             .environment(\.colorScheme, .dark)
             .environment(\.dynamicTypeSize, scale.dynamicType)
             .environment(\.streetPiStill, true)
-            .environment(\.pinsStreamingTitle, false)
+            .environment(\.pinsStreamingTitle, true)
             let traits = UITraitCollection(traitsFrom: [
                 UITraitCollection(userInterfaceStyle: .dark),
                 UITraitCollection(preferredContentSizeCategory: scale.category),

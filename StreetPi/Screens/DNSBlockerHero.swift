@@ -29,6 +29,7 @@ struct DNSBlockerHero: View {
                 .font(.body)
                 .foregroundStyle(theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("blocker-sentence")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
