@@ -82,7 +82,7 @@ struct HouseGlance<Detail: View>: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.caption.bold())
+                    .font(.footnote.bold())
                     .foregroundStyle(palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
                 detail()

@@ -16,7 +16,7 @@ struct ServiceSquareTile: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .center, spacing: 4) {
                     Image(systemName: symbol)
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(palette.accent)
                         .accessibilityHidden(true)
                     Spacer(minLength: 2)
@@ -27,7 +27,7 @@ struct ServiceSquareTile: View {
                     color: palette.ink,
                     alignment: .left,
                     bold: true,
-                    style: .caption2
+                    style: .caption
                 )
                 .fixedSize(horizontal: compresses == false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -37,7 +37,7 @@ struct ServiceSquareTile: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 3)
+            .padding(.horizontal, 2)
             .padding(.vertical, 3)
             .frame(maxWidth: compresses ? .infinity : nil)
             .fixedSize(horizontal: compresses == false, vertical: true)
