@@ -436,7 +436,7 @@ final class TabClearanceTests: ClearanceCase {
                 UITraitCollection(userInterfaceStyle: .dark),
                 UITraitCollection(preferredContentSizeCategory: scale.category),
             ])
-            withSnapshotTesting(record: .failed) {
+            withSnapshotTesting(record: .never) {
                 assertSnapshot(
                     of: view,
                     as: .wait(
