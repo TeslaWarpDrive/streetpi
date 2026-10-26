@@ -15,6 +15,7 @@ struct HouseHome: View {
     var onOpenDevices: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.afterglowPalette) private var palette
     @State private var showMeaning = false
 
     var body: some View {
@@ -24,8 +25,8 @@ struct HouseHome: View {
                 FitOfferedWidth(maxWidth: wide ? 880 : nil) {
                     column(short: short)
                         .padding(.horizontal, AfterglowShape.page)
-                        .padding(.top, compact(short) ? 8 : pageInset)
-                        .padding(.bottom, compact(short) ? 8 : pageInset)
+                        .padding(.top, compact(short) ? 6 : pageInset)
+                        .padding(.bottom, compact(short) ? 0 : pageInset)
                 }
             }
             .scrollIndicators(.hidden)
@@ -38,7 +39,10 @@ struct HouseHome: View {
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+            .background(palette.ground.ignoresSafeArea())
         }
+        .containerBackground(palette.ground, for: .navigation)
+        .background(palette.ground.ignoresSafeArea())
     }
 
     private func column(short: Bool) -> some View {

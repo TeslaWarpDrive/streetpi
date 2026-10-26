@@ -1,7 +1,7 @@
 import StreetPiCore
 import SwiftUI
 
-/// A solid Aurora panel. The ad blocker tile tints it lavender. Body copy stays on the plate.
+/// A solid Aurora panel. The ad blocker tile is a solid lavender fill. Other tiles stay on the plate.
 struct BoardPanel<Content: View>: View {
     var lavender: Bool = false
     var inset: CGFloat = 6
@@ -15,17 +15,13 @@ struct BoardPanel<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 RoundedRectangle(cornerRadius: AfterglowShape.panel, style: .continuous)
-                    .fill(palette.panel)
-                    .overlay {
-                        if lavender {
-                            RoundedRectangle(cornerRadius: AfterglowShape.panel, style: .continuous)
-                                .fill(palette.accent.opacity(0.22))
-                        }
-                    }
+                    .fill(lavender ? palette.accent : palette.panel)
             }
             .overlay {
-                RoundedRectangle(cornerRadius: AfterglowShape.panel, style: .continuous)
-                    .strokeBorder(lavender ? palette.accent.opacity(0.7) : palette.hairline, lineWidth: 1)
+                if lavender == false {
+                    RoundedRectangle(cornerRadius: AfterglowShape.panel, style: .continuous)
+                        .strokeBorder(palette.hairline, lineWidth: 1)
+                }
             }
     }
 }

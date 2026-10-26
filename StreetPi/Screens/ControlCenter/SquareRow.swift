@@ -1,37 +1,48 @@
 import StreetPiCore
 import SwiftUI
 
-/// Streaming, Remote, DNS, and Address. Four across when they fit, then two rows, then one column.
+/// Streaming, Remote, DNS, and Address.
+/// Default text keeps four equal squares. Larger accessibility sizes drop to two rows, then one column.
 struct SquareRow: View {
     var squares: [ServiceSquare]
     var onOpen: (HouseGroup) -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        ViewThatFits(in: .horizontal) {
+        if dynamicTypeSize.isAccessibilitySize {
+            ViewThatFits(in: .horizontal) {
+                paired
+                VStack(alignment: .leading, spacing: gap) {
+                    tiles(squares, square: false)
+                }
+            }
+        } else {
             HStack(alignment: .top, spacing: gap) {
-                row(squares, compresses: false)
-            }
-            VStack(alignment: .leading, spacing: gap) {
-                HStack(alignment: .top, spacing: gap) {
-                    row(Array(squares.prefix(2)), compresses: true)
-                }
-                HStack(alignment: .top, spacing: gap) {
-                    row(Array(squares.dropFirst(2)), compresses: true)
-                }
-            }
-            VStack(alignment: .leading, spacing: gap) {
-                row(squares, compresses: true)
+                tiles(squares, square: true)
             }
         }
     }
 
     private let gap: CGFloat = 4
 
-    private func row(_ squares: [ServiceSquare], compresses: Bool) -> some View {
-        ForEach(squares) { square in
-            ServiceSquareTile(square: square, compresses: compresses) {
-                onOpen(square.group)
+    private var paired: some View {
+        VStack(alignment: .leading, spacing: gap) {
+            HStack(alignment: .top, spacing: gap) {
+                tiles(Array(squares.prefix(2)), square: false)
             }
+            HStack(alignment: .top, spacing: gap) {
+                tiles(Array(squares.dropFirst(2)), square: false)
+            }
+        }
+    }
+
+    private func tiles(_ squares: [ServiceSquare], square: Bool) -> some View {
+        ForEach(squares) { squareTile in
+            ServiceSquareTile(square: squareTile, readsAsSquare: square) {
+                onOpen(squareTile.group)
+            }
+            .frame(maxWidth: .infinity, alignment: .top)
         }
     }
 }

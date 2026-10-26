@@ -5,7 +5,7 @@ struct HouseFooter: View {
 
     var body: some View {
         Text("Tap a tile to open it. Hold the ad blocker to pause it.")
-            .font(.footnote)
+            .font(.caption)
             .foregroundStyle(palette.secondary)
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)

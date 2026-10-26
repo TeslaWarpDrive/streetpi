@@ -2,10 +2,11 @@ import StreetPiCore
 import SwiftUI
 import UIKit
 
-/// One service at a glance. The word sits with the dot.
+/// One service at a glance. The icon and dot sit on top. The name and status sit on the bottom.
 struct ServiceSquareTile: View {
     var square: ServiceSquare
-    var compresses: Bool = false
+    /// Default-size tiles share one row and read as squares.
+    var readsAsSquare: Bool = false
     var onOpen: () -> Void
 
     @Environment(\.afterglowPalette) private var palette
@@ -13,7 +14,7 @@ struct ServiceSquareTile: View {
 
     var body: some View {
         Button(action: onOpen) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .center, spacing: 4) {
                     Image(systemName: symbol)
                         .font(.caption)
@@ -22,6 +23,7 @@ struct ServiceSquareTile: View {
                     Spacer(minLength: 2)
                     StatusDot(tone: square.tone)
                 }
+                Spacer(minLength: 4)
                 UnbrokenTitle(
                     text: square.title,
                     color: palette.ink,
@@ -29,7 +31,7 @@ struct ServiceSquareTile: View {
                     bold: true,
                     style: .caption1
                 )
-                .fixedSize(horizontal: compresses == false, vertical: true)
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Text(square.word)
                     .font(.caption2)
@@ -38,9 +40,9 @@ struct ServiceSquareTile: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal, 2)
-            .padding(.vertical, 3)
-            .frame(maxWidth: compresses ? .infinity : nil)
-            .fixedSize(horizontal: compresses == false, vertical: true)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .top)
+            .frame(height: readsAsSquare ? 52 : nil)
             .background(palette.panel, in: RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous)
