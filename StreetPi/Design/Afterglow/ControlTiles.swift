@@ -26,7 +26,7 @@ struct ControlScreen<Content: View>: View {
     /// the next row above the one strip. Taller phones already clear it.
     private func phoneLift(height: CGFloat) -> CGFloat {
         guard wide == false, height > 0, height < 640 else { return 0 }
-        return 24
+        return 40
     }
 }
 

@@ -144,8 +144,15 @@ struct AppShell: View {
         ZStack {
             theme.background.ignoresSafeArea()
             GeometryReader { proxy in
-                shell(wide: proxy.size.width >= 700)
-                    .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+                let wide = proxy.size.width >= 700
+                if showsPhoneStrip(wide: wide) {
+                    phoneStrip
+                        .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+                } else {
+                    // House, iPad, and accessibility sizes keep the shell main already ships.
+                    shell(wide: wide)
+                        .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+                }
             }
             if let pendingAction {
                 ActionConfirm(
@@ -206,21 +213,29 @@ struct AppShell: View {
                     .toolbar(.hidden, for: .tabBar)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
-        } else if tabBinding.wrappedValue == .house {
-            // The style has to sit on the tab view itself. A wrapper here
-            // shifts the Home cards.
-            houseTabs(wide: wide)
-                .tabViewStyle(.sidebarAdaptable)
         } else {
-            // One strip. A tab view on these pages draws a floating bar over
-            // the next row and leaves this strip underneath it.
-            VStack(spacing: 0) {
-                phonePage(wide: wide)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: true, compact: true)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            tabs(wide: wide)
+                .tabViewStyle(.sidebarAdaptable)
         }
+    }
+
+    /// Ad blocker, Pi, and Settings on an ordinary phone. House stays in `shell`.
+    private func showsPhoneStrip(wide: Bool) -> Bool {
+        wide == false
+            && dynamicTypeSize.isAccessibilitySize == false
+            && HouseTab(section: section) != .house
+    }
+
+    /// One strip under the page. A tab view here draws a second, floating bar.
+    private var phoneStrip: some View {
+        VStack(spacing: 0) {
+            phonePage(wide: false)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: true, compact: true)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(theme.background)
     }
 
     /// Ad blocker, Pi, and Settings on a phone. House is not in this view.
@@ -238,24 +253,7 @@ struct AppShell: View {
         }
     }
 
-    /// House keeps the system tab bar the Home snapshots already show.
-    /// Ad blocker, Pi, and Settings do not. That bar was floating over the
-    /// bottom cards, with the phone strip drawn again underneath it.
-    @ViewBuilder
     private func tabs(wide: Bool) -> some View {
-        switch tabBinding.wrappedValue {
-        case .house:
-            houseTabs(wide: wide)
-        case .adBlocker:
-            adBlocker(wide: wide)
-        case .pi:
-            pi(wide: wide)
-        case .settings:
-            settings
-        }
-    }
-
-    private func houseTabs(wide: Bool) -> some View {
         TabView(selection: tabBinding) {
             Tab(HouseTab.house.title, systemImage: HouseTab.house.symbol, value: HouseTab.house) {
                 house(wide: wide)

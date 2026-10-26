@@ -75,10 +75,12 @@ class ClearanceCase: XCTestCase {
             pump()
             texts = textFrames(in: window)
         }
-        XCTAssertFalse(
-            texts.isEmpty,
-            "No text was found to compare with the tab bar. \(viewOutline(window))"
-        )
+        if texts.isEmpty {
+            // Ad blocker, Pi, and Settings draw with SwiftUI, so they have no UILabel.
+            // The rendered rows just above the one strip still have to be clear of type.
+            assertRenderedInkClearsBar(bar, in: window)
+            return
+        }
         let visible = visiblePage(in: window)
         let tabWords: Set<String> = ["House", "Ad blocker", "Pi", "Settings", "Tabs"]
         for item in texts where tabWords.contains(item.text) == false {
@@ -92,6 +94,77 @@ class ClearanceCase: XCTestCase {
                 "\(item.text) sits under the tab bar"
             )
         }
+    }
+
+    /// The eight points above the strip stay free of type. A clipped caption fails this.
+    fileprivate func assertRenderedInkClearsBar(_ bar: CGRect, in window: UIWindow) {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = max(window.traitCollection.displayScale, 1)
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(bounds: window.bounds, format: format)
+        let image = renderer.image { _ in
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+        }
+        guard let cg = image.cgImage,
+              let data = cg.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else {
+            XCTFail("The page did not draw")
+            return
+        }
+        let width = cg.width
+        let height = cg.height
+        let scale = window.bounds.width > 0 ? CGFloat(width) / window.bounds.width : image.scale
+        let gap = Int((8 * scale).rounded())
+        let barTop = Int((bar.minY * scale).rounded())
+        let start = max(0, barTop - gap)
+        let end = min(height, barTop)
+        guard end > start, bar.height > 20, bar.height < window.bounds.height * 0.4 else {
+            XCTFail("The tab strip could not be measured. \(viewOutline(window))")
+            return
+        }
+        let bytesPerPixel = cg.bitsPerPixel / 8
+        let rowBytes = cg.bytesPerRow
+        guard bytesPerPixel >= 3 else {
+            XCTFail("The page image has no color")
+            return
+        }
+        let x0 = min(width - 1, Int((16 * scale).rounded()))
+        let x1 = max(x0 + 1, width - x0)
+        var brightest = 0
+        for y in start..<end {
+            let row = bytes.advanced(by: y * rowBytes)
+            var bright = 0
+            var x = x0
+            while x < x1 {
+                let pixel = row.advanced(by: x * bytesPerPixel)
+                let sample = max(Int(pixel[0]), Int(pixel[1]), Int(pixel[2]))
+                if sample > 150 {
+                    bright += 1
+                }
+                x += 1
+            }
+            brightest = max(brightest, bright)
+        }
+        XCTAssertLessThan(
+            brightest,
+            8,
+            "Type still sits on the tab bar"
+        )
+        var pageInk = 0
+        let pageEnd = start
+        let pageStart = max(0, pageEnd - Int((80 * scale).rounded()))
+        for y in pageStart..<pageEnd {
+            let row = bytes.advanced(by: y * rowBytes)
+            var x = x0
+            while x < x1 {
+                let pixel = row.advanced(by: x * bytesPerPixel)
+                if max(Int(pixel[0]), Int(pixel[1]), Int(pixel[2])) > 150 {
+                    pageInk += 1
+                }
+                x += 1
+            }
+        }
+        XCTAssertGreaterThan(pageInk, 20, "The page above the tab bar did not draw")
     }
 
     fileprivate func assertVisibleTextDoesNotOverlap(in window: UIWindow) {
