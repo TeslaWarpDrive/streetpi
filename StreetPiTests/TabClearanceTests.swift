@@ -67,7 +67,14 @@ class ClearanceCase: XCTestCase {
 
     fileprivate func assertVisibleTextClearsBar(in window: UIWindow) {
         let bar = tabBarFrame(in: window)
-        let texts = textFrames(in: window)
+        var texts = textFrames(in: window)
+        if texts.isEmpty {
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+            CATransaction.flush()
+            window.layoutIfNeeded()
+            pump()
+            texts = textFrames(in: window)
+        }
         XCTAssertFalse(texts.isEmpty, "No text was found to compare with the tab bar")
         let visible = visiblePage(in: window)
         let tabWords: Set<String> = ["House", "Ad blocker", "Pi", "Settings", "Tabs"]
@@ -186,10 +193,15 @@ class ClearanceCase: XCTestCase {
         window.rootViewController = controller
         window.overrideUserInterfaceStyle = .dark
         window.makeKeyAndVisible()
-        pump()
-        controller.view.setNeedsLayout()
-        controller.view.layoutIfNeeded()
-        pump()
+        controller.beginAppearanceTransition(true, animated: false)
+        controller.endAppearanceTransition()
+        for _ in 0..<3 {
+            CATransaction.flush()
+            window.layoutIfNeeded()
+            controller.view.layoutIfNeeded()
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+            pump()
+        }
         return window
     }
 

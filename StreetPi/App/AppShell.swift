@@ -210,10 +210,29 @@ struct AppShell: View {
             tabs(wide: wide)
                 .tabViewStyle(.sidebarAdaptable)
         } else {
-            // One system bar. The adaptable style draws a floating strip over the
-            // cards and leaves the system bar underneath it.
-            tabs(wide: wide)
-                .tabViewStyle(.tabBarOnly)
+            // One strip. The system bar was floating over the next row and
+            // drawing a second set of labels under the icons.
+            VStack(spacing: 0) {
+                phonePage(wide: wide)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: true, compact: true)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// Ad blocker, Pi, and Settings on a phone. House stays in the system tab bar.
+    @ViewBuilder
+    private func phonePage(wide: Bool) -> some View {
+        switch tabBinding.wrappedValue {
+        case .house:
+            house(wide: wide)
+        case .adBlocker:
+            adBlocker(wide: wide)
+        case .pi:
+            pi(wide: wide)
+        case .settings:
+            settings
         }
     }
 
@@ -225,15 +244,15 @@ struct AppShell: View {
             }
             Tab(HouseTab.adBlocker.title, systemImage: HouseTab.adBlocker.symbol, value: HouseTab.adBlocker) {
                 adBlocker(wide: wide)
-                    .clearsPhoneTabBar(wide: wide, inset: TabClearance.cardBar)
+                    .clearsPhoneTabBar(wide: wide)
             }
             Tab(HouseTab.pi.title, systemImage: HouseTab.pi.symbol, value: HouseTab.pi) {
                 pi(wide: wide)
-                    .clearsPhoneTabBar(wide: wide, inset: TabClearance.cardBar)
+                    .clearsPhoneTabBar(wide: wide)
             }
             Tab(HouseTab.settings.title, systemImage: HouseTab.settings.symbol, value: HouseTab.settings) {
                 settings
-                    .clearsPhoneTabBar(wide: wide, inset: TabClearance.cardBar)
+                    .clearsPhoneTabBar(wide: wide)
             }
         }
     }
