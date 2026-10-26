@@ -16,23 +16,29 @@ struct ServiceSquareTile: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .center, spacing: 4) {
                     Image(systemName: symbol)
-                        .font(.body)
+                        .font(.caption2)
                         .foregroundStyle(palette.accent)
                         .accessibilityHidden(true)
-                    Spacer(minLength: 4)
+                    Spacer(minLength: 2)
                     StatusDot(tone: square.tone)
                 }
-                UnbrokenTitle(text: square.title, color: palette.ink, alignment: .left, bold: true)
-                    .fixedSize(horizontal: compresses == false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                UnbrokenTitle(
+                    text: square.title,
+                    color: palette.ink,
+                    alignment: .left,
+                    bold: true,
+                    style: .caption2
+                )
+                .fixedSize(horizontal: compresses == false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 Text(square.word)
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(palette.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, AfterglowShape.tight)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 3)
+            .padding(.vertical, 3)
             .frame(maxWidth: compresses ? .infinity : nil)
             .fixedSize(horizontal: compresses == false, vertical: true)
             .background(palette.panel, in: RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous))
@@ -94,6 +100,7 @@ struct UnbrokenTitle: UIViewRepresentable {
     var color: Color
     var alignment: NSTextAlignment = .center
     var bold: Bool = false
+    var style: UIFont.TextStyle = .subheadline
 
     func makeUIView(context: Context) -> UILabel {
         let label = UILabel()
@@ -115,7 +122,7 @@ struct UnbrokenTitle: UIViewRepresentable {
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize? {
         apply(uiView)
-        let font = uiView.font ?? UIFont.preferredFont(forTextStyle: .subheadline)
+        let font = uiView.font ?? UIFont.preferredFont(forTextStyle: style)
         let full = (text as NSString).size(withAttributes: [.font: font])
         let limit = proposal.width ?? .greatestFiniteMagnitude
         if limit >= full.width - 0.5 {
@@ -126,7 +133,7 @@ struct UnbrokenTitle: UIViewRepresentable {
     }
 
     private func apply(_ label: UILabel) {
-        let base = UIFont.preferredFont(forTextStyle: .subheadline, compatibleWith: label.traitCollection)
+        let base = UIFont.preferredFont(forTextStyle: style, compatibleWith: label.traitCollection)
         let font = bold ? UIFont.systemFont(ofSize: base.pointSize, weight: .bold) : base
         label.textAlignment = alignment
         let paragraph = NSMutableParagraphStyle()

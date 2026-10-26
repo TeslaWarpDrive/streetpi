@@ -17,7 +17,7 @@ struct StatusPill: View {
                     checked(wraps: true)
                 }
             } else {
-                Apart(gap: AfterglowShape.line) {
+                Apart(gap: AfterglowShape.tight) {
                     pill
                     checked(wraps: false)
                 }
@@ -30,12 +30,12 @@ struct StatusPill: View {
         HStack(spacing: 6) {
             StatusDot(tone: .calm)
             Text(title)
-                .font(.subheadline.bold())
+                .font(.footnote.bold())
                 .foregroundStyle(palette.calm)
-                .fixedSize(horizontal: false, vertical: true)
+                .fixedSize(horizontal: true, vertical: true)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
         .background(palette.calm.opacity(0.16), in: Capsule())
         .overlay {
             Capsule().strokeBorder(palette.calm.opacity(0.45), lineWidth: 1)

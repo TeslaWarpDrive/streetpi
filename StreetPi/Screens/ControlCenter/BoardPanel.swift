@@ -73,16 +73,16 @@ struct HouseGlance<Detail: View>: View {
     @Environment(\.afterglowPalette) private var palette
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: 6) {
             Image(systemName: symbol)
-                .font(.body)
+                .font(.footnote)
                 .foregroundStyle(palette.accent)
-                .frame(width: 32, height: 32)
+                .frame(width: 22, height: 22)
                 .background(palette.accent.opacity(0.16), in: Circle())
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.subheadline.bold())
+                    .font(.caption.bold())
                     .foregroundStyle(palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
                 detail()

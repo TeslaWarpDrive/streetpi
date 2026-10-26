@@ -14,7 +14,7 @@ struct BlockerCard: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        BoardPanel(lavender: true, inset: 10) {
+        BoardPanel(lavender: true, inset: 6) {
             openControl
                 .overlay(alignment: .topTrailing) {
                     infoButton
@@ -24,10 +24,10 @@ struct BlockerCard: View {
 
     private var openControl: some View {
         Button(action: onOpen) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .center, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .center, spacing: 6) {
                     ShieldRing(fraction: tile.fraction)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 28, height: 28)
                     stateLabel
                     Spacer(minLength: 36)
                 }

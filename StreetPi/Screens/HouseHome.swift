@@ -85,7 +85,7 @@ struct HouseHome: View {
     }
 
     /// Room between tiles on a short phone, so the square grid starts on the first screen.
-    private let compactGap: CGFloat = 4
+    private let compactGap: CGFloat = 2
 
     /// A short phone at the default size keeps the first screen to the mock.
     /// Large text stays on the text styles and uses a tighter gap so the status can wrap.

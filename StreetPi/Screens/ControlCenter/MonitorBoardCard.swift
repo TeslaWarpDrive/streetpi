@@ -6,7 +6,7 @@ struct MonitorBoardCard: View {
     var tile: MonitorTile
 
     var body: some View {
-        BoardPanel {
+        BoardPanel(inset: 4) {
             HouseGlance(title: "Monitors", symbol: "list.bullet.rectangle") {
                 marks
             }
@@ -18,7 +18,7 @@ struct MonitorBoardCard: View {
     private var marks: some View {
         HStack(spacing: 3) {
             ForEach(tile.marks) { mark in
-                MonitorSquare(up: mark.up, side: 10)
+                MonitorSquare(up: mark.up, side: 8)
                     .accessibilityLabel("\(mark.name), \(mark.word)")
             }
         }

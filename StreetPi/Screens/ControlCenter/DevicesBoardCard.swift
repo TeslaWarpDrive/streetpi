@@ -9,10 +9,10 @@ struct DevicesBoardCard: View {
 
     var body: some View {
         Button(action: onOpen) {
-            BoardPanel {
+            BoardPanel(inset: 4) {
                 HouseGlance(title: "Devices", symbol: "ipad.and.iphone") {
                     Text(detail)
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundStyle(palette.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
