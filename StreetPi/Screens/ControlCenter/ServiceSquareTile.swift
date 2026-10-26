@@ -27,7 +27,7 @@ struct ServiceSquareTile: View {
                     color: palette.ink,
                     alignment: .left,
                     bold: true,
-                    style: .caption
+                    style: .caption1
                 )
                 .fixedSize(horizontal: compresses == false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
