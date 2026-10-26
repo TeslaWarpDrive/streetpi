@@ -59,10 +59,12 @@ private struct PhoneTabClearance: ViewModifier {
     var inset: CGFloat
 
     func body(content: Content) -> some View {
-        if wide {
-            content
+        if wide || inset == TabClearance.phoneBar {
+            content.padding(.bottom, wide ? 0 : inset)
         } else {
-            content.padding(.bottom, inset)
+            content
+                .padding(.bottom, inset)
+                .background(StreetTheme.house.background)
         }
     }
 }
