@@ -69,7 +69,7 @@ struct ControlGrid<Content: View>: View {
         } else {
             AfterglowTileGrid(
                 spacing: Rhythm.line,
-                minimumColumnWidth: 148,
+                minimumColumnWidth: 96,
                 maximumColumns: maximumColumns
             ) {
                 content()
