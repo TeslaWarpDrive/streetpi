@@ -6,17 +6,27 @@ struct ControlScreen<Content: View>: View {
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Rhythm.line) {
-                content()
+        GeometryReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: Rhythm.line) {
+                    content()
+                }
+                .padding(.horizontal, Rhythm.page)
+                .padding(.top, wide ? Rhythm.line : -phoneLift(height: proxy.size.height))
+                .padding(.bottom, Rhythm.line + (wide ? 0 : TabClearance.contentInset))
+                .frame(maxWidth: wide ? 880 : 560)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, Rhythm.page)
-            .padding(.top, wide ? Rhythm.line : 0)
-            .padding(.bottom, Rhythm.line + (wide ? 0 : TabClearance.contentInset))
-            .frame(maxWidth: wide ? 880 : 560)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollIndicators(.hidden)
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
         }
-        .scrollIndicators(.hidden)
+    }
+
+    /// Short phones have room under the status bar. Shifting the page up keeps
+    /// the next row above the one strip. Taller phones already clear it.
+    private func phoneLift(height: CGFloat) -> CGFloat {
+        guard wide == false, height > 0, height < 640 else { return 0 }
+        return 24
     }
 }
 

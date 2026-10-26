@@ -69,6 +69,7 @@ class ClearanceCase: XCTestCase {
         let bar = tabBarFrame(in: window)
         var texts = textFrames(in: window)
         if texts.isEmpty {
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
             CATransaction.flush()
             window.layoutIfNeeded()
             pump()
@@ -203,6 +204,7 @@ class ClearanceCase: XCTestCase {
             CATransaction.flush()
             window.layoutIfNeeded()
             controller.view.layoutIfNeeded()
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
             pump()
         }
         return window
@@ -290,7 +292,7 @@ class ClearanceCase: XCTestCase {
     }
 
     fileprivate func viewOutline(_ view: UIView, depth: Int = 0) -> String {
-        guard depth < 4 else { return "" }
+        guard depth < 8 else { return "" }
         let name = String(describing: type(of: view))
         let line = String(repeating: " ", count: depth) + "\(name) \(Int(view.bounds.width))x\(Int(view.bounds.height))"
         let children = view.subviews.prefix(6).map { viewOutline($0, depth: depth + 1) }

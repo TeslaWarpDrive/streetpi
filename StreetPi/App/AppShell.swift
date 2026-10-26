@@ -212,11 +212,27 @@ struct AppShell: View {
         } else {
             // One strip. The adaptable style draws a floating bar over the cards
             // and leaves the system bar underneath it.
-            VStack(spacing: 0) {
-                tabs(wide: wide)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: true, compact: true)
-                    .fixedSize(horizontal: false, vertical: true)
+            phonePages(wide: wide)
+                .tabViewStyle(.tabBarOnly)
+                .toolbar(.hidden, for: .tabBar)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: true, compact: true)
+                }
+        }
+    }
+
+    /// Ad blocker, Pi, and Settings on a phone. The system bar stays hidden so
+    /// the compact strip is the only tab bar. House is not in this view.
+    private func phonePages(wide: Bool) -> some View {
+        TabView(selection: tabBinding) {
+            Tab(HouseTab.adBlocker.title, systemImage: HouseTab.adBlocker.symbol, value: HouseTab.adBlocker) {
+                adBlocker(wide: wide)
+            }
+            Tab(HouseTab.pi.title, systemImage: HouseTab.pi.symbol, value: HouseTab.pi) {
+                pi(wide: wide)
+            }
+            Tab(HouseTab.settings.title, systemImage: HouseTab.settings.symbol, value: HouseTab.settings) {
+                settings
             }
         }
     }
