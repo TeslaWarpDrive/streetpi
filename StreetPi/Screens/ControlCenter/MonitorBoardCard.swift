@@ -1,14 +1,22 @@
 import StreetPiCore
 import SwiftUI
 
-/// Monitors, as a row of little squares. The sample count is not painted.
+/// Monitors, as a count and a row of rounded squares.
 struct MonitorBoardCard: View {
     var tile: MonitorTile
+
+    @Environment(\.afterglowPalette) private var palette
 
     var body: some View {
         BoardPanel(inset: 4) {
             HouseGlance(title: "Monitors", symbol: "list.bullet.rectangle") {
-                marks
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(countLine)
+                        .font(.caption2)
+                        .foregroundStyle(palette.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    marks
+                }
             }
         }
         .background(alignment: .topLeading) {
@@ -23,7 +31,7 @@ struct MonitorBoardCard: View {
     private var marks: some View {
         HStack(spacing: 3) {
             ForEach(tile.marks) { mark in
-                MonitorSquare(up: mark.up, side: 8)
+                MonitorSquare(up: mark.up, side: 10)
                     .accessibilityLabel("\(mark.name), \(mark.word)")
             }
         }
@@ -38,12 +46,12 @@ struct MonitorBoardCard: View {
         return "Monitors. \(countLine). \(names)"
     }
 
-    /// The sample "8 of 8" stays out of the label. A live count such as "27 of 28 up" stays.
+    /// Sample and live counts share one shape: "8 of 8 up", "27 of 28 up".
     private var countLine: String {
         let sample = tile.figure == "8 of 8" || tile.line.contains("are answering")
         if sample {
             let up = tile.marks.filter(\.up).count
-            return "\(up) up"
+            return "\(up) of \(tile.marks.count) up"
         }
         if tile.line.isEmpty == false {
             return tile.line

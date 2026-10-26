@@ -27,13 +27,20 @@ struct BlockerCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .center, spacing: 6) {
                     ShieldRing(fraction: tile.fraction)
-                        .frame(width: 32, height: 32)
+                        .frame(width: 28, height: 28)
+                    Spacer(minLength: 4)
                     stateLabel
-                    Spacer(minLength: 36)
+                    Color.clear
+                        .frame(width: 28, height: 28)
+                        .accessibilityHidden(true)
                 }
+                Text("Ad blocker · last 24 hours")
+                    .font(.caption2)
+                    .foregroundStyle(onLavender.opacity(0.78))
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(tile.percentText)
                     .font(.system(dynamicTypeSize.isAccessibilitySize ? .title : .title2, design: .rounded).bold())
-                    .foregroundStyle(palette.ink)
+                    .foregroundStyle(onLavender)
                     .fixedSize(horizontal: false, vertical: true)
                     .background(alignment: .topLeading) {
                         ScrollAnchor(name: "blocker-fraction")
@@ -42,7 +49,7 @@ struct BlockerCard: View {
                     }
                 FittingText(
                     text: tile.fractionLine,
-                    color: palette.ink,
+                    color: onLavender,
                     style: .caption1,
                     weight: .regular,
                     identifier: "blocker-plain",
@@ -62,11 +69,15 @@ struct BlockerCard: View {
         .modifier(PauseBlockerAction(enabled: tile.canPause, action: onHold))
     }
 
+    private var onLavender: Color {
+        palette.ground
+    }
+
     private var stateLabel: some View {
         Text(tile.stateWord)
             .font(.subheadline.bold())
-            .foregroundStyle(palette.calm)
-            .fixedSize(horizontal: false, vertical: true)
+            .foregroundStyle(onLavender)
+            .fixedSize(horizontal: true, vertical: true)
             .accessibilityHidden(true)
     }
 
@@ -75,8 +86,8 @@ struct BlockerCard: View {
             .labelStyle(.iconOnly)
             .buttonStyle(.plain)
             .font(.body)
-            .foregroundStyle(palette.accent)
-            .frame(width: 32, height: 32)
+            .foregroundStyle(onLavender)
+            .frame(width: 28, height: 28)
     }
 
     private var spoken: String {
@@ -93,14 +104,14 @@ private struct ShieldRing: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(palette.hairline, lineWidth: 3)
+                .stroke(palette.ground.opacity(0.28), lineWidth: 3)
             Circle()
                 .trim(from: 0, to: clamped)
                 .stroke(ringGradient, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                 .rotationEffect(.degrees(-90))
             Image(systemName: "shield.fill")
                 .font(.caption2)
-                .foregroundStyle(palette.accent)
+                .foregroundStyle(palette.ground)
                 .accessibilityHidden(true)
         }
         .accessibilityHidden(true)

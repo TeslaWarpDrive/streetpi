@@ -387,11 +387,11 @@ final class TabClearanceTests: ClearanceCase {
         }
     }
 
-    /// The fixture Home does not paint the sample count or the sample backup sentence.
+    /// The fixture Home paints the monitor count, not the sample backup sentence.
     func testSamplePhrasesStayOffTheHomeCards() {
         let window = host(page: .home, scale: .default, device: .smallPhone)
         let spoken = textFrames(in: window).map(\.text).joined(separator: " ")
-        XCTAssertFalse(spoken.contains("8 of 8"), spoken)
+        XCTAssertTrue(spoken.contains("8 of 8 up"), spoken)
         XCTAssertFalse(spoken.contains("The weekly copy succeeded."), spoken)
         XCTAssertFalse(spoken.contains("All answering"), spoken)
         XCTAssertTrue(spoken.contains("About 1 in 5 things"), spoken)
@@ -436,7 +436,7 @@ final class TabClearanceTests: ClearanceCase {
                 UITraitCollection(userInterfaceStyle: .dark),
                 UITraitCollection(preferredContentSizeCategory: scale.category),
             ])
-            withSnapshotTesting(record: .never) {
+            withSnapshotTesting(record: .failed) {
                 assertSnapshot(
                     of: view,
                     as: .wait(
