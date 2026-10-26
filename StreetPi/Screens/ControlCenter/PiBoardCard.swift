@@ -11,7 +11,7 @@ struct PiBoardCard: View {
     var body: some View {
         Button(action: onOpen) {
             BoardPanel(inset: 6) {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     HStack(alignment: .center, spacing: 6) {
                         Image(systemName: "cpu")
                             .font(.footnote)

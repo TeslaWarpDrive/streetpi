@@ -9,12 +9,24 @@ struct MonitorBoardCard: View {
 
     var body: some View {
         BoardPanel(inset: 4) {
-            HouseGlance(title: "Monitors", symbol: "list.bullet.rectangle") {
-                VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .center, spacing: 6) {
+                    Image(systemName: "list.bullet.rectangle")
+                        .font(.footnote)
+                        .foregroundStyle(palette.accent)
+                        .frame(width: 22, height: 22)
+                        .background(palette.accent.opacity(0.16), in: Circle())
+                        .accessibilityHidden(true)
+                    Text("Monitors")
+                        .font(.footnote.bold())
+                        .foregroundStyle(palette.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                HStack(alignment: .center, spacing: 4) {
                     Text(countLine)
                         .font(.caption2)
                         .foregroundStyle(palette.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .fixedSize(horizontal: true, vertical: true)
                     marks
                 }
             }
@@ -29,9 +41,9 @@ struct MonitorBoardCard: View {
     }
 
     private var marks: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 2) {
             ForEach(tile.marks) { mark in
-                MonitorSquare(up: mark.up, side: 10)
+                MonitorSquare(up: mark.up, side: 6)
                     .accessibilityLabel("\(mark.name), \(mark.word)")
             }
         }

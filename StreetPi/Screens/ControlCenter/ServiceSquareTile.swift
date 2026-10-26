@@ -5,7 +5,8 @@ import UIKit
 /// One service at a glance. The icon and dot sit on top. The name and status sit on the bottom.
 struct ServiceSquareTile: View {
     var square: ServiceSquare
-    var fillsHeight: Bool = false
+    /// Default-size tiles share one row and read as squares.
+    var readsAsSquare: Bool = false
     var onOpen: () -> Void
 
     @Environment(\.afterglowPalette) private var palette
@@ -40,7 +41,8 @@ struct ServiceSquareTile: View {
             }
             .padding(.horizontal, 2)
             .padding(.vertical, 4)
-            .frame(maxWidth: .infinity, maxHeight: fillsHeight ? .infinity : nil, alignment: .top)
+            .frame(maxWidth: .infinity, alignment: .top)
+            .frame(height: readsAsSquare ? 56 : nil)
             .background(palette.panel, in: RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous)
