@@ -206,9 +206,14 @@ struct AppShell: View {
                     .toolbar(.hidden, for: .tabBar)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
-        } else {
+        } else if tabBinding.wrappedValue == .house {
             tabs(wide: wide)
                 .tabViewStyle(.sidebarAdaptable)
+        } else {
+            // One system bar. The adaptable style draws a floating strip over the
+            // cards and leaves the system bar underneath it.
+            tabs(wide: wide)
+                .tabViewStyle(.tabBarOnly)
         }
     }
 
@@ -220,15 +225,15 @@ struct AppShell: View {
             }
             Tab(HouseTab.adBlocker.title, systemImage: HouseTab.adBlocker.symbol, value: HouseTab.adBlocker) {
                 adBlocker(wide: wide)
-                    .clearsPhoneTabBar(wide: wide)
+                    .clearsPhoneTabBar(wide: wide, inset: TabClearance.cardBar)
             }
             Tab(HouseTab.pi.title, systemImage: HouseTab.pi.symbol, value: HouseTab.pi) {
                 pi(wide: wide)
-                    .clearsPhoneTabBar(wide: wide)
+                    .clearsPhoneTabBar(wide: wide, inset: TabClearance.cardBar)
             }
             Tab(HouseTab.settings.title, systemImage: HouseTab.settings.symbol, value: HouseTab.settings) {
                 settings
-                    .clearsPhoneTabBar(wide: wide)
+                    .clearsPhoneTabBar(wide: wide, inset: TabClearance.cardBar)
             }
         }
     }

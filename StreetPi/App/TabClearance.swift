@@ -7,14 +7,17 @@ enum TabClearance {
     /// on a small phone without covering the percent that sits just above it.
     static let phoneBar: CGFloat = 20
 
+    /// Ad blocker, Pi, and Settings use one bar. This lifts the last card clear of it.
+    static let cardBar: CGFloat = 56
+
     /// Sheets and confirmations sit over the bar, so they keep a taller inset.
     static let sheet: CGFloat = 49
 }
 
 extension View {
     /// Inset a phone page above the tab bar. A wide window uses the sidebar, so it stays put.
-    func clearsPhoneTabBar(wide: Bool) -> some View {
-        modifier(PhoneTabClearance(wide: wide))
+    func clearsPhoneTabBar(wide: Bool, inset: CGFloat = TabClearance.phoneBar) -> some View {
+        modifier(PhoneTabClearance(wide: wide, inset: inset))
     }
 }
 
@@ -53,12 +56,13 @@ final class ScrollAnchorView: UIView {
 
 private struct PhoneTabClearance: ViewModifier {
     var wide: Bool
+    var inset: CGFloat
 
     func body(content: Content) -> some View {
         if wide {
             content
         } else {
-            content.padding(.bottom, TabClearance.phoneBar)
+            content.padding(.bottom, inset)
         }
     }
 }
