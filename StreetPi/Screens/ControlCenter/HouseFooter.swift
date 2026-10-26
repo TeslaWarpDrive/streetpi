@@ -7,7 +7,8 @@ struct HouseFooter: View {
         Text("Tap a tile to open it. Hold the ad blocker to pause it.")
             .font(.footnote)
             .foregroundStyle(palette.secondary)
+            .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
     }
 }

@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// The phone tab strip is a sibling of the page, so the page ends where the strip starts.
-/// `phoneBar` is only the fallback a test uses when it cannot find that strip.
+/// Room above the phone tab bar. The bar floats over the page, so each screen
+/// keeps its own inset instead of drawing cards and type underneath it.
 enum TabClearance {
-    static let phoneBar: CGFloat = 49
+    /// Extra space past the system inset. Enough to lift the last line off the bar
+    /// on a small phone without covering the percent that sits just above it.
+    static let phoneBar: CGFloat = 20
 
     /// Sheets and confirmations sit over the bar, so they keep a taller inset.
     static let sheet: CGFloat = 49
@@ -11,6 +13,13 @@ enum TabClearance {
     /// The page scrolls. This keeps the last line above the phone strip,
     /// including after the last row has been scrolled into view.
     static let contentInset: CGFloat = 20
+}
+
+extension View {
+    /// Inset a phone page above the tab bar. A wide window uses the sidebar, so it stays put.
+    func clearsPhoneTabBar(wide: Bool) -> some View {
+        modifier(PhoneTabClearance(wide: wide))
+    }
 }
 
 /// A one-point mark a test can find when it scrolls a page.
@@ -46,38 +55,14 @@ final class ScrollAnchorView: UIView {
     }
 }
 
-/// The phone strip and the iPad sidebar sit beside the page, so the page is not padded.
-struct ShellChrome<Page: View>: View {
+private struct PhoneTabClearance: ViewModifier {
     var wide: Bool
-    @Binding var selection: HouseTab
-    var roomy: Bool
-    @ViewBuilder var page: () -> Page
 
-    var body: some View {
+    func body(content: Content) -> some View {
         if wide {
-            HStack(alignment: .top, spacing: 0) {
-                AccessibleTabStrip(selection: $selection, scrollsHorizontally: false)
-                    .frame(minWidth: roomy ? 280 : 200, maxWidth: roomy ? 340 : 280)
-                    .frame(maxHeight: .infinity, alignment: .top)
-                laidOut
-            }
+            content
         } else {
-            VStack(spacing: 0) {
-                laidOut
-                AccessibleTabStrip(
-                    selection: $selection,
-                    scrollsHorizontally: true,
-                    compact: selection != .house
-                )
-                .fixedSize(horizontal: false, vertical: true)
-            }
+            content.padding(.bottom, TabClearance.phoneBar)
         }
-    }
-
-    private var laidOut: some View {
-        page()
-            .tabViewStyle(.tabBarOnly)
-            .toolbar(.hidden, for: .tabBar)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }

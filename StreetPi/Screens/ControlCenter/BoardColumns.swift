@@ -7,7 +7,7 @@ struct BoardColumns<Leading: View, Trailing: View>: View {
     @ViewBuilder var trailing: () -> Trailing
 
     var body: some View {
-        HStack(alignment: .top, spacing: wide ? AfterglowShape.block : AfterglowShape.tight) {
+        HStack(alignment: .top, spacing: wide ? AfterglowShape.block : AfterglowShape.line) {
             leading()
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             trailing()

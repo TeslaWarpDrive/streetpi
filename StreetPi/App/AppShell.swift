@@ -168,12 +168,57 @@ struct AppShell: View {
     }
 
     private func shell(wide: Bool) -> some View {
-        ShellChrome(wide: wide, selection: tabBinding, roomy: dynamicTypeSize.isAccessibilitySize) {
+        styledTabs(wide: wide)
+            .modifier(WideSizeClass(wide: wide))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(theme.background)
+    }
+
+    /// The system bar at ordinary sizes. At accessibility sizes, our own strip.
+    /// Styles stay on the `TabView` itself. A modifier around the whole shell
+    /// makes the type checker give up.
+    @ViewBuilder
+    private func styledTabs(wide: Bool) -> some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            if wide {
+                tabs(wide: wide)
+                    .tabViewStyle(.tabBarOnly)
+                    .toolbar(.hidden, for: .tabBar)
+                    .safeAreaInset(edge: .leading, spacing: 0) {
+                        AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: false)
+                            .frame(width: 340)
+                    }
+            } else {
+                tabs(wide: wide)
+                    .tabViewStyle(.tabBarOnly)
+                    .toolbar(.hidden, for: .tabBar)
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: true)
+                    }
+            }
+        } else if wide {
+            HStack(alignment: .top, spacing: 0) {
+                AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: false)
+                    .frame(minWidth: 200, idealWidth: 240, maxWidth: 280)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                tabs(wide: wide)
+                    .tabViewStyle(.tabBarOnly)
+                    .toolbar(.hidden, for: .tabBar)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
+        } else if tabBinding.wrappedValue == .house {
             tabs(wide: wide)
+                .tabViewStyle(.sidebarAdaptable)
+        } else {
+            // One strip. The adaptable style draws a floating bar over the cards
+            // and leaves the system bar underneath it.
+            VStack(spacing: 0) {
+                tabs(wide: wide)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: true, compact: true)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
-        .modifier(WideSizeClass(wide: wide))
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(theme.background)
     }
 
     /// House keeps the system tab bar the Home snapshots already show.
@@ -197,15 +242,19 @@ struct AppShell: View {
         TabView(selection: tabBinding) {
             Tab(HouseTab.house.title, systemImage: HouseTab.house.symbol, value: HouseTab.house) {
                 house(wide: wide)
+                    .clearsPhoneTabBar(wide: wide)
             }
             Tab(HouseTab.adBlocker.title, systemImage: HouseTab.adBlocker.symbol, value: HouseTab.adBlocker) {
                 adBlocker(wide: wide)
+                    .clearsPhoneTabBar(wide: wide)
             }
             Tab(HouseTab.pi.title, systemImage: HouseTab.pi.symbol, value: HouseTab.pi) {
                 pi(wide: wide)
+                    .clearsPhoneTabBar(wide: wide)
             }
             Tab(HouseTab.settings.title, systemImage: HouseTab.settings.symbol, value: HouseTab.settings) {
                 settings
+                    .clearsPhoneTabBar(wide: wide)
             }
         }
     }
@@ -218,6 +267,7 @@ struct AppShell: View {
                     .toolbar(.hidden, for: .navigationBar)
                     .navigationDestination(for: HouseGroup.self) { group in
                         room(group, wide: wide)
+                            .clearsPhoneTabBar(wide: wide)
                     }
             }
         }

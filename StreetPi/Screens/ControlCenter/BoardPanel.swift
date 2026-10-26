@@ -63,3 +63,32 @@ struct CompactFact: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
+
+/// Icon, bold title, and a muted detail. Used by the four lower Home tiles.
+struct HouseGlance<Detail: View>: View {
+    var title: String
+    var symbol: String
+    @ViewBuilder var detail: () -> Detail
+
+    @Environment(\.afterglowPalette) private var palette
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: symbol)
+                .font(.footnote)
+                .foregroundStyle(palette.accent)
+                .frame(width: 22, height: 22)
+                .background(palette.accent.opacity(0.16), in: Circle())
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.footnote.bold())
+                    .foregroundStyle(palette.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                detail()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}

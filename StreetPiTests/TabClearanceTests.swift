@@ -242,6 +242,12 @@ class ClearanceCase: XCTestCase {
     }
 
     fileprivate func tabBarFrame(in window: UIWindow) -> CGRect {
+        if let bar = systemTabBar(in: window) {
+            let frame = bar.convert(bar.bounds, to: window)
+            if frame.height > 1, frame.height < window.bounds.height * 0.5 {
+                return frame
+            }
+        }
         let frames = views(named: "phone-tab-strip", in: window).map {
             $0.convert($0.bounds, to: window)
         }.filter { frame in
@@ -250,13 +256,26 @@ class ClearanceCase: XCTestCase {
         if let frame = frames.max(by: { $0.width * $0.height < $1.width * $1.height }) {
             return frame
         }
-        let reservedHeight = min(TabClearance.phoneBar, window.bounds.height)
+        let reservedHeight = min(max(TabClearance.phoneBar, 49), window.bounds.height)
         return CGRect(
             x: 0,
             y: window.bounds.height - reservedHeight,
             width: window.bounds.width,
             height: reservedHeight
         )
+    }
+
+    fileprivate func systemTabBar(in view: UIView) -> UIView? {
+        let shown = view.isHidden == false && view.alpha > 0.01 && view.bounds.height > 1
+        if view is UITabBar, shown {
+            return view
+        }
+        for child in view.subviews {
+            if let found = systemTabBar(in: child) {
+                return found
+            }
+        }
+        return nil
     }
 
     fileprivate func views(named name: String, in view: UIView) -> [UIView] {
@@ -391,6 +410,18 @@ final class TabClearanceTests: ClearanceCase {
         }
     }
 
+    /// The fixture Home does not paint the sample count or the sample backup sentence.
+    func testSamplePhrasesStayOffTheHomeCards() {
+        let window = host(page: .home, scale: .default, device: .smallPhone)
+        let spoken = textFrames(in: window).map(\.text).joined(separator: " ")
+        XCTAssertFalse(spoken.contains("8 of 8"), spoken)
+        XCTAssertFalse(spoken.contains("The weekly copy succeeded."), spoken)
+        XCTAssertFalse(spoken.contains("All answering"), spoken)
+        XCTAssertTrue(spoken.contains("About 1 in 5 things"), spoken)
+        XCTAssertTrue(spoken.contains("using the Pi"), spoken)
+        window.isHidden = true
+    }
+
     /// The installed Home paints the status page, not the 8-service sample.
     func testStatusPageReplacesTheSample() {
         let board = StatusPageFixture.previewBoard(now: now)
@@ -428,7 +459,7 @@ final class TabClearanceTests: ClearanceCase {
                 UITraitCollection(userInterfaceStyle: .dark),
                 UITraitCollection(preferredContentSizeCategory: scale.category),
             ])
-            withSnapshotTesting(record: .failed) {
+            withSnapshotTesting(record: .never) {
                 assertSnapshot(
                     of: view,
                     as: .wait(
