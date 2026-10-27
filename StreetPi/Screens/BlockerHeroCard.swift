@@ -11,6 +11,8 @@ struct BlockerHeroCard: View {
     @Environment(\.afterglowPalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .largeTitle) private var ringSide: CGFloat = 76
+    /// The hero number is the biggest type on the page, as in the mock. It still grows with Dynamic Type.
+    @ScaledMetric(relativeTo: .largeTitle) private var percentSize: CGFloat = 52
 
     var body: some View {
         Button(action: onExplain) {
@@ -57,7 +59,7 @@ struct BlockerHeroCard: View {
             }
             .foregroundStyle(palette.ground.opacity(0.8))
             Text(share.percentText)
-                .font(.system(.largeTitle, design: .rounded).bold().monospacedDigit())
+                .font(.system(size: percentSize, weight: .bold, design: .rounded).monospacedDigit())
                 .foregroundStyle(palette.ground)
                 .fixedSize(horizontal: false, vertical: true)
             Text("of lookups were ads or trackers in the last 24 hours")

@@ -32,7 +32,7 @@ struct StatusPill: View {
         HStack(spacing: 6) {
             StatusDot(tone: tone)
             Text(title)
-                .font(.footnote.bold())
+                .font(dynamicTypeSize.isAccessibilitySize ? .caption.bold() : .footnote.bold())
                 .foregroundStyle(palette.tone(tone))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -50,6 +50,7 @@ struct StatusPill: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
+        .reportsLayout("status-word")
     }
 
     private func checked(wraps: Bool) -> some View {

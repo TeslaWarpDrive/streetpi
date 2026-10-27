@@ -269,6 +269,7 @@ struct SettingsView: View {
                     .font(.body)
                     .foregroundStyle(theme.ink)
                     .fixedSize(horizontal: false, vertical: true)
+                    .reportsLayout("page-end")
                     .frame(minHeight: 44, alignment: .leading)
                     .padding(.horizontal, Rhythm.line)
                     .padding(.vertical, 10)

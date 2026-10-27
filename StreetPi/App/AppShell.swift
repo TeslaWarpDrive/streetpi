@@ -155,27 +155,29 @@ struct AppShell: View {
     }
 
     var body: some View {
-        ZStack {
-            theme.background.ignoresSafeArea()
-            AfterglowScope(paintsGround: false) { tabShell }
-            if let pendingAction {
-                ActionConfirm(
-                    action: pendingAction,
-                    theme: theme,
-                    onCancel: { onPending(nil) },
-                    onConfirm: { onConfirm(pendingAction) }
-                )
+        // The ground bleeds behind the bar. A sibling that ignores the safe area
+        // also pulls the tab pages out of it, and the last line then slides under the bar.
+        AfterglowScope(paintsGround: false) { tabShell }
+            .background { theme.background.ignoresSafeArea() }
+            .overlay {
+                if let pendingAction {
+                    ActionConfirm(
+                        action: pendingAction,
+                        theme: theme,
+                        onCancel: { onPending(nil) },
+                        onConfirm: { onConfirm(pendingAction) }
+                    )
+                }
             }
-        }
-        .tint(theme.accent)
-        .sheet(
-            isPresented: Binding(
-                get: { showAlerts && still == false },
-                set: { showAlerts = $0 }
-            )
-        ) {
-            alerts
-        }
+            .tint(theme.accent)
+            .sheet(
+                isPresented: Binding(
+                    get: { showAlerts && still == false },
+                    set: { showAlerts = $0 }
+                )
+            ) {
+                alerts
+            }
     }
 
     /// Compact width uses one system tab bar. Regular width opens directly on the sidebar.
@@ -184,7 +186,11 @@ struct AppShell: View {
         if wide {
             NavigationSplitView(columnVisibility: $sidebarVisibility) {
                 ShellSidebar(selection: sidebarBinding, theme: theme)
-                    .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
+                    .navigationSplitViewColumnWidth(
+                        min: dynamicTypeSize.isAccessibilitySize ? 300 : 200,
+                        ideal: dynamicTypeSize.isAccessibilitySize ? 380 : 240,
+                        max: dynamicTypeSize.isAccessibilitySize ? 440 : 320
+                    )
             } detail: {
                 page(selectedTab)
             }

@@ -54,10 +54,12 @@ struct CountTile: View {
                     .font(.title2.monospaced().bold())
                     .foregroundStyle(palette.ink)
                     .fixedSize(horizontal: true, vertical: true)
+                // A small ideal width, so only the big numbers decide whether three tiles fit across.
                 Text(line)
                     .font(.footnote)
                     .foregroundStyle(palette.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                    .frame(idealWidth: 40, maxWidth: .infinity, alignment: .leading)
             }
             .padding(AfterglowShape.line)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
