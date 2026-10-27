@@ -90,18 +90,25 @@ jobs:
           set -euo pipefail
           DEST="$(bash scripts/pick-simulator.sh)"
           echo "Destination: ${DEST}"
-          TEST_ARGS=()
+          # macOS bash 3.2 errors on an empty array under set -u.
           if [[ "$SNAPSHOT_SUITE" == "clearance" ]]; then
-            TEST_ARGS=(-only-testing:StreetPiTests/TabClearanceTests)
+            xcodebuild test \
+              -project StreetPi.xcodeproj \
+              -scheme StreetPi \
+              -destination "${DEST}" \
+              -only-testing:StreetPiTests/TabClearanceTests \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY=""
+          else
+            xcodebuild test \
+              -project StreetPi.xcodeproj \
+              -scheme StreetPi \
+              -destination "${DEST}" \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY=""
           fi
-          xcodebuild test \
-            -project StreetPi.xcodeproj \
-            -scheme StreetPi \
-            -destination "${DEST}" \
-            "${TEST_ARGS[@]}" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
 
       - name: Upload design snapshots
         if: always()
