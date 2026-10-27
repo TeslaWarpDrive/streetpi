@@ -9,10 +9,10 @@ struct RunningBoardCard: View {
 
     var body: some View {
         Button(action: onOpen) {
-            BoardPanel(inset: 4) {
-                HouseGlance(title: "Running for", symbol: "clock") {
+            BoardPanel {
+                HouseGlance(title: "Running for", symbol: "clock.arrow.circlepath") {
                     Text(tile.figure)
-                        .font(.caption2)
+                        .font(.subheadline)
                         .foregroundStyle(palette.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
