@@ -32,4 +32,6 @@ Secrets go in the iOS Keychain (`KeychainSecretStore`). Tests use `MemorySecretS
 
 GitHub Actions runs the core tests on Ubuntu and, on a standard `macos-26` runner, the snapshot matrix plus an unsigned `StreetPi-unsigned.ipa`. Do not move that job to a large or extra-large runner.
 
+A missing reference records on the next run, and that run fails. To re-record references after an intended look change, run the CI workflow by hand on the branch with `record` set to `failed`. Download the `design-snapshots` artifact, look at every changed image, and commit the ones that are right. A failed comparison uploads the new image as `snapshot-failures`. No code change turns recording on.
+
 Snapshots cover Home, the ad blocker pages, the machine pages, alerts, Settings, and the component gallery, in dark, default and largest Dynamic Type, on a small iPhone, a large iPhone, and an iPad.
