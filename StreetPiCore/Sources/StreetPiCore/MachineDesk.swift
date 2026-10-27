@@ -92,7 +92,12 @@ extension MachineDesk {
             title: title,
             caption: caption,
             points: (0..<24).map { hour in
-                MetricPoint(hour: hour, value: 0.2 + Double((hour + id.count) % 6) * 0.08)
+                MetricPoint(
+                    hour: hour,
+                    value: id == "temperature"
+                        ? 48 + Double(hour % 6) * 2
+                        : 0.2 + Double((hour + id.count) % 6) * 0.08
+                )
             }
         )
     }
