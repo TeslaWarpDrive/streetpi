@@ -69,4 +69,3 @@ struct BlockerHeroCard: View {
         enabled ? "Blocking is on" : blockingLine
     }
 }
-

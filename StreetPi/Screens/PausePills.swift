@@ -138,4 +138,3 @@ struct Pill: View {
         .accessibilityLabel(spoken)
     }
 }
-

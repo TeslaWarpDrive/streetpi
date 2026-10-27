@@ -64,4 +64,3 @@ struct CountTile: View {
         .accessibilityHint("Explains this number.")
     }
 }
-

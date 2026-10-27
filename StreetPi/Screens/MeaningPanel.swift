@@ -24,4 +24,3 @@ struct MeaningPanel: View {
         .background(palette.panel, in: RoundedRectangle(cornerRadius: AfterglowShape.panel, style: .continuous))
     }
 }
-
