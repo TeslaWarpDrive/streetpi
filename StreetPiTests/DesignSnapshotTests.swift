@@ -313,6 +313,75 @@ final class DesignSnapshotTests: XCTestCase {
         }
     }
 
+    func testRoomStreaming() {
+        assertShellMatrix(section: .home, testName: "room-streaming", initialRoom: .streaming)
+    }
+
+    func testRoomBackups() {
+        assertShellMatrix(section: .home, testName: "room-backups", initialRoom: .backups)
+    }
+
+    func testRoomInternet() {
+        assertShellMatrix(section: .home, testName: "room-internet", initialRoom: .internet)
+    }
+
+    /// Fixture alarms only. One has no time, so the row shows the sentence alone.
+    func testAlertsList() {
+        var desk = MachineDesk.houseFixture
+        desk.alerts = [
+            HouseAlert(
+                id: "fixture-temperature",
+                sentence: "Warning. The Pi is hot.",
+                tone: .attention,
+                raisedAt: now.addingTimeInterval(-40 * 60)
+            ),
+            HouseAlert(
+                id: "fixture-disk",
+                sentence: "Critical. The disk is nearly full.",
+                tone: .problem,
+                raisedAt: now.addingTimeInterval(-3 * 3_600)
+            ),
+            HouseAlert(
+                id: "fixture-cpu",
+                sentence: "Warning. The processor is busy.",
+                tone: .attention
+            ),
+        ]
+        assertShellMatrix(section: .alerts, testName: "alerts-list", machine: desk)
+    }
+
+    /// Same matrix as `assertMatrix`, with a Pi desk and an opened room.
+    private func assertShellMatrix(
+        section: AppSection,
+        testName: String,
+        machine: MachineDesk = .houseFixture,
+        initialRoom: HouseGroup? = nil
+    ) {
+        for size in SnapshotScale.allCases {
+            for device in SnapshotDevice.allCases {
+                let view = AppShell(
+                    section: section,
+                    screen: .ready(house),
+                    now: now,
+                    onSection: { _ in },
+                    machine: machine,
+                    initialRoom: initialRoom
+                )
+                .preferredColorScheme(.dark)
+                .environment(\.colorScheme, .dark)
+                .environment(\.dynamicTypeSize, size.dynamicType)
+                .environment(\.streetPiStill, true)
+                recordSnapshot(
+                    of: view,
+                    layout: device.config,
+                    size: size,
+                    named: "dark-\(size.rawValue)-\(device.rawValue)",
+                    testName: testName
+                )
+            }
+        }
+    }
+
     private func assertSplash(_ image: UIImage, testName: String) {
         for size in SnapshotScale.allCases {
             for device in SnapshotDevice.allCases {

@@ -119,6 +119,26 @@ final class StatusNarratorTests: XCTestCase {
         )
     }
 
+    func testEveryRoomExplainsItself() {
+        let groups = HouseGuide.groups(in: .healthyFixture)
+        let meanings = groups.map { HouseGuide.meaning(for: $0.id) }
+        XCTAssertTrue(meanings.allSatisfy { !$0.isEmpty && $0.hasSuffix(".") })
+        XCTAssertEqual(Set(meanings).count, meanings.count)
+        XCTAssertTrue(HouseGuide.meaning(for: .backups).contains("Once a week"))
+    }
+
+    func testRoomRowsCarryTheirOwnTone() {
+        var snapshot = HouseholdSnapshot.healthyFixture
+        guard let index = snapshot.services.firstIndex(where: { $0.id == "aiostreams" }) else {
+            return XCTFail("Missing streaming helper")
+        }
+        snapshot.services[index].state = .notResponding
+        let rows = HouseGuide.brief(.streaming, in: snapshot)?.rows ?? []
+        XCTAssertEqual(rows.map(\.tone), [.calm, .problem])
+        XCTAssertEqual(rows.map(\.state), ["Up", "Not responding"])
+        XCTAssertNil(GroupRow(id: "a", name: "A", state: "Up").tone)
+    }
+
     func testAgePhrases() {
         XCTAssertEqual(AgePhrase.english(from: now.addingTimeInterval(-30), to: now), "just now")
         XCTAssertEqual(AgePhrase.english(from: now.addingTimeInterval(-5 * 60), to: now), "5 minutes ago")
