@@ -10,19 +10,21 @@ struct ServiceSquareTile: View {
     var onOpen: () -> Void
 
     @Environment(\.afterglowPalette) private var palette
+    /// About as tall as a phone tile is wide, so the row reads as squares. It grows with the text.
+    @ScaledMetric(relativeTo: .caption) private var squareSide: CGFloat = 78
 
     var body: some View {
         Button(action: onOpen) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .center, spacing: 4) {
                     Image(systemName: symbol)
-                        .font(.caption)
+                        .font(.body)
                         .foregroundStyle(palette.accent)
                         .accessibilityHidden(true)
                     Spacer(minLength: 2)
                     StatusDot(tone: square.tone)
                 }
-                Spacer(minLength: 4)
+                Spacer(minLength: AfterglowShape.line)
                 UnbrokenTitle(
                     text: square.title,
                     color: palette.ink,
@@ -33,15 +35,14 @@ struct ServiceSquareTile: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Text(square.word)
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(palette.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 2)
-            .padding(.vertical, 4)
-            .frame(maxWidth: .infinity, alignment: .top)
-            .frame(height: readsAsSquare ? 52 : nil)
+            .padding(.horizontal, 4)
+            .padding(.vertical, AfterglowShape.line)
+            .frame(maxWidth: .infinity, minHeight: readsAsSquare ? squareSide : nil, alignment: .top)
             .background(palette.panel, in: RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous)
@@ -89,52 +90,117 @@ struct UnbrokenTitle: UIViewRepresentable {
     var bold: Bool = false
     var style: UIFont.TextStyle = .subheadline
 
-    func makeUIView(context: Context) -> UILabel {
-        let label = UILabel()
+    func makeUIView(context: Context) -> WholeTitleLabel {
+        let label = WholeTitleLabel()
         label.numberOfLines = 0
-        label.textAlignment = alignment
         label.lineBreakMode = .byCharWrapping
         label.adjustsFontSizeToFitWidth = false
-        label.adjustsFontForContentSizeCategory = true
-        label.setContentCompressionResistancePriority(.required, for: .horizontal)
-        label.setContentHuggingPriority(.required, for: .horizontal)
+        label.adjustsFontForContentSizeCategory = false
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
         label.accessibilityIdentifier = "service-title"
-        apply(label)
+        configure(label)
         return label
     }
 
-    func updateUIView(_ label: UILabel, context: Context) {
-        apply(label)
+    func updateUIView(_ label: WholeTitleLabel, context: Context) {
+        configure(label)
     }
 
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize? {
-        apply(uiView)
-        let font = uiView.font ?? UIFont.preferredFont(forTextStyle: style)
+    private func configure(_ label: WholeTitleLabel) {
+        label.source = text
+        label.ink = UIColor(color)
+        label.bold = bold
+        label.textStyle = style
+        label.textAlign = alignment
+        label.fit()
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: WholeTitleLabel, context: Context) -> CGSize? {
+        configure(uiView)
+        let font = Self.font(
+            text: text,
+            bold: bold,
+            style: style,
+            fitting: proposal.width ?? .greatestFiniteMagnitude,
+            traits: uiView.traitCollection
+        )
         let full = (text as NSString).size(withAttributes: [.font: font])
-        let limit = proposal.width ?? .greatestFiniteMagnitude
+        let limit = proposal.width ?? full.width
         if limit >= full.width - 0.5 {
             return CGSize(width: ceil(full.width), height: ceil(max(full.height, font.lineHeight)))
         }
-        let fitted = uiView.sizeThatFits(CGSize(width: limit, height: .greatestFiniteMagnitude))
+        let fitted = (text as NSString).boundingRect(
+            with: CGSize(width: limit, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font],
+            context: nil
+        ).size
         return CGSize(width: ceil(limit), height: ceil(max(fitted.height, font.lineHeight)))
     }
 
-    private func apply(_ label: UILabel) {
-        let base = UIFont.preferredFont(forTextStyle: style, compatibleWith: label.traitCollection)
-        let font = bold ? UIFont.systemFont(ofSize: base.pointSize, weight: .bold) : base
-        label.textAlignment = alignment
+    /// One line at the text style when it fits. A narrow default-size tile scales the
+    /// weight down just enough to keep the whole word, instead of wrapping "Streaming".
+    /// Accessibility sizes keep the full text style and wrap.
+    fileprivate static func font(
+        text: String,
+        bold: Bool,
+        style: UIFont.TextStyle,
+        fitting width: CGFloat,
+        traits: UITraitCollection
+    ) -> UIFont {
+        let base = UIFont.preferredFont(forTextStyle: style, compatibleWith: traits)
+        let weight: UIFont.Weight = bold ? .bold : .regular
+        let preferred = UIFont.systemFont(ofSize: base.pointSize, weight: weight)
+        guard width.isFinite, width > 1 else { return preferred }
+        let full = (text as NSString).size(withAttributes: [.font: preferred]).width
+        guard full > width, traits.preferredContentSizeCategory.isAccessibilityCategory == false else {
+            return preferred
+        }
+        let scaled = max(base.pointSize * 0.7, base.pointSize * (width - 1) / full)
+        return UIFont.systemFont(ofSize: scaled, weight: weight)
+    }
+}
+
+/// Draws a tile name on one line at the default text size, and wraps at accessibility sizes.
+final class WholeTitleLabel: UILabel {
+    var source = ""
+    var ink = UIColor.label
+    var bold = false
+    var textStyle: UIFont.TextStyle = .caption1
+    var textAlign: NSTextAlignment = .left
+    private var stamp = ""
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        fit()
+    }
+
+    func fit() {
+        let width = bounds.width > 1 ? bounds.width : .greatestFiniteMagnitude
+        let font = UnbrokenTitle.font(
+            text: source,
+            bold: bold,
+            style: textStyle,
+            fitting: width,
+            traits: traitCollection
+        )
+        let next = "\(source)|\(ink)|\(bold)|\(textStyle.rawValue)|\(width)|\(font.pointSize)"
+        if stamp == next { return }
+        stamp = next
+        textAlignment = textAlign
         let paragraph = NSMutableParagraphStyle()
         paragraph.hyphenationFactor = 0
         paragraph.lineBreakMode = .byCharWrapping
-        paragraph.alignment = alignment
-        label.attributedText = NSAttributedString(
-            string: text,
+        paragraph.alignment = textAlign
+        attributedText = NSAttributedString(
+            string: source,
             attributes: [
                 .font: font,
-                .foregroundColor: UIColor(color),
+                .foregroundColor: ink,
                 .paragraphStyle: paragraph,
             ]
         )
-        label.accessibilityLabel = text
+        accessibilityLabel = source
     }
 }

@@ -118,7 +118,8 @@ struct DNSDeskDetail: View {
             sessionActive: sessionActive,
             onPage: { onPage($0) },
             onSavePassword: onSavePassword,
-            onSignOut: { onPending(.signOutOfAdBlocker) }
+            onSignOut: { onPending(.signOutOfAdBlocker) },
+            onAction: { onPending($0) }
         )
     }
 }

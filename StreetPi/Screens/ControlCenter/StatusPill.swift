@@ -30,9 +30,9 @@ struct StatusPill: View {
         HStack(spacing: 6) {
             StatusDot(tone: .calm)
             Text(title)
-                .font(.footnote.bold())
+                .font(dynamicTypeSize.isAccessibilitySize ? .caption.bold() : .footnote.bold())
                 .foregroundStyle(palette.calm)
-                .fixedSize(horizontal: true, vertical: true)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
