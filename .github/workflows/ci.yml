@@ -17,6 +17,13 @@ on:
           - missing
           - failed
           - all
+      suite:
+        description: "Run the full suite, or diagnose tab clearance before a full visual run."
+        type: choice
+        default: full
+        options:
+          - full
+          - clearance
 
 concurrency:
   group: streetpi-ci-${{ github.ref }}
@@ -78,14 +85,20 @@ jobs:
         env:
           TEST_RUNNER_SNAPSHOT_TESTING_RECORD: ${{ inputs.record || 'missing' }}
           TEST_RUNNER_SNAPSHOT_ARTIFACTS: ${{ runner.temp }}/snapshot-failures
+          SNAPSHOT_SUITE: ${{ inputs.suite || 'full' }}
         run: |
           set -euo pipefail
           DEST="$(bash scripts/pick-simulator.sh)"
           echo "Destination: ${DEST}"
+          TEST_ARGS=()
+          if [[ "$SNAPSHOT_SUITE" == "clearance" ]]; then
+            TEST_ARGS=(-only-testing:StreetPiTests/TabClearanceTests)
+          fi
           xcodebuild test \
             -project StreetPi.xcodeproj \
             -scheme StreetPi \
             -destination "${DEST}" \
+            "${TEST_ARGS[@]}" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY=""
