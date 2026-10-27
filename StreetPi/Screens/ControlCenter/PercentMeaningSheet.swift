@@ -18,7 +18,6 @@ struct PercentMeaningSheet: View {
                     .padding(AfterglowShape.page)
             }
             .background(palette.ground)
-            .safeAreaPadding(.bottom, TabClearance.sheet)
             .navigationTitle("About this percent")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -40,6 +40,7 @@ struct AppShell: View {
     var onStatusPage: (String, String) -> Void = { _, _ in }
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.streetPiStill) private var still
     @State private var showAlerts: Bool
     @State private var roomPath: [HouseGroup] = []
@@ -128,25 +129,29 @@ struct AppShell: View {
         return HouseGuide.groups(in: snapshot)
     }
 
+    private var wide: Bool {
+        horizontalSizeClass == .regular
+    }
+
+    private var selectedTab: HouseTab {
+        HouseTab(section: section)
+    }
+
     private var tabBinding: Binding<HouseTab> {
-        Binding(
-            get: { HouseTab(section: section) },
-            set: { next in
-                if next == .house {
-                    roomPath = []
-                }
-                onSection(next.section)
-            }
-        )
+        Binding(get: { selectedTab }, set: select)
+    }
+
+    private func select(_ tab: HouseTab) {
+        if tab == .house {
+            roomPath = []
+        }
+        onSection(tab.section)
     }
 
     var body: some View {
         ZStack {
             theme.background.ignoresSafeArea()
-            GeometryReader { proxy in
-                shell(wide: proxy.size.width >= 700)
-                    .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
-            }
+            tabShell
             if let pendingAction {
                 ActionConfirm(
                     action: pendingAction,
@@ -167,69 +172,32 @@ struct AppShell: View {
         }
     }
 
-    private func shell(wide: Bool) -> some View {
-        styledTabs(wide: wide)
-            .modifier(WideSizeClass(wide: wide))
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(theme.background)
-    }
-
-    /// The system bar at ordinary sizes. At accessibility sizes, our own strip.
-    /// Styles stay on the `TabView` itself. A modifier around the whole shell
-    /// makes the type checker give up.
-    @ViewBuilder
-    private func styledTabs(wide: Bool) -> some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            if wide {
-                tabs(wide: wide)
-                    .tabViewStyle(.tabBarOnly)
-                    .toolbar(.hidden, for: .tabBar)
-                    .safeAreaInset(edge: .leading, spacing: 0) {
-                        AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: false)
-                            .frame(width: 340)
-                    }
-            } else {
-                tabs(wide: wide)
-                    .tabViewStyle(.tabBarOnly)
-                    .toolbar(.hidden, for: .tabBar)
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
-                        AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: true)
-                    }
-            }
-        } else if wide {
-            HStack(alignment: .top, spacing: 0) {
-                AccessibleTabStrip(selection: tabBinding, scrollsHorizontally: false)
-                    .frame(minWidth: 200, idealWidth: 240, maxWidth: 280)
-                    .frame(maxHeight: .infinity, alignment: .top)
-                tabs(wide: wide)
-                    .tabViewStyle(.tabBarOnly)
-                    .toolbar(.hidden, for: .tabBar)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            }
-        } else {
-            tabs(wide: wide)
-                .tabViewStyle(.sidebarAdaptable)
-        }
-    }
-
-    private func tabs(wide: Bool) -> some View {
+    /// One system tab view. The phone keeps the tab bar at every text size; long-pressing
+    /// a tab shows its name in the large content viewer. Regular width opens as a sidebar.
+    /// The system gives each page its bottom inset, so every page scrolls clear of the bar.
+    private var tabShell: some View {
         TabView(selection: tabBinding) {
-            Tab(HouseTab.house.title, systemImage: HouseTab.house.symbol, value: HouseTab.house) {
-                house(wide: wide)
-                    .clearsPhoneTabBar(wide: wide)
+            ForEach(HouseTab.allCases) { tab in
+                Tab(tab.title, systemImage: tab.symbol, value: tab) {
+                    page(tab)
+                }
             }
-            Tab(HouseTab.adBlocker.title, systemImage: HouseTab.adBlocker.symbol, value: HouseTab.adBlocker) {
-                adBlocker(wide: wide)
-                    .clearsPhoneTabBar(wide: wide)
-            }
-            Tab(HouseTab.pi.title, systemImage: HouseTab.pi.symbol, value: HouseTab.pi) {
-                pi(wide: wide)
-                    .clearsPhoneTabBar(wide: wide)
-            }
-            Tab(HouseTab.settings.title, systemImage: HouseTab.settings.symbol, value: HouseTab.settings) {
-                settings
-                    .clearsPhoneTabBar(wide: wide)
-            }
+        }
+        .tabViewStyle(.sidebarAdaptable)
+        .defaultAdaptableTabBarPlacement(.sidebar)
+    }
+
+    @ViewBuilder
+    private func page(_ tab: HouseTab) -> some View {
+        switch tab {
+        case .house:
+            house(wide: wide)
+        case .adBlocker:
+            adBlocker(wide: wide)
+        case .pi:
+            pi(wide: wide)
+        case .settings:
+            settings
         }
     }
 
@@ -241,7 +209,6 @@ struct AppShell: View {
                     .toolbar(.hidden, for: .navigationBar)
                     .navigationDestination(for: HouseGroup.self) { group in
                         room(group, wide: wide)
-                            .clearsPhoneTabBar(wide: wide)
                     }
             }
         }
@@ -347,7 +314,7 @@ struct AppShell: View {
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(theme.background)
+            .background(theme.background.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
         }
     }
@@ -370,7 +337,7 @@ struct AppShell: View {
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(theme.background)
+            .background(theme.background.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
         }
     }
@@ -394,7 +361,7 @@ struct AppShell: View {
                 onStatusPage: onStatusPage
             )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(theme.background)
+                .background(theme.background.ignoresSafeArea())
                 .toolbar(.hidden, for: .navigationBar)
         }
     }
@@ -407,19 +374,6 @@ struct AppShell: View {
 
     private var splitsDesk: Bool {
         dynamicTypeSize.isAccessibilitySize == false
-    }
-}
-
-/// Regular width is the iPad. Compact stays with the phone, so tab content keeps its height.
-private struct WideSizeClass: ViewModifier {
-    var wide: Bool
-
-    func body(content: Content) -> some View {
-        if wide {
-            content.environment(\.horizontalSizeClass, .regular)
-        } else {
-            content
-        }
     }
 }
 
