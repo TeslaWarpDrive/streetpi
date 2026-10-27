@@ -109,22 +109,33 @@ struct SquareStrip: Layout {
                 x: bounds.minX + CGFloat(column) * (grid.side + grid.spacing),
                 y: bounds.minY + CGFloat(row) * (grid.side + gap)
             )
-            subview.place(at: point, anchor: .topLeading, proposal: ProposedViewSize(width: grid.side, height: grid.side))
+            subview.place(
+                at: point,
+                anchor: .topLeading,
+                proposal: ProposedViewSize(width: grid.side, height: grid.side)
+            )
         }
     }
 
     /// One row when the squares fit at a readable size; otherwise as many rows as it takes.
-    private func grid(count: Int, width: CGFloat) -> (side: CGFloat, perRow: Int, rows: Int, spacing: CGFloat) {
-        guard count > 0, width > 0 else { return (0, 1, 0, gap) }
+    private struct GridMetrics {
+        var side: CGFloat
+        var perRow: Int
+        var rows: Int
+        var spacing: CGFloat
+    }
+
+    private func grid(count: Int, width: CGFloat) -> GridMetrics {
+        guard count > 0, width > 0 else { return GridMetrics(side: 0, perRow: 1, rows: 0, spacing: gap) }
         let oneRow = (width - CGFloat(count - 1) * gap) / CGFloat(count)
         if oneRow >= smallest {
             let side = min(oneRow, largest)
             let spacing = count > 1 ? (width - side * CGFloat(count)) / CGFloat(count - 1) : 0
-            return (side, count, 1, oneRow > largest ? spacing : gap)
+            return GridMetrics(side: side, perRow: count, rows: 1, spacing: oneRow > largest ? spacing : gap)
         }
         let perRow = max(1, Int((width + gap) / (smallest + gap)))
         let side = (width - CGFloat(perRow - 1) * gap) / CGFloat(perRow)
         let rows = (count + perRow - 1) / perRow
-        return (side, perRow, rows, gap)
+        return GridMetrics(side: side, perRow: perRow, rows: rows, spacing: gap)
     }
 }

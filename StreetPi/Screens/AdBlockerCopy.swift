@@ -45,4 +45,3 @@ enum AdBlockerCopy {
             + share.fractionLine
     }
 }
-

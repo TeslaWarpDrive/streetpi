@@ -103,4 +103,3 @@ extension AdBlockerOverview where More == EmptyView {
         )
     }
 }
-
