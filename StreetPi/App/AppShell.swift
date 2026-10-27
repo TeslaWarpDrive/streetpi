@@ -138,7 +138,7 @@ struct AppShell: View {
     }
 
     private var tabBinding: Binding<HouseTab> {
-        Binding(get: { selectedTab }, set: select)
+        Binding(get: { selectedTab }, set: { select($0) })
     }
 
     private func select(_ tab: HouseTab) {
