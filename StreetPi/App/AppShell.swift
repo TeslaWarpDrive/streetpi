@@ -150,27 +150,29 @@ struct AppShell: View {
     }
 
     var body: some View {
-        ZStack {
-            theme.background.ignoresSafeArea()
-            tabShell
-            if let pendingAction {
-                ActionConfirm(
-                    action: pendingAction,
-                    theme: theme,
-                    onCancel: { onPending(nil) },
-                    onConfirm: { onConfirm(pendingAction) }
-                )
+        // The ground bleeds behind the bar. A sibling that ignores the safe area
+        // also pulls the tab pages out of it, and the last line then slides under the bar.
+        tabShell
+            .background { theme.background.ignoresSafeArea() }
+            .overlay {
+                if let pendingAction {
+                    ActionConfirm(
+                        action: pendingAction,
+                        theme: theme,
+                        onCancel: { onPending(nil) },
+                        onConfirm: { onConfirm(pendingAction) }
+                    )
+                }
             }
-        }
-        .tint(theme.accent)
-        .sheet(
-            isPresented: Binding(
-                get: { showAlerts && still == false },
-                set: { showAlerts = $0 }
-            )
-        ) {
-            alerts
-        }
+            .tint(theme.accent)
+            .sheet(
+                isPresented: Binding(
+                    get: { showAlerts && still == false },
+                    set: { showAlerts = $0 }
+                )
+            ) {
+                alerts
+            }
     }
 
     /// Compact width uses one system tab bar. Regular width opens directly on the sidebar.

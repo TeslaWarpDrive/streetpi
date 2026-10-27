@@ -11,10 +11,7 @@ struct ControlScreen<Content: View>: View {
                 content()
             }
             .padding(.horizontal, Rhythm.page)
-            .padding(.top, Rhythm.line)
-            // The last line on a small phone fills the page at the largest text size.
-            // A taller tail pushes the top of that line off the screen.
-            .padding(.bottom, Rhythm.tight)
+            .padding(.vertical, Rhythm.line)
             .frame(maxWidth: wide ? 880 : 560)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
