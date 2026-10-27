@@ -59,6 +59,7 @@ struct DNSHub: View {
                         line: page.blurb,
                         symbol: page.symbolName,
                         theme: theme,
+                        finalLineLayout: page == .upkeep ? "page-end" : nil,
                         action: { onPage(page) }
                     )
                 }

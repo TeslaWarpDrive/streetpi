@@ -42,11 +42,6 @@ struct BlockerCard: View {
                     .font(.system(dynamicTypeSize.isAccessibilitySize ? .title : .title2, design: .rounded).bold())
                     .foregroundStyle(onLavender)
                     .fixedSize(horizontal: false, vertical: true)
-                    .background(alignment: .topLeading) {
-                        ScrollAnchor(name: "blocker-fraction")
-                            .frame(width: 1, height: 1)
-                            .accessibilityHidden(true)
-                    }
                 FittingText(
                     text: tile.fractionLine,
                     color: onLavender,

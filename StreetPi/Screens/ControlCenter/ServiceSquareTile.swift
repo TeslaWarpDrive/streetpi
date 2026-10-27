@@ -10,7 +10,6 @@ struct ServiceSquareTile: View {
     var onOpen: () -> Void
 
     @Environment(\.afterglowPalette) private var palette
-    @Environment(\.pinsStreamingTitle) private var pinsStreamingTitle
 
     var body: some View {
         Button(action: onOpen) {
@@ -53,13 +52,6 @@ struct ServiceSquareTile: View {
                     .frame(width: 1, height: 1)
                     .accessibilityHidden(true)
             }
-            .background(alignment: .bottom) {
-                if square.id == "streaming", pinsStreamingTitle {
-                    PinStreamingTitle()
-                        .frame(width: 1, height: 1)
-                        .accessibilityHidden(true)
-                }
-            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(square.title), \(square.word)")
@@ -86,18 +78,6 @@ struct ServiceSquareTile: View {
         case .smartHome:
             "homekit"
         }
-    }
-}
-
-private struct PinsStreamingTitleKey: EnvironmentKey {
-    static let defaultValue = false
-}
-
-extension EnvironmentValues {
-    /// Scrolls the Streaming tile fully into view. Proof snapshots set this.
-    var pinsStreamingTitle: Bool {
-        get { self[PinsStreamingTitleKey.self] }
-        set { self[PinsStreamingTitleKey.self] = newValue }
     }
 }
 
@@ -156,74 +136,5 @@ struct UnbrokenTitle: UIViewRepresentable {
             ]
         )
         label.accessibilityLabel = text
-    }
-}
-
-/// Pulls the Streaming tile up until it sits fully above the tab bar.
-private struct PinStreamingTitle: UIViewRepresentable {
-    func makeUIView(context: Context) -> PinStreamingView {
-        PinStreamingView()
-    }
-
-    func updateUIView(_ view: PinStreamingView, context: Context) {
-        view.pin()
-    }
-}
-
-private final class PinStreamingView: UIView {
-    override func didMoveToWindow() {
-        super.didMoveToWindow()
-        pin()
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        pin()
-    }
-
-    func pin() {
-        guard window != nil, let scroll = enclosingScroll() else { return }
-        let frame = convert(bounds, to: scroll)
-        guard frame.maxY > 1, scroll.contentSize.height > scroll.bounds.height else { return }
-        let visible = scroll.bounds.height - scroll.adjustedContentInset.bottom
-        guard visible > 1 else { return }
-        let maxOffset = max(0, scroll.contentSize.height - visible)
-        var target: CGFloat = 0
-        if frame.maxY > visible - 8 {
-            target = frame.maxY - visible + 8
-            if let percentTop = anchorTop("blocker-fraction", in: scroll) {
-                let showPercent = max(0, percentTop - 12)
-                if frame.maxY - showPercent <= visible - 8 {
-                    target = showPercent
-                }
-            }
-        }
-        target = min(max(0, target), maxOffset)
-        guard abs(scroll.contentOffset.y - target) > 1 else { return }
-        scroll.setContentOffset(CGPoint(x: 0, y: target), animated: false)
-    }
-
-    private func anchorTop(_ name: String, in scroll: UIScrollView) -> CGFloat? {
-        guard let mark = find(name, in: scroll) else { return nil }
-        return mark.convert(mark.bounds, to: scroll).minY
-    }
-
-    private func find(_ name: String, in view: UIView) -> UIView? {
-        if view.accessibilityIdentifier == name { return view }
-        for child in view.subviews {
-            if let found = find(name, in: child) { return found }
-        }
-        return nil
-    }
-
-    private func enclosingScroll() -> UIScrollView? {
-        var view = superview
-        while let current = view {
-            if let scroll = current as? UIScrollView, scroll.bounds.height > 80 {
-                return scroll
-            }
-            view = current.superview
-        }
-        return nil
     }
 }

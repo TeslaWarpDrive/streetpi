@@ -26,7 +26,6 @@ struct ActionConfirm: View {
                     .frame(minHeight: proxy.size.height)
                 }
                 .scrollIndicators(.hidden)
-                .safeAreaPadding(.bottom, TabClearance.sheet)
             }
         }
         .accessibilityAddTraits(.isModal)
