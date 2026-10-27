@@ -42,6 +42,7 @@ struct AppShell: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.streetPiStill) private var still
+    @State private var sidebarVisibility: NavigationSplitViewVisibility = .all
     @State private var showAlerts: Bool
     @State private var roomPath: [HouseGroup] = []
     @State private var showBlocker = false
@@ -177,19 +178,33 @@ struct AppShell: View {
         }
     }
 
-    /// One system tab view. The phone keeps the tab bar at every text size; long-pressing
-    /// a tab shows its name in the large content viewer. Regular width opens as a sidebar.
-    /// The system gives each page its bottom inset, so every page scrolls clear of the bar.
+    /// Compact width uses one system tab bar. Regular width opens directly on the sidebar.
+    @ViewBuilder
     private var tabShell: some View {
-        TabView(selection: tabBinding) {
-            ForEach(HouseTab.allCases) { tab in
-                Tab(tab.title, systemImage: tab.symbol, value: tab) {
-                    page(tab)
+        if wide {
+            NavigationSplitView(columnVisibility: $sidebarVisibility) {
+                ShellSidebar(selection: sidebarBinding, theme: theme)
+                    .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
+            } detail: {
+                page(selectedTab)
+            }
+            .navigationSplitViewStyle(.balanced)
+        } else {
+            TabView(selection: tabBinding) {
+                ForEach(HouseTab.allCases) { tab in
+                    Tab(tab.title, systemImage: tab.symbol, value: tab) {
+                        page(tab)
+                    }
                 }
             }
+            .tabViewStyle(.sidebarAdaptable)
         }
-        .tabViewStyle(.sidebarAdaptable)
-        .defaultAdaptableTabBarPlacement(.sidebar)
+    }
+
+    private var sidebarBinding: Binding<HouseTab?> {
+        Binding(get: { selectedTab }, set: { tab in
+            if let tab { select(tab) }
+        })
     }
 
     @ViewBuilder
