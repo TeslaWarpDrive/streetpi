@@ -40,7 +40,7 @@ struct ServiceSquareTile: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, AfterglowShape.line - 4)
+            .padding(.horizontal, 2)
             .padding(.vertical, AfterglowShape.line)
             .frame(maxWidth: .infinity, minHeight: readsAsSquare ? squareSide : nil, alignment: .top)
             .background(palette.panel, in: RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous))

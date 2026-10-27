@@ -33,7 +33,7 @@ struct BlockerCard: View {
                     Spacer(minLength: AfterglowShape.tight)
                     stateLabel
                     Color.clear
-                        .frame(width: 44, height: 44)
+                        .frame(width: max(infoSide, 44), height: max(infoSide, 44))
                         .accessibilityHidden(true)
                 }
                 .padding(.bottom, 2)
