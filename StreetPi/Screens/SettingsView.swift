@@ -3,6 +3,9 @@ import SwiftUI
 
 struct SettingsView: View {
     var theme: StreetTheme
+    var passwordSaved: Bool
+    var onPasswordSetup: () -> Void
+    var onSignOut: () -> Void
     @Binding var piHost: String
     var hostNote: String?
     var onCommitHost: () -> Void
@@ -11,14 +14,17 @@ struct SettingsView: View {
     var statusSlug: String = "house"
     var onStatusPage: (String, String) -> Void = { _, _ in }
 
-    @State private var address = LiveHostStore().piholeText()
-    @State private var pin = LiveHostStore().pinText()
-    @State private var note = ""
+    @State private var address: String
+    @State private var pin: String
+    @State private var note: String
     @State private var pageAddress: String
     @State private var slug: String
 
     init(
         theme: StreetTheme,
+        passwordSaved: Bool = false,
+        onPasswordSetup: @escaping () -> Void = {},
+        onSignOut: @escaping () -> Void = {},
         piHost: Binding<String>,
         hostNote: String?,
         onCommitHost: @escaping () -> Void,
@@ -28,6 +34,9 @@ struct SettingsView: View {
         onStatusPage: @escaping (String, String) -> Void = { _, _ in }
     ) {
         self.theme = theme
+        self.passwordSaved = passwordSaved
+        self.onPasswordSetup = onPasswordSetup
+        self.onSignOut = onSignOut
         self._piHost = piHost
         self.hostNote = hostNote
         self.onCommitHost = onCommitHost
@@ -51,15 +60,41 @@ struct SettingsView: View {
                 line: "Raspberry Pi Stats is the same app for everyone in the house.",
                 theme: theme
             )
-            ControlGrid {
-                NumberTile(
-                    label: "House",
-                    number: "1",
-                    line: "Nothing here is tied to a person.",
-                    theme: theme
-                )
-                PlainTile(title: "Version", line: versionLine, theme: theme)
+            VStack(alignment: .leading, spacing: Rhythm.line) {
+                Text("About")
+                    .font(.headline)
+                    .foregroundStyle(theme.ink)
+                    .accessibilityAddTraits(.isHeader)
+                Text(versionLine)
+                    .font(.body.monospaced())
+                    .foregroundStyle(theme.secondary)
+                Text("No analytics. No tracking SDKs. Your app password stays in this phone's Keychain.")
+                    .font(.body)
+                    .foregroundStyle(theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .controlPlate(theme: theme)
+            VStack(alignment: .leading, spacing: Rhythm.line) {
+                Text("Ad blocker password")
+                    .font(.headline)
+                    .foregroundStyle(theme.ink)
+                    .accessibilityAddTraits(.isHeader)
+                Label(
+                    passwordSaved ? "Saved on this phone" : "Not saved",
+                    systemImage: passwordSaved ? "checkmark.circle" : "key"
+                )
+                    .font(.body)
+                    .foregroundStyle(theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(passwordSaved ? "Replace app password" : "Set up app password", action: onPasswordSetup)
+                    .frame(minHeight: 44, alignment: .leading)
+                if passwordSaved {
+                    Button("Sign out of ad blocker", action: onSignOut)
+                        .frame(minHeight: 44, alignment: .leading)
+                }
+            }
+            .tint(theme.accent)
+            .controlPlate(theme: theme)
             adBlocker
                 .controlPlate(theme: theme)
             piAddress

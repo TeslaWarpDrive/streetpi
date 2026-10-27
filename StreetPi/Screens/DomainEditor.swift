@@ -14,7 +14,11 @@ struct DomainEditor: View {
     var body: some View {
         NavigationStack {
             ControlScreen(wide: false) {
-                ControlTitle(title: "One domain name", line: "This applies to everyone in the house. You will confirm before anything changes.", theme: theme)
+                ControlTitle(
+                    title: "One domain name",
+                    line: "This applies to everyone in the house. You will confirm before anything changes.",
+                    theme: theme
+                )
                 TextField("example.test", text: $draft, axis: .vertical)
                     .font(.body.monospaced())
                     .textInputAutocapitalization(.never)

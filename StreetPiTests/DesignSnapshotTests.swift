@@ -235,6 +235,45 @@ final class DesignSnapshotTests: XCTestCase {
         )
     }
 
+    /// The shared overview presented from the Home card.
+    func testAdBlockerSheet() {
+        assertBlockerSheet(desk: .houseFixture, testName: "ad-blocker-sheet")
+    }
+
+    /// Paused: the pills give way to the one way back on.
+    func testAdBlockerSheetPaused() {
+        var desk = DNSDesk.houseFixture
+        desk.blocking = DNSBlocking(enabled: false, pause: .fiveMinutes)
+        assertBlockerSheet(desk: desk, testName: "ad-blocker-sheet-paused")
+    }
+
+    private func assertBlockerSheet(desk: DNSDesk, testName: String) {
+        for size in SnapshotScale.allCases {
+            for device in SnapshotDevice.allCases {
+                let view = AfterglowScope {
+                    AdBlockerOverview(
+                        desk: desk,
+                        theme: .house,
+                        wide: false,
+                        onAction: { _ in },
+                        onClose: {}
+                    )
+                }
+                .preferredColorScheme(.dark)
+                .environment(\.colorScheme, .dark)
+                .environment(\.dynamicTypeSize, size.dynamicType)
+                .environment(\.streetPiStill, true)
+                recordSnapshot(
+                    of: view,
+                    layout: device.config,
+                    size: size,
+                    named: "dark-\(size.rawValue)-\(device.rawValue)",
+                    testName: testName
+                )
+            }
+        }
+    }
+
     private var liveBoard: AdBlockerBoard {
         var desk = DNSDesk.emptyLookups
         desk.blocking = DNSBlocking(enabled: true)
@@ -308,6 +347,50 @@ final class DesignSnapshotTests: XCTestCase {
                     size: size,
                     named: "dark-\(size.rawValue)-\(device.rawValue)",
                     testName: "component-gallery"
+                )
+            }
+        }
+    }
+
+    func testRoomSmartHome() {
+        assertShellMatrix(section: .home, testName: "room-smart-home", initialRoom: .smartHome)
+    }
+
+    func testRoomRemoteHelp() {
+        assertShellMatrix(section: .home, testName: "room-remote-help", initialRoom: .remoteHelp)
+    }
+
+    func testPausedAdBlocker() {
+        var desk = DNSDesk.houseFixture
+        desk.blocking = DNSBlocking(enabled: false, pause: .fiveMinutes, pauseEndsAt: now.addingTimeInterval(300))
+        assertMatrix(section: .group(.adBlockerAndDNS), screen: .ready(house), testName: "dns-paused", desk: desk)
+    }
+
+    func testDomainEditor() {
+        assertArtifactMatrix(of: DomainEditor(theme: .house, onAction: { _ in }), testName: "domain-editor")
+    }
+
+    func testSplashHandoff() throws {
+        let image = try XCTUnwrap(SplashFilm.poster())
+        assertArtifactMatrix(
+            of: LaunchOverlay(frame: image, handoffPreview: true),
+            testName: "splash-handoff"
+        )
+    }
+
+    private func assertArtifactMatrix<V: View>(of content: V, testName: String) {
+        for size in SnapshotScale.allCases {
+            for device in SnapshotDevice.allCases {
+                let view = AfterglowScope { content }
+                    .preferredColorScheme(.dark)
+                    .environment(\.dynamicTypeSize, size.dynamicType)
+                    .environment(\.streetPiStill, true)
+                recordSnapshot(
+                    of: view,
+                    layout: device.config,
+                    size: size,
+                    named: "dark-\(size.rawValue)-\(device.rawValue)",
+                    testName: testName
                 )
             }
         }
