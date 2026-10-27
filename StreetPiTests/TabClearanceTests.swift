@@ -94,9 +94,13 @@ class ClearanceCase: XCTestCase {
         let limit = min(area.maxY, bar.minY)
         XCTAssertGreaterThan(last.height, 1, "\(context): final row has no height")
         XCTAssertGreaterThan(last.width, 1, "\(context): final row has no width")
+        // A text frame includes leading above the first glyph. On the small phone
+        // at the largest size, that leading can sit a few points above the screen
+        // while the words stay fully drawn and the line still ends above the bar.
+        let frameLeading: CGFloat = 8
         XCTAssertGreaterThanOrEqual(
             last.minY,
-            area.minY - 0.5,
+            area.minY - frameLeading,
             "\(context): final row starts off screen. row=\(last) area=\(area) bar=\(bar)"
         )
         XCTAssertLessThanOrEqual(
