@@ -8,6 +8,15 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      record:
+        description: "Snapshot record mode. missing records only new references; failed also rewrites changed ones."
+        type: choice
+        default: missing
+        options:
+          - missing
+          - failed
+          - all
 
 concurrency:
   group: streetpi-ci-${{ github.ref }}
@@ -66,6 +75,9 @@ jobs:
           xcode-select -p
 
       - name: Snapshot tests
+        env:
+          TEST_RUNNER_SNAPSHOT_TESTING_RECORD: ${{ inputs.record || 'missing' }}
+          TEST_RUNNER_SNAPSHOT_ARTIFACTS: ${{ runner.temp }}/snapshot-failures
         run: |
           set -euo pipefail
           DEST="$(bash scripts/pick-simulator.sh)"
@@ -85,6 +97,14 @@ jobs:
           name: design-snapshots
           path: StreetPiTests/__Snapshots__
           if-no-files-found: warn
+
+      - name: Upload snapshot failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-failures
+          path: ${{ runner.temp }}/snapshot-failures
+          if-no-files-found: ignore
 
       - name: Unsigned IPA
         if: success()

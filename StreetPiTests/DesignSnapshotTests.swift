@@ -383,20 +383,18 @@ final class DesignSnapshotTests: XCTestCase {
         named: String,
         testName: String = #function
     ) {
-        withSnapshotTesting(record: .never) {
-            assertSnapshot(
-                of: view,
-                as: .image(
-                    drawHierarchyInKeyWindow: true,
-                    precision: 0.95,
-                    perceptualPrecision: 0.5,
-                    layout: .device(config: layout),
-                    traits: traits(size: size)
-                ),
-                named: named,
-                testName: testName
-            )
-        }
+        assertSnapshot(
+            of: view,
+            as: .image(
+                drawHierarchyInKeyWindow: true,
+                precision: 0.95,
+                perceptualPrecision: 0.5,
+                layout: .device(config: layout),
+                traits: traits(size: size)
+            ),
+            named: named,
+            testName: testName
+        )
     }
 
     /// Full gallery height at the device width. A scroll view would clip the lower components.
@@ -406,18 +404,16 @@ final class DesignSnapshotTests: XCTestCase {
         named: String,
         testName: String
     ) {
-        withSnapshotTesting(record: .never) {
-            assertSnapshot(
-                of: view,
-                as: .image(
-                    perceptualPrecision: 0.98,
-                    layout: .sizeThatFits,
-                    traits: traits(size: size)
-                ),
-                named: named,
-                testName: testName
-            )
-        }
+        assertSnapshot(
+            of: view,
+            as: .image(
+                perceptualPrecision: 0.98,
+                layout: .sizeThatFits,
+                traits: traits(size: size)
+            ),
+            named: named,
+            testName: testName
+        )
     }
 
     private func traits(size: SnapshotScale) -> UITraitCollection {

@@ -418,7 +418,7 @@ final class TabClearanceTests: ClearanceCase {
         window.isHidden = true
     }
 
-    /// Small-phone shots at both text sizes. Recording is on until the new references land.
+    /// Small-phone shots at both text sizes.
     func testHomeClearProof() {
         for scale in SnapshotScale.allCases {
             let view = AppShell(
@@ -436,23 +436,21 @@ final class TabClearanceTests: ClearanceCase {
                 UITraitCollection(userInterfaceStyle: .dark),
                 UITraitCollection(preferredContentSizeCategory: scale.category),
             ])
-            withSnapshotTesting(record: .never) {
-                assertSnapshot(
-                    of: view,
-                    as: .wait(
-                        for: 0.2,
-                        on: .image(
-                            drawHierarchyInKeyWindow: true,
-                            precision: 0.95,
-                            perceptualPrecision: 0.5,
-                            layout: .device(config: SnapshotDevice.smallPhone.config),
-                            traits: traits
-                        )
-                    ),
-                    named: "dark-\(scale.rawValue)-smallPhone",
-                    testName: "homeClear"
-                )
-            }
+            assertSnapshot(
+                of: view,
+                as: .wait(
+                    for: 0.2,
+                    on: .image(
+                        drawHierarchyInKeyWindow: true,
+                        precision: 0.95,
+                        perceptualPrecision: 0.5,
+                        layout: .device(config: SnapshotDevice.smallPhone.config),
+                        traits: traits
+                    )
+                ),
+                named: "dark-\(scale.rawValue)-smallPhone",
+                testName: "homeClear"
+            )
         }
     }
 
