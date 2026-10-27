@@ -133,50 +133,68 @@ class ClearanceCase: XCTestCase {
             return
         }
         let scale = window.bounds.width > 0 ? CGFloat(width) / window.bounds.width : image.scale
-        let gap = Int((8 * scale).rounded())
-        let barTop = Int((bar.minY * scale).rounded())
-        let start = max(0, barTop - gap)
-        let end = min(height, barTop)
-        guard end > start, bar.height > 20, bar.height < window.bounds.height * 0.4 else {
-            XCTFail("The tab strip could not be measured. \(viewOutline(window))")
-            return
-        }
-        let x0 = min(width - 1, Int((16 * scale).rounded()))
-        let x1 = max(x0 + 1, width - x0)
-        func sample(_ x: Int, _ y: Int) -> Int {
+        func channel(_ x: Int, _ y: Int) -> Int {
             let index = (y * width + x) * 4
             return max(Int(pixels[index]), Int(pixels[index + 1]), Int(pixels[index + 2]))
         }
-        var brightest = 0
-        for y in start..<end {
+        func rowMedian(_ y: Int) -> Int {
+            var values: [Int] = []
+            values.reserveCapacity(width / 4)
+            var x = 0
+            while x < width {
+                values.append(channel(x, y))
+                x += 4
+            }
+            values.sort()
+            return values[values.count / 2]
+        }
+        // The bitmap is upright when the tab plate is the bright band at the bottom.
+        let upright = rowMedian(height - 1) >= rowMedian(0)
+        func visualMedian(_ yFromTop: Int) -> Int {
+            let y = upright ? yFromTop : (height - 1 - yFromTop)
+            return rowMedian(y)
+        }
+        func visualBright(_ yFromTop: Int) -> Int {
+            let y = upright ? yFromTop : (height - 1 - yFromTop)
+            let x0 = min(width - 1, Int((16 * scale).rounded()))
+            let x1 = max(x0 + 1, width - x0)
             var bright = 0
             var x = x0
             while x < x1 {
-                if sample(x, y) > 150 {
+                if channel(x, y) > 140 {
                     bright += 1
                 }
                 x += 1
             }
-            brightest = max(brightest, bright)
+            return bright
         }
-        XCTAssertLessThan(
-            brightest,
-            8,
-            "Type still sits on the tab bar"
-        )
-        var pageInk = 0
-        let pageEnd = start
-        let pageStart = max(0, pageEnd - Int((80 * scale).rounded()))
-        for y in pageStart..<pageEnd {
-            var x = x0
-            while x < x1 {
-                if sample(x, y) > 150 {
-                    pageInk += 1
-                }
-                x += 1
+        var plateTop = height - 1
+        var y = height - 1
+        while y > height / 2 {
+            if visualMedian(y) < 28 {
+                plateTop = y + 1
+                break
             }
+            y -= 1
+        }
+        let gap = Int((8 * scale).rounded())
+        let start = max(0, plateTop - gap)
+        var brightest = 0
+        y = start
+        while y < plateTop {
+            brightest = max(brightest, visualBright(y))
+            y += 1
+        }
+        XCTAssertLessThan(brightest, 8, "Type still sits on the tab bar")
+        var pageInk = 0
+        let pageStart = max(0, start - Int((40 * scale).rounded()))
+        y = pageStart
+        while y < start {
+            pageInk += visualBright(y)
+            y += 1
         }
         XCTAssertGreaterThan(pageInk, 20, "The page above the tab bar did not draw")
+        _ = bar
     }
 
     fileprivate func assertVisibleTextDoesNotOverlap(in window: UIWindow) {

@@ -206,20 +206,15 @@ struct AppShell: View {
                     .toolbar(.hidden, for: .tabBar)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
-        } else if showsPhoneStrip(wide: wide) {
-            // One strip. A tab view on these pages draws a floating bar over the next row.
-            phoneStrip
-        } else {
+        } else if tabBinding.wrappedValue == .house {
+            // The style has to sit on the tab view itself. A wrapper here
+            // shifts the Home cards.
             tabs(wide: wide)
                 .tabViewStyle(.sidebarAdaptable)
+        } else {
+            // One strip. A tab view on these pages draws a floating bar over the next row.
+            phoneStrip
         }
-    }
-
-    /// Ad blocker, Pi, and Settings on an ordinary phone. House stays in `shell`.
-    private func showsPhoneStrip(wide: Bool) -> Bool {
-        wide == false
-            && dynamicTypeSize.isAccessibilitySize == false
-            && HouseTab(section: section) != .house
     }
 
     /// One strip under the page. A tab view here draws a second, floating bar.
