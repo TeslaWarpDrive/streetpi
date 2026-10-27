@@ -32,7 +32,7 @@ struct StatusPill: View {
             Text(title)
                 .font(.footnote.bold())
                 .foregroundStyle(palette.calm)
-                .fixedSize(horizontal: dynamicTypeSize.isAccessibilitySize == false, vertical: true)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)

@@ -45,6 +45,7 @@ struct AppShell: View {
     @State private var sidebarVisibility: NavigationSplitViewVisibility = .all
     @State private var showAlerts: Bool
     @State private var roomPath: [HouseGroup] = []
+    @State private var sidebarVisibility: NavigationSplitViewVisibility = .all
     @State private var showBlocker = false
     @State private var blockerAction: HouseholdAction?
 
