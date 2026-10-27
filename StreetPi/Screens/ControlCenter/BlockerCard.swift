@@ -12,9 +12,11 @@ struct BlockerCard: View {
 
     @Environment(\.afterglowPalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .title) private var ringSide: CGFloat = 40
+    @ScaledMetric(relativeTo: .body) private var infoSide: CGFloat = 28
 
     var body: some View {
-        BoardPanel(lavender: true, inset: 4) {
+        BoardPanel(lavender: true) {
             openControl
                 .overlay(alignment: .topTrailing) {
                     infoButton
@@ -24,28 +26,26 @@ struct BlockerCard: View {
 
     private var openControl: some View {
         Button(action: onOpen) {
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(alignment: .center, spacing: 4) {
+            VStack(alignment: .leading, spacing: AfterglowShape.tight) {
+                HStack(alignment: .center, spacing: 0) {
                     ShieldRing(fraction: tile.fraction)
-                        .frame(width: 22, height: 22)
-                    Spacer(minLength: 4)
+                        .frame(width: ringSide, height: ringSide)
+                    Spacer(minLength: AfterglowShape.tight)
                     stateLabel
                     Color.clear
-                        .frame(width: 22, height: 22)
+                        .frame(width: max(infoSide, 44), height: max(infoSide, 44))
                         .accessibilityHidden(true)
                 }
-                Text("Ad blocker · last 24 hours")
-                    .font(.caption2)
-                    .foregroundStyle(onLavender.opacity(0.78))
-                    .fixedSize(horizontal: false, vertical: true)
+                .padding(.bottom, 2)
+                windowLabel
                 Text(tile.percentText)
-                    .font(.system(dynamicTypeSize.isAccessibilitySize ? .title : .title2, design: .rounded).bold())
+                    .font(.system(.largeTitle, design: .rounded).bold().monospacedDigit())
                     .foregroundStyle(onLavender)
                     .fixedSize(horizontal: false, vertical: true)
                 FittingText(
                     text: tile.fractionLine,
                     color: onLavender,
-                    style: .caption1,
+                    style: .subheadline,
                     weight: .regular,
                     identifier: "blocker-plain",
                     breaksWords: false
@@ -64,6 +64,26 @@ struct BlockerCard: View {
         .modifier(PauseBlockerAction(enabled: tile.canPause, action: onHold))
     }
 
+    /// One line when it fits. A narrow card uses the shorter wording before it wraps.
+    private var windowLabel: some View {
+        ViewThatFits(in: .horizontal) {
+            windowText("Ad blocker · last 24 hours")
+                .fixedSize(horizontal: true, vertical: true)
+            windowText("Ad blocker · 24 hours")
+                .fixedSize(horizontal: true, vertical: true)
+            windowText("Ad blocker · 24h")
+                .fixedSize(horizontal: true, vertical: true)
+            windowText("Ad blocker · last 24 hours")
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func windowText(_ text: String) -> some View {
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(onLavender.opacity(0.78))
+    }
+
     private var onLavender: Color {
         palette.ground
     }
@@ -77,12 +97,18 @@ struct BlockerCard: View {
     }
 
     private var infoButton: some View {
-        Button("About this percent", systemImage: "info.circle", action: onInfo)
+        Button("About this percent", systemImage: "info", action: onInfo)
             .labelStyle(.iconOnly)
             .buttonStyle(.plain)
-            .font(.body)
+            .font(.footnote.bold())
             .foregroundStyle(onLavender)
-            .frame(width: 22, height: 22)
+            .frame(width: infoSide, height: infoSide)
+            .background(onLavender.opacity(0.12), in: Circle())
+            .overlay {
+                Circle().strokeBorder(onLavender, lineWidth: 1.5)
+            }
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
     }
 
     private var spoken: String {
@@ -90,37 +116,33 @@ struct BlockerCard: View {
     }
 }
 
-/// A full ring with a shield in the middle. The arc is the Aurora glow.
-private struct ShieldRing: View {
+/// A full ring with a shield in the middle. On the lavender card the arc is the ground color, as in the mock.
+struct ShieldRing: View {
     var fraction: Double
 
     @Environment(\.afterglowPalette) private var palette
 
     var body: some View {
-        ZStack {
-            Circle()
-                .stroke(palette.ground.opacity(0.28), lineWidth: 3)
-            Circle()
-                .trim(from: 0, to: clamped)
-                .stroke(ringGradient, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-            Image(systemName: "shield.fill")
-                .font(.caption2)
-                .foregroundStyle(palette.ground)
-                .accessibilityHidden(true)
+        GeometryReader { proxy in
+            let line = max(3, proxy.size.width * 0.1)
+            ZStack {
+                Circle()
+                    .stroke(palette.ground.opacity(0.22), lineWidth: line)
+                Circle()
+                    .trim(from: 0, to: clamped)
+                    .stroke(palette.ground, style: StrokeStyle(lineWidth: line, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                Image(systemName: "checkmark.shield.fill")
+                    .font(.body)
+                    .foregroundStyle(palette.ground)
+                    .accessibilityHidden(true)
+            }
+            .padding(line / 2)
         }
         .accessibilityHidden(true)
     }
 
     private var clamped: Double {
         min(max(fraction, 0), 1)
-    }
-
-    private var ringGradient: LinearGradient {
-        LinearGradient(
-            colors: [palette.auraTeal, palette.auraBlue, palette.auraViolet],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
     }
 }

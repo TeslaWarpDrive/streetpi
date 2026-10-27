@@ -32,7 +32,7 @@ struct StatusPill: View {
             Text(title)
                 .font(.footnote.bold())
                 .foregroundStyle(palette.calm)
-                .fixedSize(horizontal: true, vertical: true)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
@@ -40,6 +40,7 @@ struct StatusPill: View {
         .overlay {
             Capsule().strokeBorder(palette.calm.opacity(0.45), lineWidth: 1)
         }
+        .reportsLayout("status-word")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
     }

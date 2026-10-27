@@ -10,19 +10,21 @@ struct ServiceSquareTile: View {
     var onOpen: () -> Void
 
     @Environment(\.afterglowPalette) private var palette
+    /// About as tall as a phone tile is wide, so the row reads as squares. It grows with the text.
+    @ScaledMetric(relativeTo: .caption) private var squareSide: CGFloat = 78
 
     var body: some View {
         Button(action: onOpen) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .center, spacing: 4) {
                     Image(systemName: symbol)
-                        .font(.caption)
+                        .font(.body)
                         .foregroundStyle(palette.accent)
                         .accessibilityHidden(true)
                     Spacer(minLength: 2)
                     StatusDot(tone: square.tone)
                 }
-                Spacer(minLength: 4)
+                Spacer(minLength: AfterglowShape.line)
                 UnbrokenTitle(
                     text: square.title,
                     color: palette.ink,
@@ -33,15 +35,14 @@ struct ServiceSquareTile: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Text(square.word)
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(palette.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal, 2)
-            .padding(.vertical, 4)
-            .frame(maxWidth: .infinity, alignment: .top)
-            .frame(height: readsAsSquare ? 52 : nil)
+            .padding(.vertical, AfterglowShape.line)
+            .frame(maxWidth: .infinity, minHeight: readsAsSquare ? squareSide : nil, alignment: .top)
             .background(palette.panel, in: RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: AfterglowShape.tile, style: .continuous)

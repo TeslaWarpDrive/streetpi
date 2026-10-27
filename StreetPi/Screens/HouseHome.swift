@@ -14,45 +14,40 @@ struct HouseHome: View {
     var onPauseBlocker: () -> Void
     var onOpenDevices: () -> Void
 
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.afterglowPalette) private var palette
     @State private var showMeaning = false
 
     var body: some View {
-        GeometryReader { proxy in
-            let short = proxy.size.height < 640
-            ScrollView {
-                FitOfferedWidth(maxWidth: wide ? 880 : nil) {
-                    column(short: short)
-                        .padding(.horizontal, AfterglowShape.page)
-                        .padding(.top, compact(short) ? 6 : pageInset)
-                        .padding(.bottom, compact(short) ? 0 : pageInset)
-                }
+        ScrollView {
+            FitOfferedWidth(maxWidth: wide ? 880 : nil) {
+                column
+                    .padding(.horizontal, wide ? AfterglowShape.page : edge)
+                    .padding(.top, AfterglowShape.tight)
+                    .padding(.bottom, AfterglowShape.block)
             }
-            .scrollIndicators(.hidden)
-            .refreshable {
-                await refresh()
+        }
+        .scrollIndicators(.hidden)
+        .refreshable {
+            await refresh()
+        }
+        .sheet(isPresented: $showMeaning) {
+            PercentMeaningSheet(title: "About this percent", text: board.blocker.explainer) {
+                showMeaning = false
             }
-            .sheet(isPresented: $showMeaning) {
-                PercentMeaningSheet(text: board.blocker.explainer) {
-                    showMeaning = false
-                }
-            }
-            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
-            .background(palette.ground.ignoresSafeArea())
         }
         .containerBackground(palette.ground, for: .navigation)
         .background(palette.ground.ignoresSafeArea())
     }
 
-    private func column(short: Bool) -> some View {
-        VStack(alignment: .leading, spacing: stackSpacing(short: short)) {
+    private var column: some View {
+        VStack(alignment: .leading, spacing: gap) {
             HouseTitleBar(alertCount: alertCount, onAlerts: onAlerts, onSettings: onSettings)
             StatusPill(
                 title: board.headline,
                 accentWord: HeadlineAccent.word(in: board.headline),
                 checkedLine: board.checkedLine
             )
+            .padding(.bottom, AfterglowShape.tight)
             BoardColumns(wide: wide) {
                 BlockerCard(
                     tile: board.blocker,
@@ -84,24 +79,12 @@ struct HouseHome: View {
         }
     }
 
-    private var pageInset: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? AfterglowShape.line : AfterglowShape.block
-    }
+    /// The phone page edge from the mock. The iPad keeps the wider page margin.
+    private let edge: CGFloat = 16
 
-    /// Room between tiles on a short phone, so the square grid starts on the first screen.
-    private let compactGap: CGFloat = 2
-
-    /// A short phone at the default size keeps the first screen to the mock.
-    /// Large text stays on the text styles and uses a tighter gap so the status can wrap.
-    private func compact(_ short: Bool) -> Bool {
-        short && dynamicTypeSize.isAccessibilitySize == false
-    }
-
-    private func stackSpacing(short: Bool) -> CGFloat {
-        if dynamicTypeSize.isAccessibilitySize {
-            return AfterglowShape.line
-        }
-        return compact(short) ? compactGap : AfterglowShape.block
+    /// One even gutter between every row, the same as between tiles in a row.
+    private var gap: CGFloat {
+        wide ? AfterglowShape.line : BoardColumns<EmptyView, EmptyView>.phoneGap
     }
 
     private func refresh() async {

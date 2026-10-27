@@ -11,38 +11,32 @@ struct DNSHub: View {
     var onSavePassword: () -> Void
     var onSignOut: () -> Void
 
+    var onAction: (HouseholdAction) -> Void = { _ in }
+
+    /// The shared ad blocker view first, then the rest of the ad blocker pages.
     var body: some View {
-        ControlScreen(wide: wide) {
-            ControlTitle(title: "Ad blocker", line: desk.blockingLine, theme: theme)
-            ControlGrid {
-                NumberTile(
-                    label: "Queries",
-                    number: desk.queriesToday.formatted(),
-                    line: "Lookups the house made today.",
-                    theme: theme
-                )
-                NumberTile(
-                    label: "Blocked",
-                    number: desk.blockedToday.formatted(),
-                    line: "Turned away before they loaded.",
-                    theme: theme
-                )
-                NumberTile(
-                    label: "Devices",
-                    number: desk.knownClients.formatted(),
-                    line: "Devices the house knows.",
-                    theme: theme
-                )
-                NumberTile(
-                    label: "Lists",
-                    number: desk.listCount.formatted(),
-                    line: "Lists the filter uses.",
-                    theme: theme
-                )
-            }
-            phoneTile
-            ForEach(DNSShelf.allCases) { shelf in
-                shelfBlock(shelf)
+        AfterglowScope(paintsGround: false) {
+            AdBlockerOverview(desk: desk, theme: theme, wide: wide, onAction: onAction) {
+                ControlSection(title: "More", theme: theme)
+                    .padding(.top, Rhythm.line)
+                ControlGrid {
+                    NumberTile(
+                        label: "Devices",
+                        number: desk.knownClients.formatted(),
+                        line: "Devices the house knows.",
+                        theme: theme
+                    )
+                    NumberTile(
+                        label: "Lists",
+                        number: desk.listCount.formatted(),
+                        line: "Lists the filter uses.",
+                        theme: theme
+                    )
+                }
+                phoneTile
+                ForEach(DNSShelf.allCases) { shelf in
+                    shelfBlock(shelf)
+                }
             }
         }
     }
@@ -59,6 +53,7 @@ struct DNSHub: View {
                         line: page.blurb,
                         symbol: page.symbolName,
                         theme: theme,
+                        finalLineLayout: page == .upkeep ? "page-end" : nil,
                         action: { onPage(page) }
                     )
                 }

@@ -1,37 +1,16 @@
 import StreetPiCore
 import SwiftUI
 
+/// Today on the iPad split. The same view the Home card opens and the Ad blocker tab starts on.
 struct DNSToday: View {
     var desk: DNSDesk
     var theme: StreetTheme
     var wide: Bool
     var onAction: (HouseholdAction) -> Void
 
-    private var share: LookupShare {
-        LookupShare.from(desk: desk)
-    }
-
     var body: some View {
-        DeskScroll(wide: wide) {
-            DNSBlockerHero(
-                share: share,
-                enabled: desk.blocking.enabled,
-                blockingLine: desk.blockingLine,
-                theme: theme
-            )
-            DNSMeaningCard(share: share, theme: theme)
-            DNSStatRow(share: share, theme: theme)
-            DNSPauseChoices(desk: desk, theme: theme, onAction: onAction)
-            day
-        }
-    }
-
-    @ViewBuilder
-    private var day: some View {
-        if desk.hasDayLookups {
-            StoppedHourChart(samples: desk.day, stopped: share.stopped, theme: theme)
-        } else {
-            EmptyNote(title: DNSCopy.emptyChartTitle, detail: DNSCopy.emptyChartDetail, theme: theme)
+        AfterglowScope(paintsGround: false) {
+            AdBlockerOverview(desk: desk, theme: theme, wide: wide, onAction: onAction)
         }
     }
 }
