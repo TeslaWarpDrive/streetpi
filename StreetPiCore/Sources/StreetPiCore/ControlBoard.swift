@@ -3,6 +3,7 @@ import Foundation
 /// The House control center. Screens render this and nothing about where the numbers came from.
 public struct ControlBoard: Sendable, Equatable {
     public var headline: String
+    public var tone: PlainEnglishStatus.Tone
     public var checkedLine: String
     public var blocker: BlockerTile
     public var pi: PiTile
@@ -21,9 +22,11 @@ public struct ControlBoard: Sendable, Equatable {
         monitors: MonitorTile,
         backups: BackupTile,
         running: RunningTile,
-        devices: DevicesTile
+        devices: DevicesTile,
+        tone: PlainEnglishStatus.Tone = .calm
     ) {
         self.headline = headline
+        self.tone = tone
         self.checkedLine = checkedLine
         self.blocker = blocker
         self.pi = pi
@@ -215,7 +218,8 @@ public enum ControlBoardBuilder {
         share: LookupShare?,
         deviceCount: Int?,
         headline: String,
-        now: Date
+        now: Date,
+        tone: PlainEnglishStatus.Tone = .calm
     ) -> ControlBoard {
         let services = snapshot?.services ?? []
         let paused = snapshot?.dns?.blockingEnabled == false
@@ -228,7 +232,8 @@ public enum ControlBoardBuilder {
             monitors: monitors(services),
             backups: backups(services),
             running: running(snapshot?.machine),
-            devices: devices(deviceCount)
+            devices: devices(deviceCount),
+            tone: tone
         )
     }
 

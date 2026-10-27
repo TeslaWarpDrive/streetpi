@@ -10,13 +10,15 @@ enum HouseBoard {
             share: LookupShare.matching(summary: snapshot?.dns, desk: desk),
             deviceCount: snapshot?.dns == nil ? nil : desk.knownClients,
             headline: screen.status(now: now).headline,
-            now: now
+            now: now,
+            tone: screen.status(now: now).tone
         )
         if snapshot?.machine == nil, let piNotice, piNotice.isEmpty == false {
             board.pi.line = piNotice
         }
         if snapshot?.dns == nil, let spoken = desk.spokenLine, spoken.isEmpty == false {
             board.headline = spoken
+            board.tone = .attention
             board.blocker = BlockerTile(
                 stateWord: "Quiet",
                 percentText: "—",
@@ -34,6 +36,7 @@ enum HouseBoard {
     static func applying(status: HouseStatusBoard, to board: ControlBoard) -> ControlBoard {
         var next = board
         next.headline = status.briefing.headline
+        next.tone = status.briefing.tone
         let wanted: [HouseGroup] = [.streaming, .remoteHelp, .internet, .address]
         let chosen = wanted.compactMap { group in
             status.tiles.first { $0.id == group }

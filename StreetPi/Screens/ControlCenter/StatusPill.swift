@@ -1,10 +1,12 @@
+import StreetPiCore
 import SwiftUI
 
-/// Overall status. The green phrase stays inside the pill. “Checked …” sits beside it.
+/// Overall status. The phrase stays inside the pill. “Checked …” sits beside it.
 struct StatusPill: View {
     var title: String
     var accentWord: String
     var checkedLine: String
+    var tone: PlainEnglishStatus.Tone = .calm
 
     @Environment(\.afterglowPalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -28,17 +30,17 @@ struct StatusPill: View {
 
     private var pill: some View {
         HStack(spacing: 6) {
-            StatusDot(tone: .calm)
+            StatusDot(tone: tone)
             Text(title)
                 .font(.footnote.bold())
-                .foregroundStyle(palette.calm)
+                .foregroundStyle(palette.tone(tone))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-        .background(palette.calm.opacity(0.16), in: Capsule())
+        .background(palette.tone(tone).opacity(0.16), in: Capsule())
         .overlay {
-            Capsule().strokeBorder(palette.calm.opacity(0.45), lineWidth: 1)
+            Capsule().strokeBorder(palette.tone(tone).opacity(0.45), lineWidth: 1)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
