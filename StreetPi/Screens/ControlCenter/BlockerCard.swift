@@ -12,7 +12,7 @@ struct BlockerCard: View {
 
     @Environment(\.afterglowPalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @ScaledMetric(relativeTo: .title) private var ringSide: CGFloat = 40
+    @ScaledMetric(relativeTo: .title) private var ringSide: CGFloat = 44
     @ScaledMetric(relativeTo: .body) private var infoSide: CGFloat = 28
 
     var body: some View {
