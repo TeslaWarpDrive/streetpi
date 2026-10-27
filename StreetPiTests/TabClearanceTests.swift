@@ -443,8 +443,8 @@ final class TabClearanceTests: ClearanceCase {
                         for: 0.2,
                         on: .image(
                             drawHierarchyInKeyWindow: true,
-                            precision: 0.95,
-                            perceptualPrecision: 0.5,
+                            precision: 0.99,
+                            perceptualPrecision: 0.9,
                             layout: .device(config: SnapshotDevice.smallPhone.config),
                             traits: traits
                         )
