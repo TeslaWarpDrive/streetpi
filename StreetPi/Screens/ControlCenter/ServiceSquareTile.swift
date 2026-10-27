@@ -90,7 +90,7 @@ struct UnbrokenTitle: UIViewRepresentable {
     var bold: Bool = false
     var style: UIFont.TextStyle = .subheadline
 
-    fileprivate func makeUIView(context: Context) -> WholeTitleLabel {
+    func makeUIView(context: Context) -> WholeTitleLabel {
         let label = WholeTitleLabel()
         label.numberOfLines = 0
         label.lineBreakMode = .byCharWrapping
@@ -103,7 +103,7 @@ struct UnbrokenTitle: UIViewRepresentable {
         return label
     }
 
-    fileprivate func updateUIView(_ label: WholeTitleLabel, context: Context) {
+    func updateUIView(_ label: WholeTitleLabel, context: Context) {
         configure(label)
     }
 
@@ -116,7 +116,7 @@ struct UnbrokenTitle: UIViewRepresentable {
         label.fit()
     }
 
-    fileprivate func sizeThatFits(_ proposal: ProposedViewSize, uiView: WholeTitleLabel, context: Context) -> CGSize? {
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: WholeTitleLabel, context: Context) -> CGSize? {
         configure(uiView)
         let font = Self.font(
             text: text,
@@ -163,7 +163,7 @@ struct UnbrokenTitle: UIViewRepresentable {
 }
 
 /// Draws a tile name on one line at the default text size, and wraps at accessibility sizes.
-private final class WholeTitleLabel: UILabel {
+final class WholeTitleLabel: UILabel {
     var source = ""
     var ink = UIColor.label
     var bold = false
