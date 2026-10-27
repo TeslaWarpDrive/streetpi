@@ -13,6 +13,5 @@ struct HouseFooter: View {
             .reportsLayout("page-end")
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.top, AfterglowShape.line)
-            .reportsLayout("page-end")
     }
 }

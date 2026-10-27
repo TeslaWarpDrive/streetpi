@@ -50,9 +50,12 @@ struct BlockerHeroCard: View {
     private var words: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .firstTextBaseline, spacing: AfterglowShape.tight) {
-                Image(systemName: enabled ? "checkmark.circle.fill" : "pause.circle.fill")
-                    .font(.subheadline)
-                    .accessibilityHidden(true)
+                // The words carry the state. At accessibility sizes the symbol steps aside so they stay whole.
+                if dynamicTypeSize.isAccessibilitySize == false {
+                    Image(systemName: enabled ? "checkmark.circle.fill" : "pause.circle.fill")
+                        .font(.subheadline)
+                        .accessibilityHidden(true)
+                }
                 Text(stateLine)
                     .font(.subheadline.weight(.semibold))
                     .fixedSize(horizontal: false, vertical: true)
