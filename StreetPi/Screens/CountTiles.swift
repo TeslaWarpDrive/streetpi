@@ -14,10 +14,15 @@ struct CountTiles: View {
                 tiles
             }
         } else {
-            HStack(alignment: .top, spacing: BoardColumns<EmptyView, EmptyView>.phoneGap) {
-                tiles
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: BoardColumns<EmptyView, EmptyView>.phoneGap) {
+                    tiles
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: BoardColumns<EmptyView, EmptyView>.phoneGap) {
+                    tiles
+                }
             }
-            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -48,7 +53,7 @@ struct CountTile: View {
                 Text(number)
                     .font(.title2.monospaced().bold())
                     .foregroundStyle(palette.ink)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .fixedSize(horizontal: true, vertical: true)
                 Text(line)
                     .font(.footnote)
                     .foregroundStyle(palette.secondary)
