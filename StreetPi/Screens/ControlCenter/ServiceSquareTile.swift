@@ -90,7 +90,7 @@ struct UnbrokenTitle: UIViewRepresentable {
     var bold: Bool = false
     var style: UIFont.TextStyle = .subheadline
 
-    func makeUIView(context: Context) -> WholeTitleLabel {
+    fileprivate func makeUIView(context: Context) -> WholeTitleLabel {
         let label = WholeTitleLabel()
         label.numberOfLines = 0
         label.lineBreakMode = .byCharWrapping
@@ -103,7 +103,7 @@ struct UnbrokenTitle: UIViewRepresentable {
         return label
     }
 
-    func updateUIView(_ label: WholeTitleLabel, context: Context) {
+    fileprivate func updateUIView(_ label: WholeTitleLabel, context: Context) {
         configure(label)
     }
 
@@ -116,7 +116,7 @@ struct UnbrokenTitle: UIViewRepresentable {
         label.fit()
     }
 
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: WholeTitleLabel, context: Context) -> CGSize? {
+    fileprivate func sizeThatFits(_ proposal: ProposedViewSize, uiView: WholeTitleLabel, context: Context) -> CGSize? {
         configure(uiView)
         let font = Self.font(
             text: text,
