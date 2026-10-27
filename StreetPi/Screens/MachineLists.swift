@@ -92,19 +92,11 @@ private struct AlertTimelineRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: AfterglowShape.line) {
-            VStack(spacing: AfterglowShape.tight) {
-                Image(systemName: AfterglowSymbol.status(alert.tone))
-                    .font(.title3)
-                    .foregroundStyle(palette.tone(alert.tone))
-                    .accessibilityHidden(true)
-                if !isLast {
-                    Rectangle()
-                        .fill(palette.hairline)
-                        .frame(width: 1)
-                        .frame(maxHeight: .infinity)
-                        .accessibilityHidden(true)
-                }
-            }
+            Image(systemName: AfterglowSymbol.status(alert.tone))
+                .font(.title3)
+                .foregroundStyle(palette.tone(alert.tone))
+                .frame(width: 28, height: 28)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 if let raisedAt = alert.raisedAt {
                     Text(raisedAt, format: .dateTime.weekday(.abbreviated).hour().minute())
@@ -120,8 +112,16 @@ private struct AlertTimelineRow: View {
             .padding(.bottom, isLast ? 0 : AfterglowShape.block)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        // Lets the rail run the full height of the row.
-        .fixedSize(horizontal: false, vertical: true)
+        .background(alignment: .topLeading) {
+            if !isLast {
+                Rectangle()
+                    .fill(palette.hairline)
+                    .frame(width: 1)
+                    .padding(.top, 34)
+                    .frame(width: 28, alignment: .center)
+                    .accessibilityHidden(true)
+            }
+        }
         .accessibilityElement(children: .combine)
     }
 }
