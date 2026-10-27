@@ -90,14 +90,11 @@ jobs:
           set -euo pipefail
           DEST="$(bash scripts/pick-simulator.sh)"
           echo "Destination: ${DEST}"
-          TEST_ARGS=()
+          TEST_ARGS=(-project StreetPi.xcodeproj -scheme StreetPi -destination "${DEST}")
           if [[ "$SNAPSHOT_SUITE" == "clearance" ]]; then
-            TEST_ARGS=(-only-testing:StreetPiTests/TabClearanceTests)
+            TEST_ARGS+=(-only-testing:StreetPiTests/TabClearanceTests)
           fi
           xcodebuild test \
-            -project StreetPi.xcodeproj \
-            -scheme StreetPi \
-            -destination "${DEST}" \
             "${TEST_ARGS[@]}" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
