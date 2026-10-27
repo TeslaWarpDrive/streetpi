@@ -9,10 +9,10 @@ struct BackupBoardCard: View {
 
     var body: some View {
         Button(action: onOpen) {
-            BoardPanel(inset: 4) {
+            BoardPanel {
                 HouseGlance(title: "Backups", symbol: "externaldrive.badge.timemachine") {
                     Text(detail)
-                        .font(.caption2)
+                        .font(.subheadline)
                         .foregroundStyle(palette.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

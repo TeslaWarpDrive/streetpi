@@ -34,7 +34,7 @@ For every screen: dark, Dynamic Type `.large`, Dynamic Type `.accessibility5`, s
 ### Pre-ship checklist
 
 - The app is dark only. There is no light palette and no appearance switch.
-- The look is Aurora. Home is a Briefing and ring gauges. The Porch card and the Lampblack bar meters are retired. The ad blocker opens into its own pages in that same look. Do not bring back a direction picker.
+- The look is Aurora. Home follows `home-v2.png`: compact status, a lavender ad blocker card beside Pi temperature and meters, service tiles, monitor squares, and quiet household facts. The ad blocker follows `ad-blocker-v2.png`, shared between the Home sheet and the first Ad blocker tab page. Briefing and ring gauges remain the design language for detailed Pi pages. The Porch card and Lampblack direction are retired. Do not bring back a direction picker.
 - Keep Home compact and good-looking. A vertical stack is fine when the content fits. When a screen has a lot of data, many stat cards, graphs, or other dense information, do not make it a long one-card column. Choose the arrangement that looks best for that amount of content. There is no fixed column count. Large text must wrap or scroll, and nothing truncates or overlaps. The Home screen follows this when it is built.
 - Tabs are House, Ad blocker, Pi, and Settings. The iPad uses a sidebar.
 - The launch film is one file, `StreetPi/Resources/launch-film.mp4`. Replace that file to change the film. Do not add a second video. It is silent and full-screen on the Aurora ground. Tap to skip. It fades into the Home aura. Reduce Motion shows `launch-poster.png`, then fades, and does not play the video. `LaunchOverlay` is that seam.

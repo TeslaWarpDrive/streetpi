@@ -44,6 +44,8 @@ struct AppShell: View {
     @Environment(\.streetPiStill) private var still
     @State private var showAlerts: Bool
     @State private var roomPath: [HouseGroup] = []
+    @State private var showBlocker = false
+    @State private var blockerAction: HouseholdAction?
 
     init(
         section: AppSection,
@@ -213,6 +215,9 @@ struct AppShell: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .sheet(isPresented: $showBlocker, onDismiss: finishBlockerSheet) {
+            blockerSheet()
+        }
         .overlay {
             if still && showAlerts {
                 alerts
@@ -238,10 +243,32 @@ struct AppShell: View {
         )
     }
 
+    /// The Home card opens the shared ad blocker view as a sheet over House.
     private func openBlockerDetail() {
-        roomPath = []
-        onDNSPage(.today)
-        onSection(.group(.adBlockerAndDNS))
+        showBlocker = true
+    }
+
+    /// A pause from the sheet closes the sheet first, so the confirm shows on top.
+    private func blockerSheet() -> some View {
+        AfterglowScope {
+            AdBlockerOverview(
+                desk: desk,
+                theme: theme,
+                wide: false,
+                onAction: { action in
+                    blockerAction = action
+                    showBlocker = false
+                },
+                onClose: { showBlocker = false }
+            )
+        }
+        .presentationDragIndicator(.visible)
+    }
+
+    private func finishBlockerSheet() {
+        guard let blockerAction else { return }
+        self.blockerAction = nil
+        onPending(blockerAction)
     }
 
     private func pauseBlocker() {

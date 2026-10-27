@@ -24,7 +24,7 @@ struct SquareRow: View {
         }
     }
 
-    private let gap: CGFloat = 4
+    private let gap = BoardColumns<EmptyView, EmptyView>.phoneGap
 
     private var paired: some View {
         VStack(alignment: .leading, spacing: gap) {

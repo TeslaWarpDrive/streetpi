@@ -30,14 +30,14 @@ struct MeterBar: View {
 
     private var name: some View {
         Text(title)
-            .font(.caption)
+            .font(.subheadline)
             .foregroundStyle(palette.secondary)
             .fixedSize(horizontal: true, vertical: true)
     }
 
     private var readingText: some View {
         Text(reading)
-            .font(.caption.monospacedDigit())
+            .font(.subheadline.monospacedDigit())
             .foregroundStyle(palette.ink)
             .fixedSize(horizontal: true, vertical: true)
     }
