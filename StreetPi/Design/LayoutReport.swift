@@ -12,6 +12,11 @@ extension EnvironmentValues {
     }
 }
 
+enum ClearanceSpace {
+    /// Named space installed by the clearance tests. Frames in this space match the window.
+    static let name = "streetpi-clearance"
+}
+
 private struct LayoutReport: ViewModifier {
     var name: String?
     @Environment(\.streetPiLayoutReport) private var report
@@ -20,7 +25,7 @@ private struct LayoutReport: ViewModifier {
     func body(content: Content) -> some View {
         if let report, let name {
             content.onGeometryChange(for: CGRect.self) { proxy in
-                proxy.frame(in: .global)
+                proxy.frame(in: .named(ClearanceSpace.name))
             } action: { frame in
                 report(name, frame)
             }
