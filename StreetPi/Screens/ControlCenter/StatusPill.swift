@@ -42,6 +42,7 @@ struct StatusPill: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
+        .reportsLayout("status-word")
     }
 
     private func checked(wraps: Bool) -> some View {
