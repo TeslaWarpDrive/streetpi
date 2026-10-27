@@ -14,6 +14,7 @@ struct AdBlockerOverview<More: View>: View {
     @ViewBuilder var more: () -> More
 
     @Environment(\.afterglowPalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var explainer: NumberExplainer?
 
     private var share: LookupShare {
@@ -55,18 +56,34 @@ struct AdBlockerOverview<More: View>: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: AfterglowShape.line) {
-            Text(title)
-                .font(.system(.largeTitle, design: .rounded).bold())
-                .foregroundStyle(palette.ink)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            if let onClose {
-                IconChromeButton(title: "Close", systemImage: "xmark", action: onClose)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize, let onClose {
+                VStack(alignment: .leading, spacing: AfterglowShape.tight) {
+                    HStack {
+                        Spacer()
+                        IconChromeButton(title: "Close", systemImage: "xmark", action: onClose)
+                    }
+                    heading
+                }
+            } else {
+                HStack(alignment: .center, spacing: AfterglowShape.line) {
+                    heading
+                    if let onClose {
+                        IconChromeButton(title: "Close", systemImage: "xmark", action: onClose)
+                    }
+                }
             }
         }
         .padding(.vertical, AfterglowShape.tight)
+    }
+
+    private var heading: some View {
+        Text(title)
+            .font(.system(.largeTitle, design: .rounded).bold())
+            .foregroundStyle(palette.ink)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityAddTraits(.isHeader)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
