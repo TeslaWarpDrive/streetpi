@@ -32,6 +32,7 @@ struct MachinePageBody: View {
                 rows: desk.services,
                 note: nil,
                 mark: .dot,
+                groupsServices: true,
                 theme: theme,
                 wide: wide
             )

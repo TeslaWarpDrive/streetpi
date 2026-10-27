@@ -8,6 +8,7 @@ struct MachineListScreen: View {
     var rows: [NamedRow]
     var note: String?
     var mark: StatusMark
+    var groupsServices = false
     var theme: StreetTheme
     var wide: Bool
 
@@ -18,7 +19,11 @@ struct MachineListScreen: View {
                 PlainTile(title: note, line: LiveReadCopy.tryAgain, theme: theme)
             }
             if !rows.isEmpty {
-                StatusList(lines: lines, mark: mark)
+                if groupsServices {
+                    ServiceGroups(rows: rows)
+                } else {
+                    StatusList(lines: lines, mark: mark)
+                }
             }
         }
     }

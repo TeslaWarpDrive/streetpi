@@ -131,8 +131,8 @@ private enum MetricWords {
     }
 
     static func latest(_ item: MetricSeries) -> String? {
-        guard isShare(item), let last = item.points.last else { return nil }
-        return ReadingText.percent(last.value)
+        guard let last = item.points.last else { return nil }
+        return isShare(item) ? ReadingText.percent(last.value) : ReadingText.celsius(last.value)
     }
 
     static func plainLine(_ item: MetricSeries) -> String {
@@ -153,8 +153,12 @@ private enum MetricWords {
     /// The chart is hidden from VoiceOver, so the card says what the line shows.
     static func spoken(_ item: MetricSeries) -> String {
         let values = item.points.map(\.value)
-        guard isShare(item), let last = values.last, let low = values.min(), let high = values.max() else {
+        guard let last = values.last, let low = values.min(), let high = values.max() else {
             return "\(item.title). \(plainLine(item))"
+        }
+        if !isShare(item) {
+            return "\(item.title). \(Int(last.rounded())) degrees Celsius now. "
+                + "Between \(Int(low.rounded())) and \(Int(high.rounded())) degrees over the last day."
         }
         return "\(item.title). \(whole(last)) percent now. "
             + "Between \(whole(low)) and \(whole(high)) percent over the last day."

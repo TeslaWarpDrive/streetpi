@@ -100,6 +100,26 @@ class ClearanceCase: XCTestCase {
         }
     }
 
+    /// A known final label must be fully visible, even if the scroll view chose the wrong end.
+    fileprivate func assertFinalLabel(_ expected: String, in window: UIWindow, _ context: String) {
+        guard let bar = tabBarFrame(in: window) else {
+            XCTFail("\(context): no tab bar")
+            return
+        }
+        let matches = textFrames(in: window).filter { $0.text.contains(expected) }
+        guard let last = matches.min(by: { $0.frame.height < $1.frame.height }) else {
+            XCTFail("\(context): final label is missing: \(expected)")
+            return
+        }
+        let area = pageArea(in: window).intersection(window.bounds)
+        XCTAssertGreaterThan(last.frame.height, 1, "\(context): final label has no height")
+        XCTAssertGreaterThanOrEqual(last.frame.minY, area.minY - 0.5, "\(context): final label starts off screen")
+        XCTAssertLessThanOrEqual(last.frame.maxY, min(area.maxY, bar.minY) + 0.5,
+                                 "\(context): final label is below the visible page: \(expected)")
+        XCTAssertGreaterThanOrEqual(last.frame.minX, area.minX - 0.5, "\(context): final label starts outside page")
+        XCTAssertLessThanOrEqual(last.frame.maxX, area.maxX + 0.5, "\(context): final label ends outside page")
+    }
+
     fileprivate func assertVisibleTextDoesNotOverlap(in window: UIWindow, _ context: String) {
         let area = pageArea(in: window)
         var leaves: [(text: String, frame: CGRect)] = []
@@ -316,11 +336,11 @@ class ClearanceCase: XCTestCase {
 /// or when two pieces of text overlap.
 @MainActor
 final class TabClearanceTests: ClearanceCase {
-    private let tabs: [(name: String, section: AppSection)] = [
-        ("house", .home),
-        ("ad-blocker", .group(.adBlockerAndDNS)),
-        ("pi", .group(.piHealth)),
-        ("settings", .settings),
+    private let tabs: [(name: String, section: AppSection, finalLabel: String)] = [
+        ("house", .home, "Tap a tile to open it. Hold the ad blocker to pause it."),
+        ("ad-blocker", .group(.adBlockerAndDNS), DNSPage.upkeep.blurb),
+        ("pi", .group(.piHealth), MachinePage.containers.blurb),
+        ("settings", .settings, "Save status page"),
     ]
 
     /// Every tab, scrolled to its end, on the small phones and a large one at both text sizes.
@@ -334,6 +354,7 @@ final class TabClearanceTests: ClearanceCase {
                     assertOneTabBar(in: window, context)
                     assertVisibleTextDoesNotOverlap(in: window, context)
                     scrollToEnd(window)
+                    assertFinalLabel(tab.finalLabel, in: window, context)
                     assertPageEndsAboveBar(in: window, context)
                     assertVisibleTextDoesNotOverlap(in: window, context)
                     assertSnapshot(
