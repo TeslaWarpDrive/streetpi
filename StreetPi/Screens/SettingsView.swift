@@ -276,6 +276,7 @@ struct SettingsView: View {
                     .overlay { Capsule().stroke(theme.hairline, lineWidth: 1) }
             }
             .buttonStyle(.plain)
+            .reportsLayout("page-end")
         }
     }
 

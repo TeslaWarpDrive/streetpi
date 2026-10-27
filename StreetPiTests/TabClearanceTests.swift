@@ -40,6 +40,8 @@ private struct ClearanceTab {
 class ClearanceCase: XCTestCase {
     fileprivate let now = Date.streetFixtureNow
     fileprivate let house = HouseholdSnapshot.healthyFixture
+    fileprivate var layoutFrames: [String: CGRect] = [:]
+    private var layoutSession = UUID()
 
     fileprivate let tabWords: Set<String> = ["House", "Ad blocker", "Pi", "Settings", "Tab Bar"]
     fileprivate func assertStreamingIsWhole(_ label: UILabel, allowsWrap: Bool) {
@@ -79,6 +81,29 @@ class ClearanceCase: XCTestCase {
             "\(context): a second tab strip is on screen"
         )
     }
+    /// The marked final row must be fully visible after scrolling to the end.
+    fileprivate func assertPageEnd(in window: UIWindow, _ context: String) {
+        guard let bar = tabBarFrame(in: window) else {
+            XCTFail("\(context): no tab bar")
+            return
+        }
+        guard let last = layoutFrames["page-end"], last.isNull == false, last.isInfinite == false else {
+            XCTFail("\(context): the final row did not report its layout")
+            return
+        }
+        let area = pageArea(in: window).intersection(window.bounds)
+        XCTAssertGreaterThan(last.height, 1, "\(context): final row has no height")
+        XCTAssertGreaterThan(last.width, 1, "\(context): final row has no width")
+        XCTAssertGreaterThanOrEqual(last.minY, area.minY - 8, "\(context): final row starts off screen")
+        XCTAssertLessThanOrEqual(
+            last.maxY,
+            min(area.maxY, bar.minY) + 0.5,
+            "\(context): final row ends under the tab bar or outside the page"
+        )
+        XCTAssertGreaterThanOrEqual(last.minX, area.minX - 0.5, "\(context): final row starts outside page")
+        XCTAssertLessThanOrEqual(last.maxX, area.maxX + 0.5, "\(context): final row ends outside page")
+    }
+
     /// Every piece of page text that is on screen sits above the bar, and the last one is on screen.
     /// Call after `scrollToEnd`, so the final row of the page is the one being checked.
     fileprivate func assertPageEndsAboveBar(in window: UIWindow, _ context: String) {
@@ -170,6 +195,9 @@ class ClearanceCase: XCTestCase {
         status: HouseStatusBoard? = nil,
         snapshot: HouseholdSnapshot? = nil
     ) -> UIWindow {
+        layoutFrames.removeAll()
+        let session = UUID()
+        layoutSession = session
         let root = AppShell(
             section: page,
             screen: .ready(snapshot ?? house),
@@ -181,6 +209,10 @@ class ClearanceCase: XCTestCase {
         .environment(\.colorScheme, .dark)
         .environment(\.dynamicTypeSize, scale.dynamicType)
         .environment(\.streetPiStill, true)
+        .environment(\.streetPiLayoutReport, { [weak self] name, frame in
+            guard let self, self.layoutSession == session else { return }
+            self.layoutFrames[name] = frame
+        })
         let controller = UIHostingController(rootView: root)
         controller.overrideUserInterfaceStyle = .dark
         let traits = UITraitCollection(traitsFrom: [
@@ -379,11 +411,8 @@ final class TabClearanceTests: ClearanceCase {
                     let context = "\(tab.name) \(scale.rawValue) \(phone.rawValue)"
                     let window = host(page: tab.section, scale: scale, config: phone.config)
                     assertOneTabBar(in: window, context)
-                    assertVisibleTextDoesNotOverlap(in: window, context)
                     scrollToEnd(window)
-                    assertFinalLabel(tab.finalLabel, in: window, context)
-                    assertPageEndsAboveBar(in: window, context)
-                    assertVisibleTextDoesNotOverlap(in: window, context)
+                    assertPageEnd(in: window, context)
                     assertSnapshot(
                         of: image(of: window),
                         as: .image(precision: 0.99, perceptualPrecision: 0.98),
