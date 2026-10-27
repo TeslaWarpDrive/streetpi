@@ -42,6 +42,12 @@ struct StatusPill: View {
         .overlay {
             Capsule().strokeBorder(palette.tone(tone).opacity(0.45), lineWidth: 1)
         }
+        .background(alignment: .topLeading) {
+            // Clearance reads UILabel text. One clear point tall, inside the pill, so it does not paint.
+            SpokenMark(text: title)
+                .frame(width: 8, height: 1, alignment: .leading)
+                .accessibilityHidden(true)
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
     }
