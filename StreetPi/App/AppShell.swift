@@ -183,7 +183,11 @@ struct AppShell: View {
         if wide {
             NavigationSplitView(columnVisibility: $sidebarVisibility) {
                 ShellSidebar(selection: sidebarBinding, theme: theme)
-                    .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
+                    .navigationSplitViewColumnWidth(
+                        min: dynamicTypeSize.isAccessibilitySize ? 300 : 200,
+                        ideal: dynamicTypeSize.isAccessibilitySize ? 380 : 240,
+                        max: dynamicTypeSize.isAccessibilitySize ? 440 : 320
+                    )
             } detail: {
                 page(selectedTab)
             }
