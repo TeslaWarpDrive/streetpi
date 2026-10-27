@@ -22,13 +22,11 @@ struct MonitorBoardCard: View {
                         .foregroundStyle(palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                HStack(alignment: .center, spacing: 4) {
-                    Text(countLine)
-                        .font(.caption2)
-                        .foregroundStyle(palette.secondary)
-                        .fixedSize(horizontal: true, vertical: true)
-                    marks
-                }
+                Text(countLine)
+                    .font(.caption2)
+                    .foregroundStyle(palette.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                marks
             }
         }
         .background(alignment: .topLeading) {
@@ -41,9 +39,9 @@ struct MonitorBoardCard: View {
     }
 
     private var marks: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 3) {
             ForEach(tile.marks) { mark in
-                MonitorSquare(up: mark.up, side: 6)
+                MonitorSquare(up: mark.up, side: 8)
                     .accessibilityLabel("\(mark.name), \(mark.word)")
             }
         }
