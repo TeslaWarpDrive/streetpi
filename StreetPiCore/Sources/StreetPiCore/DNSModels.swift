@@ -17,10 +17,12 @@ public struct DayChartSample: Sendable, Equatable, Identifiable, Codable {
 public struct DNSBlocking: Sendable, Equatable, Codable {
     public var enabled: Bool
     public var pause: PauseLength?
+    public var pauseEndsAt: Date?
 
-    public init(enabled: Bool, pause: PauseLength? = nil) {
+    public init(enabled: Bool, pause: PauseLength? = nil, pauseEndsAt: Date? = nil) {
         self.enabled = enabled
         self.pause = pause
+        self.pauseEndsAt = enabled ? nil : pauseEndsAt
     }
 }
 

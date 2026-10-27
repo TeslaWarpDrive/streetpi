@@ -60,6 +60,31 @@ public enum ReadingText {
         return days == 1 ? "Up 1 day" : "Up \(days) days"
     }
 
+    /// "Pi 5 · up 12 days". The uptime half drops out when there is no reading.
+    public static func machineLine(model: String, uptimeSeconds: TimeInterval?) -> String {
+        let name = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let uptimeSeconds else { return name }
+        let phrase = uptime(uptimeSeconds)
+        if name.isEmpty { return phrase }
+        return "\(name) · \(phrase.prefix(1).lowercased())\(phrase.dropFirst())"
+    }
+
+    /// The plain word under the Processor ring.
+    public static func processorWord(_ fraction: Double) -> String {
+        if fraction >= MachineLimits.processorBusy {
+            return "Busy"
+        }
+        if fraction >= 0.5 {
+            return "Steady"
+        }
+        return "Light"
+    }
+
+    /// The plain word under the Memory and Disk rings.
+    public static func roomWord(_ fraction: Double, limit: Double) -> String {
+        fraction >= limit ? "Almost full" : "Room to spare"
+    }
+
     public static func stateWord(for service: ServiceHealth) -> String {
         switch service.state {
         case .responding:

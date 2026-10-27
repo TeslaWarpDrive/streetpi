@@ -434,12 +434,21 @@ private enum StatusBackupTile {
             summary = "No backup check-in yet."
             tone = .attention
         }
+        var rows = StatusServices.rows(monitors: [monitor], services: services)
+        if let success = history.successes[monitor.id] {
+            rows.append(GroupRow(
+                id: "backup-age",
+                name: "Last successful copy",
+                state: AgePhrase.english(from: success.time, to: now),
+                tone: tone
+            ))
+        }
         return HouseStatusTile(
             id: .backups,
             title: "Backups",
             summary: summary,
             tone: tone,
-            rows: StatusServices.rows(monitors: [monitor], services: services)
+            rows: rows
         )
     }
 

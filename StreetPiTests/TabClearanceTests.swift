@@ -21,6 +21,20 @@ enum ClearancePhone: String, CaseIterable {
     }
 }
 
+/// Matches the device safe area instead of borrowing the simulator host phone's insets.
+@MainActor
+private final class ClearanceWindow: UIWindow {
+    var deviceInsets: UIEdgeInsets = .zero
+
+    override var safeAreaInsets: UIEdgeInsets { deviceInsets }
+}
+
+private struct ClearanceTab {
+    let name: String
+    let section: AppSection
+    let finalLabel: String
+}
+
 /// Window walks shared by the clearance tests.
 @MainActor
 class ClearanceCase: XCTestCase {
@@ -28,7 +42,6 @@ class ClearanceCase: XCTestCase {
     fileprivate let house = HouseholdSnapshot.healthyFixture
 
     fileprivate let tabWords: Set<String> = ["House", "Ad blocker", "Pi", "Settings", "Tab Bar"]
-
     fileprivate func assertStreamingIsWhole(_ label: UILabel, allowsWrap: Bool) {
         let text = plain(label.text)
         XCTAssertFalse(text.contains("-"), "Streaming is hyphenated: \(text)")
@@ -49,7 +62,6 @@ class ClearanceCase: XCTestCase {
             XCTAssertGreaterThanOrEqual(label.bounds.width + 1, word)
         }
     }
-
     fileprivate func assertFullyDrawn(_ label: UILabel) {
         let needed = label.sizeThatFits(CGSize(width: max(label.bounds.width, 1), height: 10_000))
         XCTAssertGreaterThanOrEqual(
@@ -58,7 +70,6 @@ class ClearanceCase: XCTestCase {
             "\(plain(label.text)) is clipped"
         )
     }
-
     /// Exactly one system tab bar, and none of our own strips.
     fileprivate func assertOneTabBar(in window: UIWindow, _ context: String) {
         let bars = systemTabBars(in: window)
@@ -68,7 +79,6 @@ class ClearanceCase: XCTestCase {
             "\(context): a second tab strip is on screen"
         )
     }
-
     /// Every piece of page text that is on screen sits above the bar, and the last one is on screen.
     /// Call after `scrollToEnd`, so the final row of the page is the one being checked.
     fileprivate func assertPageEndsAboveBar(in window: UIWindow, _ context: String) {
@@ -99,7 +109,25 @@ class ClearanceCase: XCTestCase {
             )
         }
     }
-
+    /// A known final label must be fully visible, even if the scroll view chose the wrong end.
+    fileprivate func assertFinalLabel(_ expected: String, in window: UIWindow, _ context: String) {
+        guard let bar = tabBarFrame(in: window) else {
+            XCTFail("\(context): no tab bar")
+            return
+        }
+        let matches = textFrames(in: window).filter { $0.text.contains(expected) }
+        guard let last = matches.min(by: { $0.frame.height < $1.frame.height }) else {
+            XCTFail("\(context): final label is missing: \(expected)")
+            return
+        }
+        let area = pageArea(in: window).intersection(window.bounds)
+        XCTAssertGreaterThan(last.frame.height, 1, "\(context): final label has no height")
+        XCTAssertGreaterThanOrEqual(last.frame.minY, area.minY - 0.5, "\(context): final label starts off screen")
+        XCTAssertLessThanOrEqual(last.frame.maxY, min(area.maxY, bar.minY) + 0.5,
+                                 "\(context): final label is below the visible page: \(expected)")
+        XCTAssertGreaterThanOrEqual(last.frame.minX, area.minX - 0.5, "\(context): final label starts outside page")
+        XCTAssertLessThanOrEqual(last.frame.maxX, area.maxX + 0.5, "\(context): final label ends outside page")
+    }
     fileprivate func assertVisibleTextDoesNotOverlap(in window: UIWindow, _ context: String) {
         let area = pageArea(in: window)
         var leaves: [(text: String, frame: CGRect)] = []
@@ -121,24 +149,20 @@ class ClearanceCase: XCTestCase {
             }
         }
     }
-
     fileprivate func covers(_ outer: CGRect, _ inner: CGRect) -> Bool {
         outer.insetBy(dx: -2, dy: -2).contains(inner)
     }
-
     /// The part of the window the page draws into. It includes the strip behind the tab bar,
     /// so text that slid under the bar still counts.
     fileprivate func pageArea(in window: UIWindow) -> CGRect {
         guard let scroll = mainScroll(in: window) else { return window.bounds }
         return scroll.convert(scroll.bounds, to: window).intersection(window.bounds)
     }
-
     fileprivate func label(_ identifier: String, in window: UIWindow) -> UILabel? {
         labels(in: window).first {
             $0.accessibilityIdentifier == identifier && $0.bounds.width > 2 && $0.bounds.height > 2
         }
     }
-
     fileprivate func host(
         page: AppSection,
         scale: SnapshotScale,
@@ -159,16 +183,31 @@ class ClearanceCase: XCTestCase {
         .environment(\.streetPiStill, true)
         let controller = UIHostingController(rootView: root)
         controller.overrideUserInterfaceStyle = .dark
-        controller.traitOverrides.preferredContentSizeCategory = scale.category
-        controller.traitOverrides.userInterfaceStyle = .dark
-        controller.traitOverrides.horizontalSizeClass = config.traits.horizontalSizeClass
-        controller.traitOverrides.verticalSizeClass = config.traits.verticalSizeClass
-        let size = config.size ?? CGSize(width: 375, height: 667)
-        controller.view.bounds = CGRect(origin: .zero, size: size)
-        let window = UIWindow(frame: CGRect(origin: .zero, size: size))
-        window.rootViewController = controller
+        let traits = UITraitCollection(traitsFrom: [
+            config.traits,
+            UITraitCollection(userInterfaceStyle: .dark),
+            UITraitCollection(preferredContentSizeCategory: scale.category),
+        ])
+        let frame = CGRect(origin: .zero, size: config.size ?? CGSize(width: 375, height: 667))
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        let window = scene.map { ClearanceWindow(windowScene: $0) } ?? ClearanceWindow(frame: frame)
+        window.deviceInsets = config.safeArea
+        window.frame = frame
+        let container = UIViewController()
+        container.view.frame = frame
+        container.addChild(controller)
+        container.setOverrideTraitCollection(traits, forChild: controller)
+        controller.view.frame = container.view.bounds
+        controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        container.view.addSubview(controller.view)
+        controller.didMove(toParent: container)
+        window.rootViewController = container
         window.overrideUserInterfaceStyle = .dark
         window.makeKeyAndVisible()
+        container.beginAppearanceTransition(true, animated: false)
+        container.endAppearanceTransition()
+        container.view.setNeedsLayout()
+        container.view.layoutIfNeeded()
         pump()
         controller.view.setNeedsLayout()
         controller.view.layoutIfNeeded()
@@ -176,14 +215,16 @@ class ClearanceCase: XCTestCase {
         return window
     }
 
+}
+
+@MainActor
+extension ClearanceCase {
     fileprivate func streamingLabel(in window: UIWindow) -> UILabel? {
         labels(in: window).first { plain($0.text).contains("Streaming") }
     }
-
     fileprivate func labelTexts(in window: UIWindow) -> [String] {
         labels(in: window).map { plain($0.text) }.filter { $0.isEmpty == false }
     }
-
     fileprivate func labels(in view: UIView) -> [UILabel] {
         var found: [UILabel] = []
         if let label = view as? UILabel {
@@ -194,7 +235,6 @@ class ClearanceCase: XCTestCase {
         }
         return found
     }
-
     fileprivate func scrollToEnd(_ window: UIWindow) {
         guard let scroll = mainScroll(in: window) else { return }
         let bottom = scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom
@@ -202,7 +242,6 @@ class ClearanceCase: XCTestCase {
         scroll.layoutIfNeeded()
         pump()
     }
-
     /// Scrolls the page the way a person would until the frame is fully above the bar.
     fileprivate func scrollIntoView(_ view: UIView, in window: UIWindow) {
         guard let scroll = mainScroll(in: window) else { return }
@@ -211,18 +250,15 @@ class ClearanceCase: XCTestCase {
         scroll.layoutIfNeeded()
         pump()
     }
-
     fileprivate func mainScroll(in window: UIWindow) -> UIScrollView? {
         allScrolls(in: window)
             .filter { $0.bounds.height > window.bounds.height * 0.4 }
             .max { $0.bounds.width * $0.bounds.height < $1.bounds.width * $1.bounds.height }
     }
-
     fileprivate func tabBarFrame(in window: UIWindow) -> CGRect? {
         guard let bar = systemTabBars(in: window).first else { return nil }
         return bar.convert(bar.bounds, to: window)
     }
-
     fileprivate func systemTabBars(in view: UIView) -> [UITabBar] {
         let shown = view.isHidden == false && view.alpha > 0.01 && view.bounds.height > 1
         guard shown else { return [] }
@@ -231,7 +267,6 @@ class ClearanceCase: XCTestCase {
         }
         return view.subviews.flatMap { systemTabBars(in: $0) }
     }
-
     fileprivate func views(named name: String, in view: UIView) -> [UIView] {
         var found: [UIView] = []
         if view.accessibilityIdentifier == name {
@@ -242,7 +277,6 @@ class ClearanceCase: XCTestCase {
         }
         return found
     }
-
     /// Text and spoken labels on the page, not in the tab bar, and not whole-screen containers.
     fileprivate func pageTexts(in window: UIWindow) -> [(text: String, frame: CGRect)] {
         textFrames(in: window).filter { item in
@@ -251,48 +285,58 @@ class ClearanceCase: XCTestCase {
                 && item.frame.width > 1
         }
     }
-
     fileprivate func textFrames(in window: UIWindow) -> [(text: String, frame: CGRect)] {
         var found: [(text: String, frame: CGRect)] = []
-        collectText(in: window, window: window, into: &found)
+        var visited = Set<ObjectIdentifier>()
+        collectText(in: window, window: window, visited: &visited, into: &found)
         return found
     }
-
-    fileprivate func collectText(in view: UIView, window: UIWindow, into found: inout [(text: String, frame: CGRect)]) {
-        if view is UITabBar || view.isHidden || view.alpha < 0.01 { return }
-        if let label = view as? UILabel {
-            let text = plain(label.text)
-            if text.isEmpty == false {
-                found.append((text, label.convert(label.bounds, to: window)))
+    /// SwiftUI creates virtual accessibility children lazily; UILabel walks miss native Text.
+    fileprivate func collectText(
+        in object: NSObject,
+        window: UIWindow,
+        visited: inout Set<ObjectIdentifier>,
+        into found: inout [(text: String, frame: CGRect)]
+    ) {
+        guard visited.insert(ObjectIdentifier(object)).inserted else { return }
+        if let view = object as? UIView {
+            if view is UITabBar || view.isHidden || view.alpha < 0.01 { return }
+            if let label = view as? UILabel, plain(label.text).isEmpty == false {
+                found.append((plain(label.text), label.convert(label.bounds, to: window)))
             }
         }
-        let spoken = plain(view.accessibilityLabel)
+        let spoken = plain(object.accessibilityLabel)
         if spoken.isEmpty == false {
-            found.append((spoken, view.convert(view.bounds, to: window)))
+            let frame: CGRect
+            if let view = object as? UIView {
+                frame = view.convert(view.bounds, to: window)
+            } else {
+                frame = window.convert(object.accessibilityFrame, from: nil)
+            }
+            found.append((spoken, frame))
         }
-        if let elements = view.accessibilityElements {
-            for case let element as NSObject in elements {
-                let text = plain(element.accessibilityLabel)
-                if text.isEmpty { continue }
-                let frame = window.convert(element.accessibilityFrame, from: nil)
-                found.append((text, frame))
+        let count = object.accessibilityElementCount()
+        if count > 0 && count < 10_000 {
+            for index in 0..<count {
+                if let element = object.accessibilityElement(at: index) as? NSObject {
+                    collectText(in: element, window: window, visited: &visited, into: &found)
+                }
             }
         }
-        for child in view.subviews {
-            collectText(in: child, window: window, into: &found)
+        if let view = object as? UIView {
+            for child in view.subviews {
+                collectText(in: child, window: window, visited: &visited, into: &found)
+            }
         }
     }
-
     fileprivate func plain(_ text: String?) -> String {
         (text ?? "").replacingOccurrences(of: "\u{2060}", with: "")
     }
-
     fileprivate func pump() {
         for _ in 0..<6 {
             RunLoop.current.run(until: Date().addingTimeInterval(0.02))
         }
     }
-
     fileprivate func allScrolls(in view: UIView) -> [UIScrollView] {
         var found: [UIScrollView] = []
         if let scroll = view as? UIScrollView {
@@ -303,11 +347,14 @@ class ClearanceCase: XCTestCase {
         }
         return found
     }
-
     fileprivate func image(of window: UIWindow) -> UIImage {
-        let renderer = UIGraphicsImageRenderer(bounds: window.bounds)
+        guard let view = window.rootViewController?.view else {
+            XCTFail("The snapshot window has no root view")
+            return UIImage()
+        }
+        let renderer = UIGraphicsImageRenderer(bounds: view.bounds)
         return renderer.image { _ in
-            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+            view.drawHierarchy(in: view.bounds, afterScreenUpdates: true)
         }
     }
 }
@@ -316,13 +363,13 @@ class ClearanceCase: XCTestCase {
 /// or when two pieces of text overlap.
 @MainActor
 final class TabClearanceTests: ClearanceCase {
-    private let tabs: [(name: String, section: AppSection)] = [
-        ("house", .home),
-        ("ad-blocker", .group(.adBlockerAndDNS)),
-        ("pi", .group(.piHealth)),
-        ("settings", .settings),
+    private let tabs: [ClearanceTab] = [
+        ClearanceTab(name: "house", section: .home,
+                     finalLabel: "Tap a tile to open it. Hold the ad blocker to pause it."),
+        ClearanceTab(name: "ad-blocker", section: .group(.adBlockerAndDNS), finalLabel: DNSPage.upkeep.blurb),
+        ClearanceTab(name: "pi", section: .group(.piHealth), finalLabel: MachinePage.containers.blurb),
+        ClearanceTab(name: "settings", section: .settings, finalLabel: "Save status page"),
     ]
-
     /// Every tab, scrolled to its end, on the small phones and a large one at both text sizes.
     /// Each end state is also kept as an image, so the last row can be looked at.
     func testEveryTabEndsAboveTheTabBar() {
@@ -334,11 +381,12 @@ final class TabClearanceTests: ClearanceCase {
                     assertOneTabBar(in: window, context)
                     assertVisibleTextDoesNotOverlap(in: window, context)
                     scrollToEnd(window)
+                    assertFinalLabel(tab.finalLabel, in: window, context)
                     assertPageEndsAboveBar(in: window, context)
                     assertVisibleTextDoesNotOverlap(in: window, context)
                     assertSnapshot(
                         of: image(of: window),
-                        as: .image(precision: 0.95, perceptualPrecision: 0.5),
+                        as: .image(precision: 0.99, perceptualPrecision: 0.98),
                         named: "\(tab.name)-dark-\(scale.rawValue)-\(phone.rawValue)",
                         testName: "tabEnd"
                     )
@@ -347,22 +395,22 @@ final class TabClearanceTests: ClearanceCase {
             }
         }
     }
-
     /// The iPad opens on the sidebar. No tab bar sits along the bottom of the page.
     func testPadHasNoBottomBar() {
         for scale in SnapshotScale.allCases {
             let window = host(page: .home, scale: scale, config: SnapshotDevice.pad.config)
-            if let bar = tabBarFrame(in: window) {
-                XCTAssertLessThan(
-                    bar.maxY,
-                    window.bounds.height * 0.5,
-                    "The iPad shows a tab bar along the bottom at \(scale.rawValue)"
-                )
-            }
+            XCTAssertTrue(systemTabBars(in: window).isEmpty, "The iPad must open on a sidebar")
+            let splits = window.rootViewController.map { splitControllers(in: $0) } ?? []
+            XCTAssertEqual(splits.count, 1, "The iPad needs exactly one navigation split view")
+            XCTAssertEqual(splits.first?.isCollapsed, false, "The iPad sidebar must be expanded")
             window.isHidden = true
         }
     }
 
+    private func splitControllers(in controller: UIViewController) -> [UISplitViewController] {
+        let own = (controller as? UISplitViewController).map { [$0] } ?? []
+        return own + controller.children.flatMap { splitControllers(in: $0) }
+    }
     func testStreamingTitleStaysWhole() {
         for scale in SnapshotScale.allCases {
             let window = host(page: .home, scale: scale, config: ClearancePhone.smallPhone.config)
@@ -382,7 +430,6 @@ final class TabClearanceTests: ClearanceCase {
             window.isHidden = true
         }
     }
-
     /// The status word and the checked line stay apart, and the checked line is fully drawn.
     func testStatusWordClearsTheCheckedLine() {
         let configs: [(String, ViewImageConfig)] = [
@@ -421,7 +468,6 @@ final class TabClearanceTests: ClearanceCase {
             }
         }
     }
-
     /// The fixture Home paints the monitor count, not the sample backup sentence.
     func testSamplePhrasesStayOffTheHomeCards() {
         let window = host(page: .home, scale: .default, config: ClearancePhone.smallPhone.config)
@@ -433,7 +479,6 @@ final class TabClearanceTests: ClearanceCase {
         XCTAssertTrue(spoken.contains("using the Pi"), spoken)
         window.isHidden = true
     }
-
     /// The installed Home paints the status page, not the 8-service sample.
     func testStatusPageReplacesTheSample() {
         let board = StatusPageFixture.previewBoard(now: now)

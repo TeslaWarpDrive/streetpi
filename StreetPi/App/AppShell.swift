@@ -42,8 +42,11 @@ struct AppShell: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.streetPiStill) private var still
+    @State private var sidebarVisibility: NavigationSplitViewVisibility = .all
     @State private var showAlerts: Bool
     @State private var roomPath: [HouseGroup] = []
+    @State private var showBlocker = false
+    @State private var blockerAction: HouseholdAction?
 
     init(
         section: AppSection,
@@ -81,7 +84,8 @@ struct AppShell: View {
         statusBoard: HouseStatusBoard? = nil,
         statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString,
         statusSlug: String = "house",
-        onStatusPage: @escaping (String, String) -> Void = { _, _ in }
+        onStatusPage: @escaping (String, String) -> Void = { _, _ in },
+        initialRoom: HouseGroup? = nil
     ) {
         self.section = section
         self.screen = screen
@@ -120,6 +124,8 @@ struct AppShell: View {
         self.statusSlug = statusSlug
         self.onStatusPage = onStatusPage
         _showAlerts = State(initialValue: section == .alerts)
+        // Snapshot entry: opens House on one room page.
+        _roomPath = State(initialValue: initialRoom.map { [$0] } ?? [])
     }
 
     private var theme: StreetTheme { .house }
@@ -138,7 +144,7 @@ struct AppShell: View {
     }
 
     private var tabBinding: Binding<HouseTab> {
-        Binding(get: { selectedTab }, set: select)
+        Binding(get: { selectedTab }, set: { select($0) })
     }
 
     private func select(_ tab: HouseTab) {
@@ -151,7 +157,7 @@ struct AppShell: View {
     var body: some View {
         ZStack {
             theme.background.ignoresSafeArea()
-            tabShell
+            AfterglowScope(paintsGround: false) { tabShell }
             if let pendingAction {
                 ActionConfirm(
                     action: pendingAction,
@@ -172,19 +178,33 @@ struct AppShell: View {
         }
     }
 
-    /// One system tab view. The phone keeps the tab bar at every text size; long-pressing
-    /// a tab shows its name in the large content viewer. Regular width opens as a sidebar.
-    /// The system gives each page its bottom inset, so every page scrolls clear of the bar.
+    /// Compact width uses one system tab bar. Regular width opens directly on the sidebar.
+    @ViewBuilder
     private var tabShell: some View {
-        TabView(selection: tabBinding) {
-            ForEach(HouseTab.allCases) { tab in
-                Tab(tab.title, systemImage: tab.symbol, value: tab) {
-                    page(tab)
+        if wide {
+            NavigationSplitView(columnVisibility: $sidebarVisibility) {
+                ShellSidebar(selection: sidebarBinding, theme: theme)
+                    .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
+            } detail: {
+                page(selectedTab)
+            }
+            .navigationSplitViewStyle(.balanced)
+        } else {
+            TabView(selection: tabBinding) {
+                ForEach(HouseTab.allCases) { tab in
+                    Tab(tab.title, systemImage: tab.symbol, value: tab) {
+                        page(tab)
+                    }
                 }
             }
+            .tabViewStyle(.sidebarAdaptable)
         }
-        .tabViewStyle(.sidebarAdaptable)
-        .defaultAdaptableTabBarPlacement(.sidebar)
+    }
+
+    private var sidebarBinding: Binding<HouseTab?> {
+        Binding(get: { selectedTab }, set: { tab in
+            if let tab { select(tab) }
+        })
     }
 
     @ViewBuilder
@@ -213,6 +233,9 @@ struct AppShell: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .sheet(isPresented: $showBlocker, onDismiss: finishBlockerSheet) {
+            blockerSheet()
+        }
         .overlay {
             if still && showAlerts {
                 alerts
@@ -238,10 +261,32 @@ struct AppShell: View {
         )
     }
 
+    /// The Home card opens the shared ad blocker view as a sheet over House.
     private func openBlockerDetail() {
-        roomPath = []
-        onDNSPage(.today)
-        onSection(.group(.adBlockerAndDNS))
+        showBlocker = true
+    }
+
+    /// A pause from the sheet closes the sheet first, so the confirm shows on top.
+    private func blockerSheet() -> some View {
+        AfterglowScope {
+            AdBlockerOverview(
+                desk: desk,
+                theme: theme,
+                wide: false,
+                onAction: { action in
+                    blockerAction = action
+                    showBlocker = false
+                },
+                onClose: { showBlocker = false }
+            )
+        }
+        .presentationDragIndicator(.visible)
+    }
+
+    private func finishBlockerSheet() {
+        guard let blockerAction else { return }
+        self.blockerAction = nil
+        onPending(blockerAction)
     }
 
     private func pauseBlocker() {
@@ -352,6 +397,12 @@ struct AppShell: View {
         NavigationStack {
             SettingsView(
                 theme: theme,
+                passwordSaved: passwordSaved,
+                onPasswordSetup: {
+                    onSection(.group(.adBlockerAndDNS))
+                    onSavePassword()
+                },
+                onSignOut: { onPending(.signOutOfAdBlocker) },
                 piHost: piHost,
                 hostNote: hostNote,
                 onCommitHost: onCommitHost,

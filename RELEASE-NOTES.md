@@ -1,3 +1,13 @@
+# Raspberry Pi Stats 1.1.0 (3)
+
+- House follows the control-center design, with larger readings and plain-English explanations.
+- One system tab bar keeps the last row in reach. iPad uses a sidebar.
+- Ad blocker opens the same overview from House and its tab. Pause, block, and allow still ask first.
+- The Pi uses rings and day charts. Room pages share status rows and explanations; alerts form a timeline.
+- Settings keeps the app password on this phone. There are no analytics or tracking SDKs.
+- The silent launch film fades into Aurora. Reduce Motion uses the poster; the aura rests in Low Power Mode and off-screen.
+- The existing app icon stays in place while a proposed original icon awaits approval.
+
 # Raspberry Pi Stats 1.0.0 (2)
 
 The first sideload. One app for the house, in plain English. Under the icon the name is Pi Stats. The repository stays `streetpi`.

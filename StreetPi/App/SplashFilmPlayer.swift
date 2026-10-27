@@ -5,7 +5,7 @@ import UIKit
 enum SplashFilm {
     static let videoName = "launch-film"
     static let posterName = "launch-poster"
-    static let crossfade: TimeInterval = 0.4
+    static let crossfade: TimeInterval = 0.6
     static let stillHold: Duration = .milliseconds(800)
 
     static func videoURL() -> URL? {
