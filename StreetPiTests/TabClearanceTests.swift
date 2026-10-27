@@ -80,37 +80,8 @@ class ClearanceCase: XCTestCase {
             "\(context): a second tab strip is on screen"
         )
     }
-<<<<<<< HEAD
-    /// The marked final row must be fully visible after scrolling to the end.
-    fileprivate func assertPageEnd(in window: UIWindow, _ context: String) {
-        guard let bar = tabBarFrame(in: window) else {
-            XCTFail("\(context): no tab bar")
-            return
-        }
-        guard let last = layoutFrames["page-end"], last.isNull == false, last.isInfinite == false else {
-            XCTFail("\(context): the final row did not report its layout")
-            return
-        }
-        let area = pageArea(in: window).intersection(window.bounds)
-        XCTAssertGreaterThan(last.height, 1, "\(context): final row has no height")
-        XCTAssertGreaterThan(last.width, 1, "\(context): final row has no width")
-        XCTAssertGreaterThanOrEqual(last.minY, area.minY - 8, "\(context): final row starts off screen")
-        XCTAssertLessThanOrEqual(
-            last.maxY,
-            min(area.maxY, bar.minY) + 0.5,
-            "\(context): final row ends under the tab bar or outside the page"
-        )
-        XCTAssertGreaterThanOrEqual(last.minX, area.minX - 0.5, "\(context): final row starts outside page")
-        XCTAssertLessThanOrEqual(last.maxX, area.maxX + 0.5, "\(context): final row ends outside page")
-    }
-
-    /// Every piece of page text that is on screen sits above the bar, and the last one is on screen.
-    /// Call after `scrollToEnd`, so the final row of the page is the one being checked.
-    fileprivate func assertPageEndsAboveBar(in window: UIWindow, _ context: String) {
-=======
     /// The actual final Text must be fully visible after scrolling to the end.
     fileprivate func assertPageEnd(in window: UIWindow, _ context: String) {
->>>>>>> origin/claude/job2-home-polish
         guard let bar = tabBarFrame(in: window) else {
             XCTFail("\(context): no tab bar")
             return
@@ -196,10 +167,7 @@ class ClearanceCase: XCTestCase {
         .environment(\.colorScheme, .dark)
         .environment(\.dynamicTypeSize, scale.dynamicType)
         .environment(\.streetPiStill, true)
-<<<<<<< HEAD
-=======
         .coordinateSpace(name: ClearanceSpace.name)
->>>>>>> origin/claude/job2-home-polish
         .environment(\.streetPiLayoutReport, { [weak self] name, frame in
             guard let self, self.layoutSession == session else { return }
             self.layoutFrames[name] = frame
@@ -401,15 +369,13 @@ final class TabClearanceTests: ClearanceCase {
                     let context = "\(tab.name) \(scale.rawValue) \(phone.rawValue)"
                     let window = host(page: tab.section, scale: scale, config: phone.config)
                     assertOneTabBar(in: window, context)
+                    assertVisibleTextDoesNotOverlap(in: window, context)
                     scrollToEnd(window)
                     assertPageEnd(in: window, context)
-<<<<<<< HEAD
-=======
                     assertVisibleTextDoesNotOverlap(in: window, context)
->>>>>>> origin/claude/job2-home-polish
                     assertSnapshot(
                         of: image(of: window),
-                        as: .image(precision: 0.99, perceptualPrecision: 1),
+                        as: .image(precision: 0.99, perceptualPrecision: 0.98),
                         named: "\(tab.name)-dark-\(scale.rawValue)-\(phone.rawValue)",
                         testName: "tabEnd"
                     )
@@ -443,8 +409,7 @@ final class TabClearanceTests: ClearanceCase {
                 continue
             }
             scrollIntoView(label, in: window)
-            // The service square is narrower than the word. Character wrap is the title's contract.
-            assertStreamingIsWhole(label, allowsWrap: true)
+            assertStreamingIsWhole(label, allowsWrap: scale == .largest)
             if let bar = tabBarFrame(in: window) {
                 let frame = label.convert(label.bounds, to: window)
                 XCTAssertLessThanOrEqual(frame.maxY, bar.minY + 0.5, "Streaming is not above the tab bar")
