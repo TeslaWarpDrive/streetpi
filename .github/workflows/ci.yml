@@ -83,7 +83,7 @@ jobs:
 
       - name: Snapshot tests
         env:
-          TEST_RUNNER_SNAPSHOT_TESTING_RECORD: ${{ inputs.record || 'failed' }}
+          TEST_RUNNER_SNAPSHOT_TESTING_RECORD: ${{ inputs.record || 'missing' }}
           TEST_RUNNER_SNAPSHOT_ARTIFACTS: ${{ runner.temp }}/snapshot-failures
           SNAPSHOT_SUITE: ${{ inputs.suite || 'full' }}
         run: |
