@@ -144,15 +144,8 @@ struct AppShell: View {
         ZStack {
             theme.background.ignoresSafeArea()
             GeometryReader { proxy in
-                let wide = proxy.size.width >= 700
-                if showsPhoneStrip(wide: wide) {
-                    phoneStrip
-                        .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
-                } else {
-                    // House, iPad, and accessibility sizes keep the shell main already ships.
-                    shell(wide: wide)
-                        .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
-                }
+                shell(wide: proxy.size.width >= 700)
+                    .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
             }
             if let pendingAction {
                 ActionConfirm(
@@ -213,6 +206,9 @@ struct AppShell: View {
                     .toolbar(.hidden, for: .tabBar)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
+        } else if showsPhoneStrip(wide: wide) {
+            // One strip. A tab view on these pages draws a floating bar over the next row.
+            phoneStrip
         } else {
             tabs(wide: wide)
                 .tabViewStyle(.sidebarAdaptable)

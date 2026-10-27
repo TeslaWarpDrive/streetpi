@@ -105,14 +105,33 @@ class ClearanceCase: XCTestCase {
         let image = renderer.image { _ in
             window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
         }
-        guard let cg = image.cgImage,
-              let data = cg.dataProvider?.data,
-              let bytes = CFDataGetBytePtr(data) else {
+        guard let cg = image.cgImage else {
             XCTFail("The page did not draw")
             return
         }
         let width = cg.width
         let height = cg.height
+        // Draw into a known 8-bit buffer. The renderer’s own bitmap is not always 32-bit.
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn = pixels.withUnsafeMutableBytes { raw -> Bool in
+            guard let ctx = CGContext(
+                data: raw.baseAddress,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return false }
+            ctx.translateBy(x: 0, y: CGFloat(height))
+            ctx.scaleBy(x: 1, y: -1)
+            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn else {
+            XCTFail("The page image has no color")
+            return
+        }
         let scale = window.bounds.width > 0 ? CGFloat(width) / window.bounds.width : image.scale
         let gap = Int((8 * scale).rounded())
         let barTop = Int((bar.minY * scale).rounded())
@@ -122,23 +141,18 @@ class ClearanceCase: XCTestCase {
             XCTFail("The tab strip could not be measured. \(viewOutline(window))")
             return
         }
-        let bytesPerPixel = cg.bitsPerPixel / 8
-        let rowBytes = cg.bytesPerRow
-        guard bytesPerPixel >= 3 else {
-            XCTFail("The page image has no color")
-            return
-        }
         let x0 = min(width - 1, Int((16 * scale).rounded()))
         let x1 = max(x0 + 1, width - x0)
+        func sample(_ x: Int, _ y: Int) -> Int {
+            let index = (y * width + x) * 4
+            return max(Int(pixels[index]), Int(pixels[index + 1]), Int(pixels[index + 2]))
+        }
         var brightest = 0
         for y in start..<end {
-            let row = bytes.advanced(by: y * rowBytes)
             var bright = 0
             var x = x0
             while x < x1 {
-                let pixel = row.advanced(by: x * bytesPerPixel)
-                let sample = max(Int(pixel[0]), Int(pixel[1]), Int(pixel[2]))
-                if sample > 150 {
+                if sample(x, y) > 150 {
                     bright += 1
                 }
                 x += 1
@@ -154,11 +168,9 @@ class ClearanceCase: XCTestCase {
         let pageEnd = start
         let pageStart = max(0, pageEnd - Int((80 * scale).rounded()))
         for y in pageStart..<pageEnd {
-            let row = bytes.advanced(by: y * rowBytes)
             var x = x0
             while x < x1 {
-                let pixel = row.advanced(by: x * bytesPerPixel)
-                if max(Int(pixel[0]), Int(pixel[1]), Int(pixel[2])) > 150 {
+                if sample(x, y) > 150 {
                     pageInk += 1
                 }
                 x += 1
