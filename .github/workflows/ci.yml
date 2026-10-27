@@ -90,14 +90,12 @@ jobs:
           set -euo pipefail
           DEST="$(bash scripts/pick-simulator.sh)"
           echo "Destination: ${DEST}"
-          TEST_ARGS=()
+          # The array always has the destination, so nounset does not trip on an empty expansion.
+          TEST_ARGS=(-project StreetPi.xcodeproj -scheme StreetPi -destination "${DEST}")
           if [[ "$SNAPSHOT_SUITE" == "clearance" ]]; then
-            TEST_ARGS=(-only-testing:StreetPiTests/TabClearanceTests)
+            TEST_ARGS+=(-only-testing:StreetPiTests/TabClearanceTests)
           fi
           xcodebuild test \
-            -project StreetPi.xcodeproj \
-            -scheme StreetPi \
-            -destination "${DEST}" \
             "${TEST_ARGS[@]}" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
