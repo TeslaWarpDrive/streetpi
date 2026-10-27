@@ -10,6 +10,7 @@ struct HouseFooter: View {
             .foregroundStyle(palette.tertiary)
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
+            .reportsLayout("page-end")
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.top, AfterglowShape.line)
     }

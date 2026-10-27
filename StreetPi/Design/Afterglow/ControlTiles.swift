@@ -115,6 +115,7 @@ struct LinkTile: View {
     var line: String
     var symbol: String
     var theme: StreetTheme
+    var finalLineLayout: String?
     var action: () -> Void
 
     var body: some View {
@@ -128,6 +129,7 @@ struct LinkTile: View {
                 VStack(alignment: .leading, spacing: Rhythm.tight) {
                     WrappingLine(text: title, font: .headline, color: theme.ink)
                     WrappingLine(text: line, font: .subheadline, color: theme.secondary)
+                        .reportsLayout(finalLineLayout)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

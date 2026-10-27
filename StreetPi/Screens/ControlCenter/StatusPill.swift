@@ -40,6 +40,7 @@ struct StatusPill: View {
         .overlay {
             Capsule().strokeBorder(palette.calm.opacity(0.45), lineWidth: 1)
         }
+        .reportsLayout("status-word")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
     }

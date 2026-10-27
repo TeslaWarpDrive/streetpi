@@ -32,7 +32,6 @@ private final class ClearanceWindow: UIWindow {
 private struct ClearanceTab {
     let name: String
     let section: AppSection
-    let finalLabel: String
 }
 
 /// Window walks shared by the clearance tests.
@@ -40,6 +39,8 @@ private struct ClearanceTab {
 class ClearanceCase: XCTestCase {
     fileprivate let now = Date.streetFixtureNow
     fileprivate let house = HouseholdSnapshot.healthyFixture
+    fileprivate var layoutFrames: [String: CGRect] = [:]
+    private var layoutSession = UUID()
 
     fileprivate let tabWords: Set<String> = ["House", "Ad blocker", "Pi", "Settings", "Tab Bar"]
     fileprivate func assertStreamingIsWhole(_ label: UILabel, allowsWrap: Bool) {
@@ -79,54 +80,24 @@ class ClearanceCase: XCTestCase {
             "\(context): a second tab strip is on screen"
         )
     }
-    /// Every piece of page text that is on screen sits above the bar, and the last one is on screen.
-    /// Call after `scrollToEnd`, so the final row of the page is the one being checked.
-    fileprivate func assertPageEndsAboveBar(in window: UIWindow, _ context: String) {
+    /// The actual final Text must be fully visible after scrolling to the end.
+    fileprivate func assertPageEnd(in window: UIWindow, _ context: String) {
         guard let bar = tabBarFrame(in: window) else {
             XCTFail("\(context): no tab bar")
             return
         }
-        let shownArea = pageArea(in: window)
-        let texts = pageTexts(in: window).filter { item in
-            let shown = item.frame.intersection(shownArea)
-            return shown.isNull == false && shown.height > 1 && shown.width > 1
-        }
-        guard let last = texts.max(by: { $0.frame.maxY < $1.frame.maxY }) else {
-            XCTFail("\(context): no page text was found")
-            return
-        }
-        XCTAssertLessThanOrEqual(
-            last.frame.maxY,
-            bar.minY + 0.5,
-            "\(context): the last line \"\(last.text)\" ends at \(last.frame.maxY), "
-                + "under the tab bar at \(bar.minY)"
-        )
-        for item in texts {
-            let overlap = item.frame.intersection(bar)
-            XCTAssertTrue(
-                overlap.isNull || overlap.height < 1,
-                "\(context): \"\(item.text)\" sits under the tab bar"
-            )
-        }
-    }
-    /// A known final label must be fully visible, even if the scroll view chose the wrong end.
-    fileprivate func assertFinalLabel(_ expected: String, in window: UIWindow, _ context: String) {
-        guard let bar = tabBarFrame(in: window) else {
-            XCTFail("\(context): no tab bar")
-            return
-        }
-        let matches = textFrames(in: window).filter { $0.text.contains(expected) }
-        guard let last = matches.min(by: { $0.frame.height < $1.frame.height }) else {
-            XCTFail("\(context): final label is missing: \(expected)")
+        guard let last = layoutFrames["page-end"], last.isNull == false, last.isInfinite == false else {
+            XCTFail("\(context): the final row did not report its layout")
             return
         }
         let area = pageArea(in: window).intersection(window.bounds)
-        XCTAssertGreaterThan(last.frame.height, 1, "\(context): final label has no height")
-        XCTAssertGreaterThanOrEqual(last.frame.minY, area.minY - 0.5, "\(context): final label starts off screen")
-        XCTAssertLessThanOrEqual(last.frame.maxY, min(area.maxY, bar.minY) + 0.5,
-                                 "\(context): final label is below the visible page: \(expected)")
-        XCTAssertGreaterThanOrEqual(last.frame.minX, area.minX - 0.5, "\(context): final label starts outside page")
-        XCTAssertLessThanOrEqual(last.frame.maxX, area.maxX + 0.5, "\(context): final label ends outside page")
+        XCTAssertGreaterThan(last.height, 1, "\(context): final row has no height")
+        XCTAssertGreaterThan(last.width, 1, "\(context): final row has no width")
+        XCTAssertGreaterThanOrEqual(last.minY, area.minY - 0.5, "\(context): final row starts off screen")
+        XCTAssertLessThanOrEqual(last.maxY, min(area.maxY, bar.minY) + 0.5,
+                                 "\(context): final row ends under the tab bar or outside the page")
+        XCTAssertGreaterThanOrEqual(last.minX, area.minX - 0.5, "\(context): final row starts outside page")
+        XCTAssertLessThanOrEqual(last.maxX, area.maxX + 0.5, "\(context): final row ends outside page")
     }
     fileprivate func assertVisibleTextDoesNotOverlap(in window: UIWindow, _ context: String) {
         let area = pageArea(in: window)
@@ -170,6 +141,9 @@ class ClearanceCase: XCTestCase {
         status: HouseStatusBoard? = nil,
         snapshot: HouseholdSnapshot? = nil
     ) -> UIWindow {
+        layoutFrames.removeAll()
+        let session = UUID()
+        layoutSession = session
         let root = AppShell(
             section: page,
             screen: .ready(snapshot ?? house),
@@ -181,6 +155,10 @@ class ClearanceCase: XCTestCase {
         .environment(\.colorScheme, .dark)
         .environment(\.dynamicTypeSize, scale.dynamicType)
         .environment(\.streetPiStill, true)
+        .environment(\.streetPiLayoutReport, { [weak self] name, frame in
+            guard let self, self.layoutSession == session else { return }
+            self.layoutFrames[name] = frame
+        })
         let controller = UIHostingController(rootView: root)
         controller.overrideUserInterfaceStyle = .dark
         let traits = UITraitCollection(traitsFrom: [
@@ -364,11 +342,10 @@ extension ClearanceCase {
 @MainActor
 final class TabClearanceTests: ClearanceCase {
     private let tabs: [ClearanceTab] = [
-        ClearanceTab(name: "house", section: .home,
-                     finalLabel: "Tap a tile to open it. Hold the ad blocker to pause it."),
-        ClearanceTab(name: "ad-blocker", section: .group(.adBlockerAndDNS), finalLabel: DNSPage.upkeep.blurb),
-        ClearanceTab(name: "pi", section: .group(.piHealth), finalLabel: MachinePage.containers.blurb),
-        ClearanceTab(name: "settings", section: .settings, finalLabel: "Save status page"),
+        ClearanceTab(name: "house", section: .home),
+        ClearanceTab(name: "ad-blocker", section: .group(.adBlockerAndDNS)),
+        ClearanceTab(name: "pi", section: .group(.piHealth)),
+        ClearanceTab(name: "settings", section: .settings),
     ]
     /// Every tab, scrolled to its end, on the small phones and a large one at both text sizes.
     /// Each end state is also kept as an image, so the last row can be looked at.
@@ -381,8 +358,7 @@ final class TabClearanceTests: ClearanceCase {
                     assertOneTabBar(in: window, context)
                     assertVisibleTextDoesNotOverlap(in: window, context)
                     scrollToEnd(window)
-                    assertFinalLabel(tab.finalLabel, in: window, context)
-                    assertPageEndsAboveBar(in: window, context)
+                    assertPageEnd(in: window, context)
                     assertVisibleTextDoesNotOverlap(in: window, context)
                     assertSnapshot(
                         of: image(of: window),
@@ -449,9 +425,10 @@ final class TabClearanceTests: ClearanceCase {
                 XCTAssertTrue(plain(checked.text).contains("just now"), "Checked line lost its words")
                 assertFullyDrawn(checked)
                 let checkedFrame = checked.convert(checked.bounds, to: window)
-                let status = pageTexts(in: window).first { $0.text.contains("good") && $0.text.count < 40 }
-                if let status {
-                    let overlap = status.frame.intersection(checkedFrame)
+                if let status = layoutFrames["status-word"] {
+                    XCTAssertGreaterThan(status.width, 1, "\(context): the status word has no width")
+                    XCTAssertGreaterThan(status.height, 1, "\(context): the status word has no height")
+                    let overlap = status.intersection(checkedFrame)
                     XCTAssertTrue(
                         overlap.isNull || overlap.width < 1 || overlap.height < 1,
                         "\(context): the status word overlaps the checked line"
