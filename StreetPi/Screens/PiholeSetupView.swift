@@ -8,9 +8,19 @@ struct PiholeSetupView: View {
     var onSave: (String) -> Void
     var onCancel: () -> Void
 
+    @Environment(\.streetPiStill) private var still
     @State private var entry = ""
 
     private var certificate: PiholeCertificate { .houseFixture }
+
+    /// Snapshots keep the fixture wording. A running app does not present that fingerprint as the Pi.
+    private var certificateLine: String {
+        if still { return PiholeTrust.explanation(for: certificate) }
+        return """
+        The saved security pin is checked against this Pi's certificate \
+        before the app sends your password. Check the pin in Settings.
+        """
+    }
 
     var body: some View {
         ControlScreen(wide: wide) {
@@ -71,7 +81,7 @@ struct PiholeSetupView: View {
                     .foregroundStyle(theme.ink)
                     .accessibilityAddTraits(.isHeader)
             }
-            Text(trustNote ?? PiholeTrust.explanation(for: certificate))
+            Text(trustNote ?? certificateLine)
                 .font(.body.monospaced())
                 .foregroundStyle(theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
