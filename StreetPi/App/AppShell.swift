@@ -83,7 +83,8 @@ struct AppShell: View {
         statusBoard: HouseStatusBoard? = nil,
         statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString,
         statusSlug: String = "house",
-        onStatusPage: @escaping (String, String) -> Void = { _, _ in }
+        onStatusPage: @escaping (String, String) -> Void = { _, _ in },
+        initialRoom: HouseGroup? = nil
     ) {
         self.section = section
         self.screen = screen
@@ -122,6 +123,8 @@ struct AppShell: View {
         self.statusSlug = statusSlug
         self.onStatusPage = onStatusPage
         _showAlerts = State(initialValue: section == .alerts)
+        // Snapshot entry: opens House on one room page.
+        _roomPath = State(initialValue: initialRoom.map { [$0] } ?? [])
     }
 
     private var theme: StreetTheme { .house }
@@ -153,7 +156,7 @@ struct AppShell: View {
     var body: some View {
         ZStack {
             theme.background.ignoresSafeArea()
-            tabShell
+            AfterglowScope(paintsGround: false) { tabShell }
             if let pendingAction {
                 ActionConfirm(
                     action: pendingAction,
@@ -379,6 +382,9 @@ struct AppShell: View {
         NavigationStack {
             SettingsView(
                 theme: theme,
+                passwordSaved: passwordSaved,
+                onPasswordSetup: onSavePassword,
+                onSignOut: { onPending(.signOutOfAdBlocker) },
                 piHost: piHost,
                 hostNote: hostNote,
                 onCommitHost: onCommitHost,

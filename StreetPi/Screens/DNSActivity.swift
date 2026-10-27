@@ -81,14 +81,15 @@ struct DNSLogScreen: View {
     private func queryRow(_ query: DNSQuery) -> some View {
         VStack(alignment: .leading, spacing: Rhythm.line) {
             Text(query.domain)
-                .font(.headline)
+                .font(.headline.monospaced())
                 .foregroundStyle(theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("\(query.client) · \(AgePhrase.english(from: query.at, to: now)) · \(query.outcome.word)")
+            StatusChip(title: query.outcome.word, tone: query.outcome == .blocked ? .problem : .calm)
+            Text("\(query.client) · \(AgePhrase.english(from: query.at, to: now))")
                 .font(.subheadline)
                 .foregroundStyle(theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            if offersAllow {
+            if offersAllow && query.outcome == .blocked {
                 Button("Allow") {
                     onAllow(query.domain)
                 }

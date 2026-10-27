@@ -23,15 +23,21 @@ struct DNSDeskDetail: View {
     var onSetupSave: (String) -> Void
     var onSetupCancel: () -> Void
 
+    @Environment(\.streetPiStill) private var still
+
     var body: some View {
         if showsSetup {
-            PiholeSetupView(
-                theme: theme,
-                wide: wide,
-                trustNote: trustNote,
-                onSave: onSetupSave,
-                onCancel: onSetupCancel
-            )
+            if still {
+                setup
+            } else {
+                Color.clear
+                    .sheet(isPresented: .constant(true)) {
+                        setup
+                            .presentationDragIndicator(.visible)
+                            .presentationBackground(theme.background)
+                            .interactiveDismissDisabled()
+                    }
+            }
         } else if let problem {
             DNSProblemView(
                 problem: problem,
@@ -52,6 +58,16 @@ struct DNSDeskDetail: View {
         } else {
             deskBody
         }
+    }
+
+    private var setup: some View {
+        PiholeSetupView(
+            theme: theme,
+            wide: wide,
+            trustNote: trustNote,
+            onSave: onSetupSave,
+            onCancel: onSetupCancel
+        )
     }
 
     @ViewBuilder
@@ -134,7 +150,15 @@ struct MachineDeskDetail: View {
     var piNotice: String?
     var onPage: (MachinePage?) -> Void
 
+    /// Every Pi page reads the Aurora palette and motion gate. The tab paints its own ground.
     var body: some View {
+        AfterglowScope(paintsGround: false) {
+            pages
+        }
+    }
+
+    @ViewBuilder
+    private var pages: some View {
         if wide, splits {
             DeskColumns(theme: theme) {
                 MachineIndex(selected: page ?? .dashboard, theme: theme) { next in

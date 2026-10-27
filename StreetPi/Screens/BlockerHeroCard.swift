@@ -29,7 +29,7 @@ struct BlockerHeroCard: View {
             }
             .padding(AfterglowShape.page)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(palette.accent, in: RoundedRectangle(cornerRadius: AfterglowShape.panel, style: .continuous))
+            .background(enabled ? palette.accent : palette.attention, in: RoundedRectangle(cornerRadius: AfterglowShape.panel, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)

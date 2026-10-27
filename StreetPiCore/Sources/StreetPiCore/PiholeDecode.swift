@@ -25,7 +25,7 @@ public enum PiholeDecode {
         return DayChartBuilder.hours(from: points, ending: ending)
     }
 
-    public static func blocking(from data: Data) throws -> DNSBlocking {
+    public static func blocking(from data: Data, now: Date = Date()) throws -> DNSBlocking {
         let root = try object(data)
         let enabled = try blockingFlag(root["blocking"])
         if enabled {
@@ -33,7 +33,11 @@ public enum PiholeDecode {
         }
         let timer = int(root["timer"])
         let pause = timer.flatMap { PauseLength(seconds: $0) }
-        return DNSBlocking(enabled: false, pause: pause)
+        return DNSBlocking(
+            enabled: false,
+            pause: pause,
+            pauseEndsAt: timer.flatMap { $0 > 0 ? now.addingTimeInterval(TimeInterval($0)) : nil }
+        )
     }
 
     public static func acceptedDomain(from data: Data, sent name: String) throws -> String {

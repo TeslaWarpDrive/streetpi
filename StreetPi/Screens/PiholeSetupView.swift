@@ -19,13 +19,22 @@ struct PiholeSetupView: View {
                 line: "The app password is entered once and saved on this phone. Raspberry Pi Stats does not show it again.",
                 theme: theme
             )
+            Text("1. Enter the app password")
+                .font(.headline)
+                .foregroundStyle(theme.ink)
             SecureField("App password", text: $entry)
                 .textContentType(.password)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .font(.body)
                 .foregroundStyle(theme.ink)
+            Text("2. Check this Pi")
+                .font(.headline)
+                .foregroundStyle(theme.ink)
             trustCard
+            Text("3. Save on this phone")
+                .font(.headline)
+                .foregroundStyle(theme.ink)
             Button {
                 let password = entry
                 entry = ""
@@ -63,7 +72,7 @@ struct PiholeSetupView: View {
                     .accessibilityAddTraits(.isHeader)
             }
             Text(trustNote ?? PiholeTrust.explanation(for: certificate))
-                .font(.body)
+                .font(.body.monospaced())
                 .foregroundStyle(theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             Text("The fingerprint is kept on this phone and checked for this Pi only.")

@@ -34,6 +34,9 @@ struct AdBlockerOverview<More: View>: View {
                     }
                     MeaningPanel(share: share)
                     CountTiles(share: share) { explainer = $0 }
+                    if !desk.blocking.enabled, let endsAt = desk.blocking.pauseEndsAt {
+                        PauseCountdown(endsAt: endsAt, now: Date())
+                    }
                     PausePills(enabled: desk.blocking.enabled, onAction: onAction)
                         .padding(.top, AfterglowShape.tight)
                     hours
