@@ -427,7 +427,8 @@ final class DesignSnapshotTests: XCTestCase {
             as: .image(
                 drawHierarchyInKeyWindow: true,
                 precision: 0.99,
-                perceptualPrecision: 0.98,
+                // Byte match. The simulator Lab delta marks identical frames as different.
+                perceptualPrecision: 1,
                 layout: .device(config: layout),
                 traits: traits(size: size)
             ),
