@@ -51,20 +51,20 @@ struct RingGauge: View {
         .frame(maxWidth: .infinity)
     }
 
+    /// Stacked, so the big value never squeezes the label into a broken word.
     private var row: some View {
-        HStack(alignment: .center, spacing: AfterglowShape.line) {
-            IconChip(systemImage: symbol)
-            VStack(alignment: .leading, spacing: AfterglowShape.tight) {
+        VStack(alignment: .leading, spacing: AfterglowShape.tight) {
+            HStack(alignment: .center, spacing: AfterglowShape.line) {
+                IconChip(systemImage: symbol)
                 Text(label)
                     .font(.headline)
                     .foregroundStyle(palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
-                if let word {
-                    StatusChip(title: word, tone: tone)
-                }
             }
-            Spacer(minLength: AfterglowShape.line)
             MonoReading(text: value, emphasize: true)
+            if let word {
+                StatusChip(title: word, tone: tone)
+            }
         }
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
     }
