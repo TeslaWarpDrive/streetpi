@@ -383,7 +383,10 @@ struct AppShell: View {
             SettingsView(
                 theme: theme,
                 passwordSaved: passwordSaved,
-                onPasswordSetup: onSavePassword,
+                onPasswordSetup: {
+                    onSection(.group(.adBlockerAndDNS))
+                    onSavePassword()
+                },
                 onSignOut: { onPending(.signOutOfAdBlocker) },
                 piHost: piHost,
                 hostNote: hostNote,
