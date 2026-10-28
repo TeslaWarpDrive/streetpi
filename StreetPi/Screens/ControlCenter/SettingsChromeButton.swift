@@ -6,13 +6,15 @@ struct SettingsChromeButton: View {
 
     @Environment(\.afterglowPalette) private var palette
     @Environment(\.afterglowGate) private var gate
+    /// The circle grows with the symbol, so large text never spills past it.
+    @ScaledMetric(relativeTo: .body) private var side: CGFloat = 44
 
     var body: some View {
         let labeled = Button("Settings", systemImage: "gearshape", action: action)
             .labelStyle(.iconOnly)
             .font(.body)
             .foregroundStyle(palette.ink)
-            .frame(width: 44, height: 44)
+            .frame(width: side, height: side)
         if gate.usesSolidPlate {
             labeled
                 .background(palette.panelRaised, in: Circle())
