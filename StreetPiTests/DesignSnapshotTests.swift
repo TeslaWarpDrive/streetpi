@@ -198,6 +198,16 @@ final class DesignSnapshotTests: XCTestCase {
         )
     }
 
+    func testStatusPageServices() {
+        assertMatrix(
+            section: .group(.piHealth),
+            screen: .ready(house),
+            testName: "status-page-services",
+            machinePage: .services,
+            board: StatusPageFixture.previewBoard(now: now)
+        )
+    }
+
     func testMachineContainers() {
         assertMatrix(
             section: .group(.piHealth),
