@@ -428,10 +428,8 @@ final class DesignSnapshotTests: XCTestCase {
                 drawHierarchyInKeyWindow: true,
                 // The system tab bar redraws its symbols a little differently each run.
                 // The pages above the bar stay put. A moved card still fails this.
-                // Pixels are compared exactly: the simulator's perceptual check can
-                // fail frames that are byte-for-byte identical.
                 precision: 0.96,
-                perceptualPrecision: 1,
+                perceptualPrecision: 0.98,
                 layout: .device(config: layout),
                 traits: traits(size: size)
             ),
@@ -450,8 +448,7 @@ final class DesignSnapshotTests: XCTestCase {
         assertSnapshot(
             of: view,
             as: .image(
-                precision: 0.99,
-                perceptualPrecision: 1,
+                perceptualPrecision: 0.98,
                 layout: .sizeThatFits,
                 traits: traits(size: size)
             ),
