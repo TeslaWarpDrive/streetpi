@@ -1,6 +1,8 @@
 import SwiftUI
 import StreetPiCore
 
+private let minimumDeskSplitWidth: CGFloat = 720
+
 struct DNSDeskDetail: View {
     var wide: Bool
     var splits: Bool
@@ -74,7 +76,7 @@ struct DNSDeskDetail: View {
     private var deskBody: some View {
         if wide, splits {
             ViewThatFits(in: .horizontal) {
-                split.frame(minWidth: 720)
+                split.frame(minWidth: minimumDeskSplitWidth)
                 singleColumn
             }
         } else {
@@ -170,14 +172,28 @@ struct MachineDeskDetail: View {
     @ViewBuilder
     private var pages: some View {
         if wide, splits {
-            DeskColumns(theme: theme) {
-                MachineIndex(selected: page ?? .dashboard, theme: theme) { next in
-                    onPage(next == .dashboard ? nil : next)
-                }
-            } page: {
-                reading(page ?? .dashboard, links: false)
+            ViewThatFits(in: .horizontal) {
+                split.frame(minWidth: minimumDeskSplitWidth)
+                singleColumn
             }
-        } else if let page {
+        } else {
+            singleColumn
+        }
+    }
+
+    private var split: some View {
+        DeskColumns(theme: theme) {
+            MachineIndex(selected: page ?? .dashboard, theme: theme) { next in
+                onPage(next == .dashboard ? nil : next)
+            }
+        } page: {
+            reading(page ?? .dashboard, links: false)
+        }
+    }
+
+    @ViewBuilder
+    private var singleColumn: some View {
+        if let page {
             VStack(alignment: .leading, spacing: 0) {
                 if wide {
                     WideBack(title: "Pi health", theme: theme) {
