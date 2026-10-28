@@ -87,6 +87,7 @@ struct AlertsScreen: View {
 private struct AlertTimelineRow: View {
     var alert: HouseAlert
     var isLast: Bool
+    @ScaledMetric(relativeTo: .title3) private var markerSide: CGFloat = 28
 
     @Environment(\.afterglowPalette) private var palette
 
@@ -95,7 +96,7 @@ private struct AlertTimelineRow: View {
             Image(systemName: AfterglowSymbol.status(alert.tone))
                 .font(.title3)
                 .foregroundStyle(palette.tone(alert.tone))
-                .frame(width: 28, height: 28)
+                .frame(width: markerSide, height: markerSide)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 if let raisedAt = alert.raisedAt {
@@ -117,8 +118,8 @@ private struct AlertTimelineRow: View {
                 Rectangle()
                     .fill(palette.hairline)
                     .frame(width: 1)
-                    .padding(.top, 34)
-                    .frame(width: 28, alignment: .center)
+                    .padding(.top, markerSide + 6)
+                    .frame(width: markerSide, alignment: .center)
                     .accessibilityHidden(true)
             }
         }
@@ -130,17 +131,25 @@ private struct AlertTimelineRow: View {
 private struct AlertsQuiet: View {
     @Environment(\.afterglowPalette) private var palette
     @Environment(\.afterglowGate) private var gate
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: AfterglowShape.panel, style: .continuous)
         VStack(alignment: .leading, spacing: AfterglowShape.line) {
-            Label {
-                Text("Nothing needs you right now.")
-                    .fixedSize(horizontal: false, vertical: true)
-            } icon: {
-                Image(systemName: AfterglowSymbol.status(.calm))
-                    .foregroundStyle(palette.calm)
-                    .accessibilityHidden(true)
+            Group {
+                if dynamicTypeSize.isAccessibilitySize {
+                    Text("Nothing needs you right now.")
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Label {
+                        Text("Nothing needs you right now.")
+                            .fixedSize(horizontal: false, vertical: true)
+                    } icon: {
+                        Image(systemName: AfterglowSymbol.status(.calm))
+                            .foregroundStyle(palette.calm)
+                            .accessibilityHidden(true)
+                    }
+                }
             }
             .font(AfterglowType.title)
             .foregroundStyle(palette.ink)

@@ -263,7 +263,8 @@ struct AppShell: View {
             onOpen: openRoom,
             onOpenBlocker: openBlockerDetail,
             onPauseBlocker: pauseBlocker,
-            onOpenDevices: openDevices
+            onOpenDevices: openDevices,
+            onOpenMonitors: { openMonitors() }
         )
     }
 
@@ -299,6 +300,13 @@ struct AppShell: View {
         let board = HouseBoard.make(screen: screen, desk: desk, now: now, piNotice: piNotice)
         guard board.blocker.canPause else { return }
         onPending(.pauseAdBlocking(.thirtySeconds))
+    }
+
+    /// Monitors open the status-page checks by name on the Pi's Services page.
+    private func openMonitors() {
+        roomPath = []
+        onMachinePage(.services)
+        onSection(.group(.piHealth))
     }
 
     private func openDevices() {
@@ -379,7 +387,7 @@ struct AppShell: View {
                 MachineDeskDetail(
                     wide: wide,
                     splits: splitsDesk,
-                    desk: machine,
+                    desk: piDesk,
                     page: machinePage,
                     machine: machineReading ?? screen.snapshot?.machine,
                     theme: theme,
@@ -397,6 +405,15 @@ struct AppShell: View {
         let board = HouseBoard.make(screen: screen, desk: desk, now: now, piNotice: piNotice)
         guard let statusBoard else { return board }
         return HouseBoard.applying(status: statusBoard, to: board)
+    }
+
+    /// The drill-down lists the same checks and status words as the Home monitor tile.
+    var piDesk: MachineDesk {
+        var next = machine
+        next.services = houseBoard.monitors.marks.map { mark in
+            NamedRow(id: mark.id, name: mark.name, detail: mark.word)
+        }
+        return next
     }
 
     private var settings: some View {

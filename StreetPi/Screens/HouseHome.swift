@@ -13,6 +13,7 @@ struct HouseHome: View {
     var onOpenBlocker: () -> Void
     var onPauseBlocker: () -> Void
     var onOpenDevices: () -> Void
+    var onOpenMonitors: () -> Void = {}
 
     @Environment(\.afterglowPalette) private var palette
     @State private var showMeaning = false
@@ -56,14 +57,16 @@ struct HouseHome: View {
                     onHold: onPauseBlocker,
                     onInfo: { showMeaning = true }
                 )
+                .reportsLayout("home-blocker-card")
             } trailing: {
                 PiBoardCard(tile: board.pi) {
                     onOpen(.piHealth)
                 }
+                .reportsLayout("home-pi-card")
             }
             SquareRow(squares: board.squares, onOpen: onOpen)
             BoardColumns(wide: wide) {
-                MonitorBoardCard(tile: board.monitors)
+                MonitorBoardCard(tile: board.monitors, onOpen: onOpenMonitors)
             } trailing: {
                 BackupBoardCard(tile: board.backups) {
                     onOpen(.backups)

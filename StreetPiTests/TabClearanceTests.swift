@@ -343,10 +343,40 @@ extension ClearanceCase {
             XCTFail("The snapshot window has no root view")
             return UIImage()
         }
-        let renderer = UIGraphicsImageRenderer(bounds: view.bounds)
-        return renderer.image { _ in
-            view.drawHierarchy(in: view.bounds, afterScreenUpdates: true)
+        XCTAssertTrue(window.isKeyWindow, "The snapshot window must be key")
+        let format = UIGraphicsImageRendererFormat(for: view.traitCollection)
+        format.preferredRange = .standard
+        let renderer = UIGraphicsImageRenderer(bounds: view.bounds, format: format)
+        func capture() -> UIImage {
+            renderer.image { _ in
+                view.drawHierarchy(in: view.bounds, afterScreenUpdates: true)
+            }
         }
+        var previous = capture()
+        var previousData = previous.pngData()
+        XCTAssertNotNil(previousData)
+        var stillFrames = 0
+        var changedFrames = 0
+        for sample in 1...12 {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+            let next = capture()
+            let data = next.pngData()
+            XCTAssertNotNil(data)
+            if data == previousData {
+                stillFrames += 1
+            } else {
+                stillFrames = 0
+                changedFrames += 1
+            }
+            previous = next
+            previousData = data
+            if stillFrames == 3 {
+                print("Native snapshot settled in \(sample) samples; \(changedFrames) changed frames")
+                return next
+            }
+        }
+        XCTFail("The native window did not settle within 2.4 seconds")
+        return previous
     }
 }
 
@@ -375,7 +405,7 @@ final class TabClearanceTests: ClearanceCase {
                     assertVisibleTextDoesNotOverlap(in: window, context)
                     assertSnapshot(
                         of: image(of: window),
-                        as: .image(precision: 0.99, perceptualPrecision: 0.98),
+                        as: .image(precision: 0.99, perceptualPrecision: 0.98).standardRange(),
                         named: "\(tab.name)-dark-\(scale.rawValue)-\(phone.rawValue)",
                         testName: "tabEnd"
                     )
@@ -468,6 +498,26 @@ final class TabClearanceTests: ClearanceCase {
         XCTAssertTrue(spoken.contains("About 1 in 5 things"), spoken)
         XCTAssertTrue(spoken.contains("using the Pi"), spoken)
         window.isHidden = true
+    }
+
+    func testPadHomeCardsFitWithTheSidebarOpen() {
+        for device in [SnapshotDevice.pad, .padLandscape] {
+            for scale in SnapshotScale.allCases {
+                let window = host(page: .home, scale: scale, config: device.config)
+                for name in ["home-blocker-card", "home-pi-card"] {
+                    guard let frame = layoutFrames[name] else {
+                        XCTFail("\(device) \(scale): \(name) did not report its layout")
+                        continue
+                    }
+                    XCTAssertGreaterThan(frame.width, 1)
+                    XCTAssertGreaterThanOrEqual(frame.minX, window.bounds.minX - 0.5,
+                                                "\(device) \(scale): \(name) starts outside the window")
+                    XCTAssertLessThanOrEqual(frame.maxX, window.bounds.maxX + 0.5,
+                                             "\(device) \(scale): \(name) extends past the window")
+                }
+                window.isHidden = true
+            }
+        }
     }
     /// The installed Home paints the status page, not the 8-service sample.
     func testStatusPageReplacesTheSample() {

@@ -6,6 +6,7 @@ struct DomainEditor: View {
     var onAction: (HouseholdAction) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var draft = ""
     @State private var blocked = true
 
@@ -27,11 +28,7 @@ struct DomainEditor: View {
                     .padding(Rhythm.line)
                     .controlPlate(theme: theme)
                     .accessibilityLabel("Domain name")
-                Picker("Action", selection: $blocked) {
-                    Text("Block").tag(true)
-                    Text("Allow").tag(false)
-                }
-                .pickerStyle(.segmented)
+                choice
                 Button(blocked ? "Review blocking this name" : "Review allowing this name", action: submit)
                     .font(.headline)
                     .frame(maxWidth: .infinity, minHeight: 44)
@@ -49,10 +46,56 @@ struct DomainEditor: View {
         .preferredColorScheme(.dark)
     }
 
+    /// Block or allow. The segmented control stays small, so large text gets two full-width choices.
+    @ViewBuilder
+    private var choice: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: Rhythm.tight) {
+                ChoiceRow(title: "Block", selected: blocked, theme: theme) { blocked = true }
+                ChoiceRow(title: "Allow", selected: !blocked, theme: theme) { blocked = false }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Action")
+        } else {
+            Picker("Action", selection: $blocked) {
+                Text("Block").tag(true)
+                Text("Allow").tag(false)
+            }
+            .pickerStyle(.segmented)
+        }
+    }
+
     private func submit() {
         guard !name.isEmpty else { return }
         let action: HouseholdAction = blocked ? .blockDomain(named: name) : .allowDomain(named: name)
         dismiss()
         onAction(action)
+    }
+}
+
+/// One labelled choice with a selection mark that is a symbol, not only a color.
+private struct ChoiceRow: View {
+    var title: String
+    var selected: Bool
+    var theme: StreetTheme
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Rhythm.line) {
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(selected ? theme.accent : theme.secondary)
+                    .accessibilityHidden(true)
+                Text(title)
+                    .foregroundStyle(theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .font(.title3.weight(.semibold))
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .padding(Rhythm.line)
+            .controlPlate(theme: theme)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 }

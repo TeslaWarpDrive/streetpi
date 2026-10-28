@@ -118,13 +118,18 @@ struct LinkTile: View {
     var finalLineLayout: String?
     var action: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Rhythm.line))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: Rhythm.line))
         Button(action: action) {
-            HStack(alignment: .top, spacing: Rhythm.line) {
+            layout {
                 Image(systemName: symbol)
                     .font(.title3)
                     .foregroundStyle(theme.accent)
-                    .frame(width: 28, alignment: .leading)
+                    .frame(width: dynamicTypeSize.isAccessibilitySize ? nil : 28, alignment: .leading)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: Rhythm.tight) {
                     WrappingLine(text: title, font: .headline, color: theme.ink)
