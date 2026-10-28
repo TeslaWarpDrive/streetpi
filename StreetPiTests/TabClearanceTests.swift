@@ -343,10 +343,40 @@ extension ClearanceCase {
             XCTFail("The snapshot window has no root view")
             return UIImage()
         }
-        let renderer = UIGraphicsImageRenderer(bounds: view.bounds)
-        return renderer.image { _ in
-            view.drawHierarchy(in: view.bounds, afterScreenUpdates: true)
+        XCTAssertTrue(window.isKeyWindow, "The snapshot window must be key")
+        let format = UIGraphicsImageRendererFormat(for: view.traitCollection)
+        format.preferredRange = .standard
+        let renderer = UIGraphicsImageRenderer(bounds: view.bounds, format: format)
+        func capture() -> UIImage {
+            renderer.image { _ in
+                view.drawHierarchy(in: view.bounds, afterScreenUpdates: true)
+            }
         }
+        var previous = capture()
+        var previousData = previous.pngData()
+        XCTAssertNotNil(previousData)
+        var stillFrames = 0
+        var changedFrames = 0
+        for sample in 1...12 {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+            let next = capture()
+            let data = next.pngData()
+            XCTAssertNotNil(data)
+            if data == previousData {
+                stillFrames += 1
+            } else {
+                stillFrames = 0
+                changedFrames += 1
+            }
+            previous = next
+            previousData = data
+            if stillFrames == 3 {
+                print("Native snapshot settled in \(sample) samples; \(changedFrames) changed frames")
+                return next
+            }
+        }
+        XCTFail("The native window did not settle within 2.4 seconds")
+        return previous
     }
 }
 
