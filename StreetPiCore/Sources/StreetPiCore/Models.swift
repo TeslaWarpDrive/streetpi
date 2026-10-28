@@ -137,6 +137,7 @@ public enum MachineLimits {
     public static let hotCelsius = 80.0
     public static let diskAttention = 0.90
     public static let memoryAttention = 0.92
+    public static let processorBusy = 0.85
 }
 
 extension Date {

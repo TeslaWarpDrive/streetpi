@@ -39,7 +39,8 @@ struct StatusChip: View {
             }
             .scrollIndicators(.visible)
         } else {
-            fitted
+            // Chip words are short. One line keeps the symbol beside the word.
+            oneLine
         }
     }
 
@@ -49,23 +50,6 @@ struct StatusChip: View {
             Text(title)
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: true)
-        }
-    }
-
-    /// One line when it fits. Otherwise the word wraps under the symbol instead of clipping.
-    private var fitted: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .center, spacing: 6) {
-                mark
-                Text(title)
-                    .fixedSize(horizontal: true, vertical: true)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                mark
-                Text(title)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
         }
     }
 

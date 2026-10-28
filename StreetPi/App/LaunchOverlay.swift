@@ -5,6 +5,7 @@ import UIKit
 struct LaunchOverlay: View {
     var frame: UIImage?
     var onFinished: () -> Void = {}
+    var handoffPreview = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.streetPiStill) private var still
@@ -12,6 +13,7 @@ struct LaunchOverlay: View {
     @State private var poster: UIImage?
     @State private var playFilm = true
     @State private var didFinish = false
+    @State private var handingOff = false
 
     var body: some View {
         ZStack {
@@ -21,6 +23,9 @@ struct LaunchOverlay: View {
             } else if showsPlayer, let model {
                 SplashPlayerHost(model: model)
             }
+            HomeAura(tone: .calm)
+                .opacity(handingOff || handoffPreview ? 1 : 0)
+                .scaleEffect(reduceMotion || handingOff || handoffPreview ? 1 : 1.15)
             Button(action: finish) {
                 Color.clear
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -84,7 +89,11 @@ struct LaunchOverlay: View {
         guard !didFinish else { return }
         didFinish = true
         halt()
-        onFinished()
+        withAnimation(.easeInOut(duration: SplashFilm.crossfade)) {
+            handingOff = true
+        } completion: {
+            onFinished()
+        }
     }
 
     private func halt() {

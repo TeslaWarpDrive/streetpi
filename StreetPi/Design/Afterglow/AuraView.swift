@@ -10,6 +10,9 @@ struct AuraView: View {
 
     @Environment(\.afterglowPalette) private var palette
     @Environment(\.afterglowGate) private var gate
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var visible = false
+    @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
 
     var body: some View {
         Group {
@@ -29,10 +32,18 @@ struct AuraView: View {
             }
         }
         .accessibilityHidden(true)
+        .onAppear {
+            visible = true
+            lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+        }
+        .onDisappear { visible = false }
+        .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
+            lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+        }
     }
 
     private var breathes: Bool {
-        gate.holdsMotion && !ProcessInfo.processInfo.isLowPowerModeEnabled
+        gate.holdsMotion && !gate.reduceTransparency && visible && scenePhase == .active && !lowPower
     }
 
     /// Bright at the top, so a short phone headline still shows the glow above the plate.

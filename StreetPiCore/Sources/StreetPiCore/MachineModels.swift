@@ -30,11 +30,14 @@ public struct HouseAlert: Sendable, Equatable, Identifiable, Codable {
     public var id: String
     public var sentence: String
     public var tone: PlainEnglishStatus.Tone
+    /// When the alarm was raised. Nil when the source gave no time, so no time is shown.
+    public var raisedAt: Date?
 
-    public init(id: String, sentence: String, tone: PlainEnglishStatus.Tone) {
+    public init(id: String, sentence: String, tone: PlainEnglishStatus.Tone, raisedAt: Date? = nil) {
         self.id = id
         self.sentence = sentence
         self.tone = tone
+        self.raisedAt = raisedAt
     }
 }
 

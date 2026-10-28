@@ -32,11 +32,14 @@ public struct GroupRow: Sendable, Equatable, Identifiable, Codable {
     public var id: String
     public var name: String
     public var state: String
+    /// Tone of this one member. Nil when the row was built without a reading.
+    public var tone: PlainEnglishStatus.Tone?
 
-    public init(id: String, name: String, state: String) {
+    public init(id: String, name: String, state: String, tone: PlainEnglishStatus.Tone? = nil) {
         self.id = id
         self.name = name
         self.state = state
+        self.tone = tone
     }
 }
 
@@ -114,7 +117,14 @@ public enum HouseGuide {
         default:
             let rows = snapshot.services
                 .filter { $0.kind.houseGroup == group }
-                .map { GroupRow(id: $0.id, name: $0.name, state: ReadingText.stateWord(for: $0)) }
+                .map {
+                    GroupRow(
+                        id: $0.id,
+                        name: $0.name,
+                        state: ReadingText.stateWord(for: $0),
+                        tone: tone(for: [$0])
+                    )
+                }
             guard !rows.isEmpty else { return nil }
             let members = snapshot.services.filter { $0.kind.houseGroup == group }
             return GroupBrief(
@@ -124,6 +134,30 @@ public enum HouseGuide {
                 tone: tone(for: members),
                 rows: rows
             )
+        }
+    }
+
+    /// The "What this means" footnote under a room. Plain words, no names.
+    public static func meaning(for group: HouseGroup) -> String {
+        switch group {
+        case .adBlockerAndDNS:
+            "The ad blocker sits between the house and the internet. It drops ads and trackers before they load."
+        case .streaming:
+            "These helpers find and play shows on the TV. If one is down, a show may not start."
+        case .smartHome:
+            "This is the hub behind the house controls. When it is up, lights and routines answer as usual."
+        case .remoteHelp:
+            "This lets a trusted helper see a screen in the house to fix a problem. Ready means it can take a call."
+        case .internet:
+            "The house's address on the internet changes now and then. This keeps the name that points to it current."
+        case .piHealth:
+            "The Pi is the small computer that runs all of this. Cool and quiet means it has room to spare."
+        case .backups:
+            "Once a week the Pi copies its memory card, so the house can be set up again if the card fails."
+        case .monitors:
+            "These are the checks the status page runs on the house."
+        case .address:
+            "This is how the house is found from outside."
         }
     }
 

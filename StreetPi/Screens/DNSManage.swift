@@ -33,61 +33,23 @@ struct DomainScreen: View {
     var wide: Bool
     var onAction: (HouseholdAction) -> Void
 
-    @State private var draft = ""
+    @State private var editing = false
 
     var body: some View {
         ControlScreen(wide: wide) {
-            ControlTitle(
-                title: "Domains",
-                line: "Block one name, or allow one name, for the whole house.",
-                theme: theme
-            )
+            ControlTitle(title: "Domains", line: "Block or allow one name for the whole house.", theme: theme)
+            Button("Block or allow a name") { editing = true }
+                .font(.headline)
+                .foregroundStyle(theme.accent)
+                .frame(minHeight: 44, alignment: .leading)
             ControlGrid {
                 ForEach(domains) { row in
                     PlainTile(title: row.name, line: row.detail, theme: theme)
                 }
             }
-            editor
         }
-    }
-
-    private var trimmed: String {
-        draft.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private var editor: some View {
-        VStack(alignment: .leading, spacing: Rhythm.line) {
-            TextField("A domain name", text: $draft)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .font(.body)
-                .foregroundStyle(theme.ink)
-            Button("Block") {
-                submit(blocked: true)
-            }
-            .font(.body.weight(.semibold))
-            .foregroundStyle(trimmed.isEmpty ? theme.tertiary : theme.accent)
-            .frame(minHeight: 44, alignment: .leading)
-            .disabled(trimmed.isEmpty)
-            Button("Allow") {
-                submit(blocked: false)
-            }
-            .font(.body.weight(.semibold))
-            .foregroundStyle(trimmed.isEmpty ? theme.tertiary : theme.accent)
-            .frame(minHeight: 44, alignment: .leading)
-            .disabled(trimmed.isEmpty)
-        }
-        .controlPlate(theme: theme)
-    }
-
-    private func submit(blocked: Bool) {
-        let name = trimmed
-        guard !name.isEmpty else { return }
-        draft = ""
-        if blocked {
-            onAction(.blockDomain(named: name))
-        } else {
-            onAction(.allowDomain(named: name))
+        .sheet(isPresented: $editing) {
+            DomainEditor(theme: theme, onAction: onAction)
         }
     }
 }

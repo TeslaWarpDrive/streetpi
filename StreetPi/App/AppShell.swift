@@ -42,9 +42,9 @@ struct AppShell: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.streetPiStill) private var still
+    @State private var sidebarVisibility: NavigationSplitViewVisibility = .all
     @State private var showAlerts: Bool
     @State private var roomPath: [HouseGroup] = []
-    @State private var sidebarVisibility: NavigationSplitViewVisibility = .all
     @State private var showBlocker = false
     @State private var blockerAction: HouseholdAction?
 
@@ -84,7 +84,8 @@ struct AppShell: View {
         statusBoard: HouseStatusBoard? = nil,
         statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString,
         statusSlug: String = "house",
-        onStatusPage: @escaping (String, String) -> Void = { _, _ in }
+        onStatusPage: @escaping (String, String) -> Void = { _, _ in },
+        initialRoom: HouseGroup? = nil
     ) {
         self.section = section
         self.screen = screen
@@ -123,6 +124,8 @@ struct AppShell: View {
         self.statusSlug = statusSlug
         self.onStatusPage = onStatusPage
         _showAlerts = State(initialValue: section == .alerts)
+        // Snapshot entry: opens House on one room page.
+        _roomPath = State(initialValue: initialRoom.map { [$0] } ?? [])
     }
 
     private var theme: StreetTheme { .house }
@@ -154,7 +157,7 @@ struct AppShell: View {
     var body: some View {
         // The ground bleeds behind the bar. A sibling that ignores the safe area
         // also pulls the tab pages out of it, and the last line then slides under the bar.
-        tabShell
+        AfterglowScope(paintsGround: false) { tabShell }
             .background { theme.background.ignoresSafeArea() }
             .overlay {
                 if let pendingAction {
@@ -400,6 +403,12 @@ struct AppShell: View {
         NavigationStack {
             SettingsView(
                 theme: theme,
+                passwordSaved: passwordSaved,
+                onPasswordSetup: {
+                    onSection(.group(.adBlockerAndDNS))
+                    onSavePassword()
+                },
+                onSignOut: { onPending(.signOutOfAdBlocker) },
                 piHost: piHost,
                 hostNote: hostNote,
                 onCommitHost: onCommitHost,

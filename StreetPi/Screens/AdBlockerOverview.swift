@@ -15,6 +15,7 @@ struct AdBlockerOverview<More: View>: View {
 
     @Environment(\.afterglowPalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.streetPiStill) private var still
     @State private var explainer: NumberExplainer?
 
     private var share: LookupShare {
@@ -35,6 +36,9 @@ struct AdBlockerOverview<More: View>: View {
                     }
                     MeaningPanel(share: share)
                     CountTiles(share: share) { explainer = $0 }
+                    if !desk.blocking.enabled, let endsAt = desk.blocking.pauseEndsAt {
+                        PauseCountdown(endsAt: endsAt, now: still ? .streetFixtureNow : Date())
+                    }
                     PausePills(enabled: desk.blocking.enabled, onAction: onAction)
                         .padding(.top, AfterglowShape.tight)
                     hours

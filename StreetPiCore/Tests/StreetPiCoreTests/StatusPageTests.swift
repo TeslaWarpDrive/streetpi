@@ -110,6 +110,7 @@ final class StatusPageTests: XCTestCase {
 
         let freshLoad = try await backupLoad(success: fresh, latestStatus: 0)
         XCTAssertEqual(freshLoad.tone, .calm)
+        XCTAssertEqual(freshLoad.rows.first { $0.id == "backup-age" }?.state, "7 days ago")
         XCTAssertTrue(freshLoad.summary.hasPrefix("Last backup:"))
         XCTAssertFalse(freshLoad.summary.contains("8 days"))
 

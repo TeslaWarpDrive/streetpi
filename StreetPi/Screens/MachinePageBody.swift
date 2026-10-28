@@ -31,6 +31,8 @@ struct MachinePageBody: View {
                 intro: "Up or down comes from the status page. Nothing here can be changed.",
                 rows: desk.services,
                 note: nil,
+                mark: .dot,
+                groupsServices: true,
                 theme: theme,
                 wide: wide
             )
@@ -40,6 +42,7 @@ struct MachinePageBody: View {
                 intro: "These are the boxed jobs on the charts. Nothing here can be changed.",
                 rows: desk.containers,
                 note: desk.containerNote,
+                mark: .chip,
                 theme: theme,
                 wide: wide
             )

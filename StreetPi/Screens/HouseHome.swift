@@ -45,7 +45,8 @@ struct HouseHome: View {
             StatusPill(
                 title: board.headline,
                 accentWord: HeadlineAccent.word(in: board.headline),
-                checkedLine: board.checkedLine
+                checkedLine: board.checkedLine,
+                tone: board.tone
             )
             .padding(.bottom, AfterglowShape.tight)
             BoardColumns(wide: wide) {
