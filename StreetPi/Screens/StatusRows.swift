@@ -109,8 +109,9 @@ private struct StatusListRow: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         case .chip:
-            // The short word claims its one-line width first; the longer name wraps instead.
+            // A row has room for the short word on one line; the longer name wraps instead.
             StatusChip(title: line.word, tone: line.tone)
+                .fixedSize(horizontal: true, vertical: false)
                 .layoutPriority(1)
         }
     }
