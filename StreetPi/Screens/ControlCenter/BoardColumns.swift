@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Two tiles side by side, ending on the same line. The phone hero stays two-up, so it is not one tall card.
-/// At accessibility sizes the two tiles stack, so big numbers keep the full width.
+/// At accessibility sizes the two tiles stack on every device, so big numbers keep the full width.
 struct BoardColumns<Leading: View, Trailing: View>: View {
     var wide: Bool
     @ViewBuilder var leading: () -> Leading
@@ -13,7 +13,7 @@ struct BoardColumns<Leading: View, Trailing: View>: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        if dynamicTypeSize.isAccessibilitySize, wide == false {
+        if dynamicTypeSize.isAccessibilitySize {
             VStack(alignment: .leading, spacing: Self.phoneGap) {
                 leading()
                 trailing()
