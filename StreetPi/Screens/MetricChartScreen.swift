@@ -64,6 +64,9 @@ private struct MetricDayCard: View {
             if item.points.count > 1 {
                 chart
                     .padding(.top, AfterglowShape.tight)
+                if let range = MetricWords.range(item) {
+                    MonoReading(text: range)
+                }
                 ViewThatFits(in: .horizontal) {
                     HStack {
                         MonoReading(text: "A day ago")
@@ -135,9 +138,19 @@ private enum MetricWords {
         return isShare(item) ? ReadingText.percent(last.value) : ReadingText.celsius(last.value)
     }
 
+    /// The day's low and high, so the height of the line has numbers beside it.
+    static func range(_ item: MetricSeries) -> String? {
+        let values = item.points.map(\.value)
+        guard let low = values.min(), let high = values.max() else { return nil }
+        if isShare(item) {
+            return "Low \(ReadingText.percent(low)) · High \(ReadingText.percent(high))"
+        }
+        return "Low \(ReadingText.celsius(low)) · High \(ReadingText.celsius(high))"
+    }
+
     static func plainLine(_ item: MetricSeries) -> String {
         switch item.id {
-        case "cpu":
+        case "cpu", "processor":
             "Share of the processor over the last day."
         case "temperature":
             "How warm the Pi stayed."
