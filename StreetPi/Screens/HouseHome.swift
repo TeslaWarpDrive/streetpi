@@ -57,10 +57,12 @@ struct HouseHome: View {
                     onHold: onPauseBlocker,
                     onInfo: { showMeaning = true }
                 )
+                .reportsLayout("home-blocker-card")
             } trailing: {
                 PiBoardCard(tile: board.pi) {
                     onOpen(.piHealth)
                 }
+                .reportsLayout("home-pi-card")
             }
             SquareRow(squares: board.squares, onOpen: onOpen)
             BoardColumns(wide: wide) {

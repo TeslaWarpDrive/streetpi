@@ -469,6 +469,26 @@ final class TabClearanceTests: ClearanceCase {
         XCTAssertTrue(spoken.contains("using the Pi"), spoken)
         window.isHidden = true
     }
+
+    func testPadHomeCardsFitWithTheSidebarOpen() {
+        for device in [SnapshotDevice.pad, .padLandscape] {
+            for scale in SnapshotScale.allCases {
+                let window = host(page: .home, scale: scale, config: device.config)
+                for name in ["home-blocker-card", "home-pi-card"] {
+                    guard let frame = layoutFrames[name] else {
+                        XCTFail("\(device) \(scale): \(name) did not report its layout")
+                        continue
+                    }
+                    XCTAssertGreaterThan(frame.width, 1)
+                    XCTAssertGreaterThanOrEqual(frame.minX, window.bounds.minX - 0.5,
+                                                "\(device) \(scale): \(name) starts outside the window")
+                    XCTAssertLessThanOrEqual(frame.maxX, window.bounds.maxX + 0.5,
+                                             "\(device) \(scale): \(name) extends past the window")
+                }
+                window.isHidden = true
+            }
+        }
+    }
     /// The installed Home paints the status page, not the 8-service sample.
     func testStatusPageReplacesTheSample() {
         let board = StatusPageFixture.previewBoard(now: now)
