@@ -442,7 +442,7 @@ final class DesignSnapshotTests: XCTestCase {
                 perceptualPrecision: 0.98,
                 layout: .device(config: layout),
                 traits: traits(size: size)
-            ),
+            ).standardRange(),
             named: named,
             testName: testName
         )
@@ -461,7 +461,7 @@ final class DesignSnapshotTests: XCTestCase {
                 perceptualPrecision: 0.98,
                 layout: .sizeThatFits,
                 traits: traits(size: size)
-            ),
+            ).standardRange(),
             named: named,
             testName: testName
         )

@@ -375,7 +375,7 @@ final class TabClearanceTests: ClearanceCase {
                     assertVisibleTextDoesNotOverlap(in: window, context)
                     assertSnapshot(
                         of: image(of: window),
-                        as: .image(precision: 0.99, perceptualPrecision: 0.98),
+                        as: .image(precision: 0.99, perceptualPrecision: 0.98).standardRange(),
                         named: "\(tab.name)-dark-\(scale.rawValue)-\(phone.rawValue)",
                         testName: "tabEnd"
                     )
