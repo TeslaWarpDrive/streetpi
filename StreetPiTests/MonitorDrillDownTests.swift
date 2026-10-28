@@ -21,6 +21,7 @@ final class MonitorDrillDownTests: XCTestCase {
         let rows = shell.piDesk.services
         XCTAssertEqual(rows.count, 28)
         XCTAssertEqual(Set(rows.map(\.name)), Set(monitors.rows.map(\.name)))
-        XCTAssertTrue(rows.contains { $0.detail == "Down" })
+        let failed = try XCTUnwrap(rows.first { $0.id == String(failedID) })
+        XCTAssertEqual(failed.detail, "Not responding")
     }
 }
