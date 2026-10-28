@@ -30,7 +30,7 @@ struct BackupBoardCard: View {
     /// The sample sentence stays off the tile. Live copy uses the status line.
     private var detail: String {
         if tile.line.contains("succeeded") || tile.figure == "Copied" {
-            return "Last copy recorded"
+            return "Copy time unavailable"
         }
         if tile.line.isEmpty {
             return tile.figure
