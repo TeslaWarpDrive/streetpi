@@ -73,8 +73,18 @@ struct DNSDeskDetail: View {
     @ViewBuilder
     private var deskBody: some View {
         if wide, splits {
-            split
-        } else if let page {
+            ViewThatFits(in: .horizontal) {
+                split.frame(minWidth: 720)
+                singleColumn
+            }
+        } else {
+            singleColumn
+        }
+    }
+
+    @ViewBuilder
+    private var singleColumn: some View {
+        if let page {
             stacked(page)
         } else {
             hub
