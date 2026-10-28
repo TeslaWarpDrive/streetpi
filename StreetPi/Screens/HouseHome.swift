@@ -13,6 +13,7 @@ struct HouseHome: View {
     var onOpenBlocker: () -> Void
     var onPauseBlocker: () -> Void
     var onOpenDevices: () -> Void
+    var onOpenMonitors: () -> Void = {}
 
     @Environment(\.afterglowPalette) private var palette
     @State private var showMeaning = false
@@ -63,7 +64,7 @@ struct HouseHome: View {
             }
             SquareRow(squares: board.squares, onOpen: onOpen)
             BoardColumns(wide: wide) {
-                MonitorBoardCard(tile: board.monitors)
+                MonitorBoardCard(tile: board.monitors, onOpen: onOpenMonitors)
             } trailing: {
                 BackupBoardCard(tile: board.backups) {
                     onOpen(.backups)

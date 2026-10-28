@@ -263,7 +263,8 @@ struct AppShell: View {
             onOpen: openRoom,
             onOpenBlocker: openBlockerDetail,
             onPauseBlocker: pauseBlocker,
-            onOpenDevices: openDevices
+            onOpenDevices: openDevices,
+            onOpenMonitors: { openMonitors() }
         )
     }
 
@@ -299,6 +300,13 @@ struct AppShell: View {
         let board = HouseBoard.make(screen: screen, desk: desk, now: now, piNotice: piNotice)
         guard board.blocker.canPause else { return }
         onPending(.pauseAdBlocking(.thirtySeconds))
+    }
+
+    /// Monitors open the status-page checks by name on the Pi's Services page.
+    private func openMonitors() {
+        roomPath = []
+        onMachinePage(.services)
+        onSection(.group(.piHealth))
     }
 
     private func openDevices() {

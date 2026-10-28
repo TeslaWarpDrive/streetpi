@@ -2,13 +2,25 @@ import StreetPiCore
 import SwiftUI
 
 /// Monitors: the title and the count on one line, then a strip of rounded squares.
+/// Tapping it opens the checks by name on the Pi's Services page.
 struct MonitorBoardCard: View {
     var tile: MonitorTile
+    var onOpen: () -> Void
 
     @Environment(\.afterglowPalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
+        Button(action: onOpen) {
+            panel
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spoken)
+        .accessibilityHint("Opens each check by name.")
+    }
+
+    private var panel: some View {
         BoardPanel {
             VStack(alignment: .leading, spacing: AfterglowShape.line) {
                 heading
@@ -25,8 +37,6 @@ struct MonitorBoardCard: View {
                 .frame(width: 1, height: 1)
                 .accessibilityHidden(true)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(spoken)
     }
 
     @ViewBuilder
