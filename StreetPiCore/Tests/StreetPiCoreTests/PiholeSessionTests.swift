@@ -9,7 +9,7 @@ final class PiholeSessionTests: XCTestCase {
         await client.restoreSession(id: "stale-sid", expiresAt: .streetFixtureNow.addingTimeInterval(600))
         try await withThrowingTaskGroup(of: Int.self) { group in
             for _ in 0..<6 {
-                group.addTask { try await client.summary().queriesToday }
+                group.addTask { try await client.summary().queriesToday ?? 0 }
             }
             for try await total in group {
                 XCTAssertEqual(total, 12)
