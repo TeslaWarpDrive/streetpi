@@ -13,6 +13,7 @@ public actor PiholeClient {
     private let now: @Sendable () -> Date
     private let sessions: (any FTLSessionStoring)?
     private var session: SID?
+    private var pendingLogin: Task<SID, any Error>?
 
     public init(
         transport: any PiholeTransport,
@@ -179,6 +180,8 @@ public actor PiholeClient {
         if session == nil, let stored = sessions?.loadSID(), !stored.isEmpty {
             session = SID(value: stored, expiresAt: now())
         }
+        // A sign-in still on the wire finishes its own call but is not kept.
+        pendingLogin = nil
         guard let current = session else {
             sessions?.clearSID()
             return
@@ -215,22 +218,33 @@ public actor PiholeClient {
         }
     }
 
+    /// A 401 on a read or write means the session id went stale, not the password. Pi-hole drops
+    /// sessions on its own, and a sign-out from the background can land while a call is in flight.
+    /// So the client signs in again with the saved password and retries. Only a 401 from the
+    /// sign-in itself becomes `needsSignIn`.
     private func perform(
         _ request: PiholeRequest,
         badRequest: PiholeProblem = .notUnderstood
     ) async throws -> PiholeResponse {
-        var response = try await sendOnce(request)
+        var sid = try await validSID()
+        var response = try await send(request, sid: sid)
+        var renewals = 0
+        while response.status == 401, renewals < Self.maximumRenewals {
+            renewals += 1
+            sid = try await renewedSID(rejecting: sid)
+            response = try await send(request, sid: sid)
+        }
         if response.status == 401 {
-            session = nil
-            sessions?.clearSID()
-            response = try await sendOnce(request)
+            // The password worked and the Pi still turned the new session away. Try again later.
+            throw PiholeProblem.offline
         }
         try accept(response, badRequest: badRequest)
         return response
     }
 
-    private func sendOnce(_ request: PiholeRequest) async throws -> PiholeResponse {
-        let sid = try await validSID()
+    private static let maximumRenewals = 2
+
+    private func send(_ request: PiholeRequest, sid: String) async throws -> PiholeResponse {
         var headers = request.headers
         headers[FTLSessionPolicy.sidHeader] = sid
         let authed = PiholeRequest(
@@ -260,12 +274,50 @@ public actor PiholeClient {
             )
             return stored
         }
-        try await authenticate()
-        guard let session else { throw PiholeProblem.needsSignIn }
-        return session.value
+        return try await signIn()
     }
 
-    private func authenticate() async throws {
+    /// Another call may already have replaced the rejected id. Reuse that one instead of
+    /// opening yet another session on the Pi.
+    private func renewedSID(rejecting rejected: String) async throws -> String {
+        if let session, session.value != rejected, session.expiresAt > now() {
+            return session.value
+        }
+        if session?.value == rejected {
+            session = nil
+        }
+        if sessions?.loadSID() == rejected {
+            sessions?.clearSID()
+        }
+        return try await signIn()
+    }
+
+    /// One sign-in at a time. Calls that arrive while it runs wait for the same session.
+    private func signIn() async throws -> String {
+        let login: Task<SID, any Error>
+        if let pendingLogin {
+            login = pendingLogin
+        } else {
+            login = Task { try await self.authenticate() }
+            pendingLogin = login
+        }
+        do {
+            let fresh = try await login.value
+            if pendingLogin == login {
+                pendingLogin = nil
+                session = fresh
+                sessions?.saveSID(fresh.value)
+            }
+            return fresh.value
+        } catch {
+            if pendingLogin == login {
+                pendingLogin = nil
+            }
+            throw error
+        }
+    }
+
+    private func authenticate() async throws -> SID {
         let secret = password()
         guard !secret.isEmpty else { throw PiholeProblem.needsPassword }
         let body = try JSONEncoder().encode(AuthRequest(password: secret))
@@ -283,8 +335,7 @@ public actor PiholeClient {
         guard (200...299).contains(response.status) else { throw PiholeProblem.notUnderstood }
         let wire = try JSONDecoder().decode(AuthWire.self, from: response.body)
         let validity = wire.session.validity ?? FTLSessionPolicy.validitySeconds
-        session = SID(value: wire.session.sid, expiresAt: now().addingTimeInterval(TimeInterval(validity)))
-        sessions?.saveSID(wire.session.sid)
+        return SID(value: wire.session.sid, expiresAt: now().addingTimeInterval(TimeInterval(validity)))
     }
 
     private func accept(_ response: PiholeResponse, badRequest: PiholeProblem) throws {

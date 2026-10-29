@@ -107,8 +107,10 @@ struct PiholeURLSessionTransport: PiholeTransport {
         throw PiholeProblem.offline
     }
 
+    /// Only an id the Pi just accepted is kept. A 401 must not save the stale id back.
     private func remember(_ request: PiholeRequest, response: LiveHTTPResponse) {
-        if request.method == "POST", request.path == "/api/auth", (200...299).contains(response.status),
+        guard (200...299).contains(response.status), request.method != "DELETE" else { return }
+        if request.method == "POST", request.path == "/api/auth",
            let sid = Self.sessionID(in: response.body) {
             try? sessions.saveSessionID(sid)
             return

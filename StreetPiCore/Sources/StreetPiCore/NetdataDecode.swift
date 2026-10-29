@@ -163,13 +163,29 @@ public enum NetdataDecode {
         )
     }
 
+    /// `system.cpu` dimensions are percentages of the whole processor. Netdata hides `idle`
+    /// by default, so without it the visible dimensions already add up to the busy share.
     public static func cpuFraction(_ point: NetdataPoint) -> Double? {
-        let pairs = zip(point.names, point.values)
-        let idle = pairs.first { $0.0 == "idle" || $0.0.hasSuffix(".idle") }?.1
-        let total = point.values.reduce(0, +)
+        guard !point.values.isEmpty else { return nil }
+        var busy: Double?
+        var idle: Double?
+        for (name, value) in zip(point.names, point.values) {
+            if isIdle(name) {
+                idle = (idle ?? 0) + value
+            } else {
+                busy = (busy ?? 0) + value
+            }
+        }
+        guard let idle else { return clamp((busy ?? 0) / 100) }
+        guard let busy else { return clamp((100 - idle) / 100) }
+        let total = busy + idle
         guard total > 0 else { return nil }
-        let used = idle.map { total - $0 } ?? total
-        return clamp(used / total)
+        return clamp(busy / total)
+    }
+
+    static func isIdle(_ name: String) -> Bool {
+        let lowered = name.lowercased()
+        return lowered == "idle" || lowered.hasSuffix(".idle")
     }
 
     public static func shareUsed(_ point: NetdataPoint) -> Double? {
