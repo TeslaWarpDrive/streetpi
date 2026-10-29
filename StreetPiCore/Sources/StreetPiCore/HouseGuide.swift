@@ -97,6 +97,37 @@ extension HouseholdSnapshot {
 }
 
 public enum HouseGuide {
+    /// Resolve from the same live tile as Home; every route has a readable fallback.
+    public static func detail(
+        _ group: HouseGroup,
+        snapshot: HouseholdSnapshot?,
+        status: HouseStatusBoard?
+    ) -> GroupBrief {
+        if let tile = status?.tiles.first(where: { $0.id == group }) {
+            return tile.brief
+        }
+        if group == .monitors, let snapshot, !snapshot.services.isEmpty {
+            let up = snapshot.services.filter { $0.state == .responding }.count
+            return GroupBrief(
+                id: group, title: group.title,
+                summary: "\(up) of \(snapshot.services.count) up", tone: tone(for: snapshot.services),
+                rows: snapshot.services.map { service in
+                    GroupRow(
+                        id: service.id, name: service.name, state: ReadingText.stateWord(for: service),
+                        tone: tone(for: [service])
+                    )
+                }
+            )
+        }
+        if let snapshot, let brief = brief(group, in: snapshot) {
+            return brief
+        }
+        return GroupBrief(
+            id: group, title: group.title,
+            summary: "No recent reading yet.", tone: .attention, rows: []
+        )
+    }
+
     public static func groups(in snapshot: HouseholdSnapshot) -> [GroupBrief] {
         HouseGroup.allCases.compactMap { brief($0, in: snapshot) }
     }
@@ -149,7 +180,7 @@ public enum HouseGuide {
         case .remoteHelp:
             "This lets a trusted helper see a screen in the house to fix a problem. Ready means it can take a call."
         case .internet:
-            "The house's address on the internet changes now and then. This keeps the name that points to it current."
+            "These checks show whether the house can reach the internet and look up website addresses."
         case .piHealth:
             "The Pi is the small computer that runs all of this. Cool and quiet means it has room to spare."
         case .backups:

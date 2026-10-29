@@ -109,9 +109,9 @@ private struct StatusListRow: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         case .chip:
-            // A row has room for the short word on one line; the longer name wraps instead.
+            // At large text sizes the chip scrolls within the row rather than widening the whole page.
             StatusChip(title: line.word, tone: line.tone)
-                .fixedSize(horizontal: true, vertical: false)
+                .fixedSize(horizontal: !dynamicTypeSize.isAccessibilitySize, vertical: false)
                 .layoutPriority(1)
         }
     }

@@ -56,11 +56,19 @@ struct GroupDashboard: View {
         ScrollView {
             VStack(alignment: .leading, spacing: AfterglowShape.block) {
                 header
+                    .reportsLayout("room-header")
                 if brief.id == .piHealth, let machine {
                     MachineRings(machine: machine, onOpen: nil)
                 }
                 if !brief.rows.isEmpty {
                     StatusList(lines: lines, mark: .chip)
+                        .reportsLayout("room-status-list")
+                } else if brief.id != .piHealth || machine == nil {
+                    Text("No checks to show yet. Pull down to refresh. " +
+                         "If this keeps happening, check the status page in Settings.")
+                        .font(.body)
+                        .foregroundStyle(palette.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 meaning
             }

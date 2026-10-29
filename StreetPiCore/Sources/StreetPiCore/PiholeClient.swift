@@ -148,6 +148,11 @@ public actor PiholeClient {
         return try PiholeDecode.textLog(from: try await get(path))
     }
 
+    /// Metrics clients are devices making lookups. /api/clients contains rule assignments instead.
+    public func activeClients(count: Int) async throws -> [NamedRow] {
+        try PiholeDecode.activeClients(from: try await get("/api/stats/top_clients?count=\(max(1, count))"))
+    }
+
     public func clients() async throws -> [NamedRow] {
         try PiholeDecode.clients(from: try await get("/api/clients"))
     }

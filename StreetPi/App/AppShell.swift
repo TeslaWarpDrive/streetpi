@@ -44,7 +44,7 @@ struct AppShell: View {
     @Environment(\.streetPiStill) private var still
     @State private var sidebarVisibility: NavigationSplitViewVisibility = .all
     @State private var showAlerts: Bool
-    @State private var roomPath: [HouseGroup] = []
+    @State private var roomPath: [HomeDestination]
     @State private var showBlocker = false
     @State private var blockerAction: HouseholdAction?
 
@@ -85,7 +85,8 @@ struct AppShell: View {
         statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString,
         statusSlug: String = "house",
         onStatusPage: @escaping (String, String) -> Void = { _, _ in },
-        initialRoom: HouseGroup? = nil
+        initialRoom: HouseGroup? = nil,
+        initialHomePath: [HomeDestination] = []
     ) {
         self.section = section
         self.screen = screen
@@ -125,15 +126,12 @@ struct AppShell: View {
         self.onStatusPage = onStatusPage
         _showAlerts = State(initialValue: section == .alerts)
         // Snapshot entry: opens House on one room page.
-        _roomPath = State(initialValue: initialRoom.map { [$0] } ?? [])
+        _roomPath = State(initialValue: initialHomePath.isEmpty
+            ? initialRoom.map { [.room($0)] } ?? []
+            : initialHomePath)
     }
 
     private var theme: StreetTheme { .house }
-
-    private var groups: [GroupBrief] {
-        guard let snapshot = screen.snapshot else { return [] }
-        return HouseGuide.groups(in: snapshot)
-    }
 
     private var wide: Bool {
         horizontalSizeClass == .regular
@@ -233,8 +231,27 @@ struct AppShell: View {
                 houseBody(wide: wide)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .toolbar(.hidden, for: .navigationBar)
-                    .navigationDestination(for: HouseGroup.self) { group in
-                        room(group, wide: wide)
+                    .navigationDestination(for: HomeDestination.self) { destination in
+                        homeDetail(destination, wide: wide)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .background(theme.background.ignoresSafeArea())
+                            .navigationBarTitleDisplayMode(.inline)
+                            .toolbar(.visible, for: .navigationBar)
+                            .sheet(
+                                isPresented: Binding(
+                                    get: { destination == .devices && showsSetup },
+                                    set: { if !$0 { onSetupCancel() } }
+                                ),
+                                onDismiss: onSetupCancel
+                            ) {
+                                PiholeSetupView(
+                                    theme: theme, wide: false, trustNote: trustNote,
+                                    onSave: onSetupSave, onCancel: onSetupCancel
+                                )
+                                .presentationDragIndicator(.visible)
+                                .presentationBackground(theme.background)
+                                .interactiveDismissDisabled()
+                            }
                     }
             }
         }
@@ -259,7 +276,7 @@ struct AppShell: View {
             wide: wide,
             onRefresh: onRefresh,
             onAlerts: { showAlerts = true },
-            onSettings: { onSection(.settings) },
+            onSettings: { roomPath.append(.settings) },
             onOpen: openRoom,
             onOpenBlocker: openBlockerDetail,
             onPauseBlocker: pauseBlocker,
@@ -302,45 +319,60 @@ struct AppShell: View {
         onPending(.pauseAdBlocking(.thirtySeconds))
     }
 
-    /// Monitors open the status-page checks by name on the Pi's Services page.
     private func openMonitors() {
-        roomPath = []
-        onMachinePage(.services)
-        onSection(.group(.piHealth))
+        roomPath.append(.room(.monitors))
     }
 
     private func openDevices() {
-        roomPath = []
-        onDNSPage(.clients)
-        onSection(.group(.adBlockerAndDNS))
+        roomPath.append(.devices)
     }
 
     @ViewBuilder
-    private func room(_ group: HouseGroup, wide: Bool) -> some View {
-        if let brief = groups.first(where: { $0.id == group }) {
+    private func homeDetail(_ destination: HomeDestination, wide: Bool) -> some View {
+        switch destination {
+        case .devices:
+            if let dnsProblem {
+                DNSProblemView(
+                    problem: dnsProblem, theme: theme, wide: wide,
+                    offersSetup: offersSetup, onSavePassword: onSavePassword,
+                    onTrustNewCertificate: onTrustNewCertificate, onKeepSavedPin: onKeepSavedPin
+                )
+                .navigationTitle("Clients")
+            } else {
+                DNSPageBody(page: .clients, desk: desk, theme: theme, wide: wide, now: now, onAction: { onPending($0) })
+                    .navigationTitle("Clients")
+                    .refreshable { await onRefresh() }
+            }
+        case .settings:
+            settingsBody
+                .navigationTitle("Settings")
+        case .room(.piHealth):
+            homeMachinePage(.dashboard, wide: wide)
+        case .machine(let page):
+            homeMachinePage(page, wide: wide)
+        case .room(let group):
+            let brief = HouseGuide.detail(group, snapshot: screen.snapshot, status: statusBoard)
             GroupDashboard(
-                theme: theme,
-                brief: brief,
-                machine: screen.snapshot?.machine,
-                wide: wide
+                theme: theme, brief: brief,
+                machine: machineReading ?? screen.snapshot?.machine, wide: wide
             )
             .navigationTitle(brief.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar(.visible, for: .navigationBar)
+            .refreshable { await onRefresh() }
         }
     }
 
+    private func homeMachinePage(_ page: MachinePage, wide: Bool) -> some View {
+        MachinePageBody(
+            page: page, desk: piDesk, machine: machineReading ?? screen.snapshot?.machine,
+            theme: theme, wide: wide, piNotice: piNotice,
+            onPage: { roomPath.append(.machine($0)) }
+        )
+        .navigationTitle(page.title)
+        .refreshable { await onRefresh() }
+    }
+
     private func openRoom(_ group: HouseGroup) {
-        switch group {
-        case .adBlockerAndDNS:
-            roomPath = []
-            onSection(.group(.adBlockerAndDNS))
-        case .piHealth:
-            roomPath = []
-            onSection(.group(.piHealth))
-        default:
-            roomPath = [group]
-        }
+        roomPath.append(.room(group))
     }
 
     private func adBlocker(wide: Bool) -> some View {
@@ -418,26 +450,30 @@ struct AppShell: View {
 
     private var settings: some View {
         NavigationStack {
-            SettingsView(
-                theme: theme,
-                passwordSaved: passwordSaved,
-                onPasswordSetup: {
-                    onSection(.group(.adBlockerAndDNS))
-                    onSavePassword()
-                },
-                onSignOut: { onPending(.signOutOfAdBlocker) },
-                piHost: piHost,
-                hostNote: hostNote,
-                onCommitHost: onCommitHost,
-                onSaved: onSettingsSaved,
-                statusAddress: statusAddress,
-                statusSlug: statusSlug,
-                onStatusPage: onStatusPage
-            )
+            settingsBody
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(theme.background.ignoresSafeArea())
                 .toolbar(.hidden, for: .navigationBar)
         }
+    }
+
+    private var settingsBody: some View {
+        SettingsView(
+            theme: theme,
+            passwordSaved: passwordSaved,
+            onPasswordSetup: {
+                onSection(.group(.adBlockerAndDNS))
+                onSavePassword()
+            },
+            onSignOut: { onPending(.signOutOfAdBlocker) },
+            piHost: piHost,
+            hostNote: hostNote,
+            onCommitHost: onCommitHost,
+            onSaved: onSettingsSaved,
+            statusAddress: statusAddress,
+            statusSlug: statusSlug,
+            onStatusPage: onStatusPage
+        )
     }
 
     private var alerts: some View {

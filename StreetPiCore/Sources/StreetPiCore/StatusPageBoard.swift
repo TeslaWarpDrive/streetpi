@@ -242,7 +242,10 @@ enum StatusServices {
     static func rows(monitors: [StatusMonitor], services: [ServiceHealth]) -> [GroupRow] {
         let ids = Set(monitors.map { String($0.id) })
         return services.filter { ids.contains($0.id) }.map { service in
-            GroupRow(id: service.id, name: service.name, state: ReadingText.stateWord(for: service))
+            GroupRow(
+                id: service.id, name: service.name, state: ReadingText.stateWord(for: service),
+                tone: service.state == .responding ? .calm : (service.state == .notResponding ? .problem : .attention)
+            )
         }
     }
 
