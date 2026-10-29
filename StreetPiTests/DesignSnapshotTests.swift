@@ -43,7 +43,7 @@ final class DesignSnapshotTests: XCTestCase {
                 let view = AppShell(
                     section: .home, screen: .ready(house), now: now,
                     onSection: { _ in }, desk: desk, dnsProblem: problem,
-                    statusBoard: board, initialDestination: destination
+                    statusBoard: board, initialHomePath: [destination]
                 )
                 .preferredColorScheme(.dark)
                 .environment(\.colorScheme, .dark)

@@ -86,7 +86,7 @@ struct AppShell: View {
         statusSlug: String = "house",
         onStatusPage: @escaping (String, String) -> Void = { _, _ in },
         initialRoom: HouseGroup? = nil,
-        initialDestination: HomeDestination? = nil
+        initialHomePath: [HomeDestination] = []
     ) {
         self.section = section
         self.screen = screen
@@ -126,7 +126,9 @@ struct AppShell: View {
         self.onStatusPage = onStatusPage
         _showAlerts = State(initialValue: section == .alerts)
         // Snapshot entry: opens House on one room page.
-        _roomPath = State(initialValue: (initialDestination ?? initialRoom.map { .room($0) }).map { [$0] } ?? [])
+        _roomPath = State(initialValue: initialHomePath.isEmpty
+            ? initialRoom.map { [.room($0)] } ?? []
+            : initialHomePath)
     }
 
     private var theme: StreetTheme { .house }
@@ -235,6 +237,21 @@ struct AppShell: View {
                             .background(theme.background.ignoresSafeArea())
                             .navigationBarTitleDisplayMode(.inline)
                             .toolbar(.visible, for: .navigationBar)
+                            .sheet(
+                                isPresented: Binding(
+                                    get: { destination == .devices && showsSetup },
+                                    set: { if !$0 { onSetupCancel() } }
+                                ),
+                                onDismiss: onSetupCancel
+                            ) {
+                                PiholeSetupView(
+                                    theme: theme, wide: false, trustNote: trustNote,
+                                    onSave: onSetupSave, onCancel: onSetupCancel
+                                )
+                                .presentationDragIndicator(.visible)
+                                .presentationBackground(theme.background)
+                                .interactiveDismissDisabled()
+                            }
                     }
             }
         }

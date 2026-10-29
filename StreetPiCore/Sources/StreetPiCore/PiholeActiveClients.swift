@@ -11,7 +11,7 @@ extension PiholeDecode {
             let name = (client["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
             return NamedRow(
                 id: ip, name: name.flatMap { $0.isEmpty ? nil : $0 } ?? ip,
-                detail: "\(ip) · \(count.formatted()) lookups"
+                detail: "\(ip) · \(count.formatted()) \(count == 1 ? "lookup" : "lookups")"
             )
         }
     }
