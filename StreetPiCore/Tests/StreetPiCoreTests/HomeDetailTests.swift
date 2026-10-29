@@ -24,6 +24,13 @@ final class HomeDetailTests: XCTestCase {
         }
     }
 
+    func testMonitorsKeepSnapshotChecksWhileTheStatusBoardIsUnavailable() {
+        let snapshot = HouseholdSnapshot.healthyFixture
+        let detail = HouseGuide.detail(.monitors, snapshot: snapshot, status: nil)
+        XCTAssertEqual(detail.rows.map(\.id), snapshot.services.map(\.id))
+        XCTAssertEqual(detail.rows.map(\.state), snapshot.services.map { ReadingText.stateWord(for: $0) })
+    }
+
     func testMissingSetupDoesNotFallBackToHealthyFixture() {
         let board = HouseStatusBoard.notSetUp()
         for tile in board.tiles {

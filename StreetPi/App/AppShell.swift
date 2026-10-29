@@ -231,6 +231,8 @@ struct AppShell: View {
                     .toolbar(.hidden, for: .navigationBar)
                     .navigationDestination(for: HomeDestination.self) { destination in
                         homeDetail(destination, wide: wide)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .background(theme.background.ignoresSafeArea())
                             .navigationBarTitleDisplayMode(.inline)
                             .toolbar(.visible, for: .navigationBar)
                     }

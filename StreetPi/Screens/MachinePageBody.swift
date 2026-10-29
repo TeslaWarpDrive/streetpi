@@ -30,7 +30,7 @@ struct MachinePageBody: View {
                 title: page.title,
                 intro: "Up or down comes from the status page. Nothing here can be changed.",
                 rows: desk.services,
-                note: nil,
+                note: desk.services.isEmpty ? "No checks to show yet." : nil,
                 mark: .dot,
                 groupsServices: true,
                 theme: theme,

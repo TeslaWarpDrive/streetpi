@@ -130,10 +130,10 @@ extension DNSDesk {
             listCount: 2,
             listsUpdatedAt: now.addingTimeInterval(-2 * 86_400),
             clients: [
-                NamedRow(id: "living-room", name: "Living room", detail: "Default"),
-                NamedRow(id: "kitchen", name: "Kitchen display", detail: "Default"),
-                NamedRow(id: "office", name: "Office laptop", detail: "Default"),
-                NamedRow(id: "upstairs", name: "Upstairs speaker", detail: "Default"),
+                NamedRow(id: "192.0.2.20", name: "Living room", detail: "192.0.2.20 · 90 lookups"),
+                NamedRow(id: "192.0.2.21", name: "Kitchen display", detail: "192.0.2.21 · 48 lookups"),
+                NamedRow(id: "192.0.2.22", name: "Office laptop", detail: "192.0.2.22 · 35 lookups"),
+                NamedRow(id: "192.0.2.23", name: "Upstairs speaker", detail: "192.0.2.23 · 12 lookups"),
             ],
             groups: [
                 NamedRow(id: "default", name: "Default", detail: "4 devices"),

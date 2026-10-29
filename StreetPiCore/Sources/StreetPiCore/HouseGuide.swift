@@ -106,6 +106,19 @@ public enum HouseGuide {
         if let tile = status?.tiles.first(where: { $0.id == group }) {
             return tile.brief
         }
+        if group == .monitors, let snapshot, !snapshot.services.isEmpty {
+            let up = snapshot.services.filter { $0.state == .responding }.count
+            return GroupBrief(
+                id: group, title: group.title,
+                summary: "\(up) of \(snapshot.services.count) up", tone: tone(for: snapshot.services),
+                rows: snapshot.services.map { service in
+                    GroupRow(
+                        id: service.id, name: service.name, state: ReadingText.stateWord(for: service),
+                        tone: tone(for: [service])
+                    )
+                }
+            )
+        }
         if let snapshot, let brief = brief(group, in: snapshot) {
             return brief
         }
