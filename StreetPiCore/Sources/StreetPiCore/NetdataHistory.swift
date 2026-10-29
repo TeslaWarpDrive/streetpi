@@ -309,11 +309,10 @@ enum HourBuckets {
         }
     }
 
+    /// Same rule as the live meter: percentages, with `idle` usually hidden by Netdata.
     private static func processor(_ pairs: [(String, Double)]) -> Double {
-        if let idle = pairs.first(where: { $0.0 == "idle" })?.1 {
-            return remainder(idle)
-        }
-        return fraction(pairs.map(\.1).reduce(0, +))
+        let point = NetdataPoint(names: pairs.map(\.0), values: pairs.map(\.1))
+        return NetdataDecode.cpuFraction(point) ?? 0
     }
 
     private static func share(_ pairs: [(String, Double)]) -> Double {
@@ -322,11 +321,6 @@ enum HourBuckets {
             return min(1, max(0, used / total))
         }
         return fraction(total)
-    }
-
-    private static func remainder(_ idle: Double) -> Double {
-        if idle <= 1.5 { return min(1, max(0, 1 - idle)) }
-        return min(1, max(0, (100 - idle) / 100))
     }
 
     private static func fraction(_ sum: Double) -> Double {
