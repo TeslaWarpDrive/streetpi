@@ -19,11 +19,15 @@ final class DesignSnapshotTests: XCTestCase {
         assertHomeDetail(.room(.piHealth), name: "home-pi", board: board)
         assertHomeDetail(.devices, name: "home-devices", board: board)
         assertHomeDetail(.settings, name: "home-settings", board: board)
+        for page in MachinePage.allCases where page != .dashboard {
+            assertHomeDetail(.machine(page), name: "home-pi-\(page.rawValue)", board: board)
+        }
     }
 
     func testHomeMissingDestinations() {
         assertHomeDetail(.room(.streaming), name: "home-no-checks", board: .notSetUp())
         assertHomeDetail(.devices, name: "home-no-devices", board: .notSetUp(), desk: .emptyLookups)
+        assertHomeDetail(.devices, name: "home-devices-loading", board: .notSetUp(), desk: .quiet)
         assertHomeDetail(.devices, name: "home-devices-error", board: .notSetUp(), problem: .offline)
     }
 

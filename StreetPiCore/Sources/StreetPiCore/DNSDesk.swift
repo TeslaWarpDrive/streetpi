@@ -8,6 +8,7 @@ public struct DNSDesk: Sendable, Equatable, Codable {
     public var listCount: Int
     public var listsUpdatedAt: Date
     public var clients: [NamedRow]
+    public var clientsNote: String?
     public var groups: [NamedRow]
     public var domains: [NamedRow]
     public var lists: [DNSListRow]
@@ -56,7 +57,8 @@ public struct DNSDesk: Sendable, Equatable, Codable {
         textLogLines: [String] = [],
         textLogKnown: Bool = true,
         liveReadNote: String? = nil,
-        textLogReadNote: String? = nil
+        textLogReadNote: String? = nil,
+        clientsNote: String? = nil
     ) {
         self.textLogFileEnabled = textLogFileEnabled
         self.blocking = blocking
@@ -65,6 +67,7 @@ public struct DNSDesk: Sendable, Equatable, Codable {
         self.listCount = listCount
         self.listsUpdatedAt = listsUpdatedAt
         self.clients = clients
+        self.clientsNote = clientsNote
         self.groups = groups
         self.domains = domains
         self.lists = lists
@@ -241,6 +244,7 @@ extension DNSDesk {
     /// No sample rows. The lists-updated line stays hidden until a real date arrives.
     public static var quiet: DNSDesk {
         var desk = emptyLookups
+        desk.clientsNote = "Checking for devices using the Pi…"
         desk.listsUpdatedAt = .distantPast
         desk.listsUpdateKnown = false
         desk.textLogKnown = false

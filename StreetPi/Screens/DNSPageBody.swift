@@ -49,7 +49,7 @@ struct DNSPageBody: View {
                 intro: "Devices using the Pi for lookups in the last 24 hours.",
                 rows: desk.clients,
                 notice: desk.clients.isEmpty
-                    ? (desk.spokenLine ?? "No devices have made lookups yet. Pull down to refresh.")
+                    ? (desk.clientsNote ?? desk.spokenLine ?? "No devices have made lookups yet. Pull down to refresh.")
                     : nil,
                 theme: theme,
                 wide: wide
