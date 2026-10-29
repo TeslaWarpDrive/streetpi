@@ -81,6 +81,10 @@ final class PiholeReaderTests: XCTestCase {
         XCTAssertEqual(load.desk.domains.map(\.name), ["ads.example.test", "news.example.test"])
         XCTAssertEqual(load.desk.queries.first?.domain, "ads.example.test")
         XCTAssertTrue(load.desk.services.isEmpty)
+        XCTAssertEqual(load.desk.clients.first?.name, "Living room")
+        XCTAssertEqual(load.desk.clients.first?.id, "192.0.2.20")
+        XCTAssertTrue(transport.sent.contains { $0.path == "/api/stats/top_clients?count=4" })
+        XCTAssertFalse(transport.sent.contains { $0.path == "/api/clients" })
         XCTAssertFalse(load.desk.textLogFileEnabled)
         XCTAssertTrue(load.desk.listsUpdateKnown)
         let board = AdBlockerHome.ready(load, now: .streetFixtureNow)
@@ -137,7 +141,7 @@ final class PiholeReaderTests: XCTestCase {
             {"queries":[{"id":7,"time":1792421800,"domain":"ads.example.test",\
             "status":"GRAVITY","client":{"name":"Living room"}}]}
             """),
-            .json(200, #"{"clients":[{"name":"Living room","comment":"Default"}]}"#),
+            .json(200, #"{"clients":[{"ip":"192.0.2.20","name":"Living room","count":9}]}"#),
             .json(200, #"{"groups":[{"name":"Default","comment":"The house"}]}"#),
             .json(200, #"{"domains":[{"domain":"ads.example.test","enabled":true}]}"#),
             .json(200, #"{"domains":[{"domain":"news.example.test","enabled":true}]}"#),

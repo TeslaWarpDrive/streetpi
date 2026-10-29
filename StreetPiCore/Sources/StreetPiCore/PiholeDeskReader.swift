@@ -49,7 +49,7 @@ extension PiholeClient {
         let blockedNames = try await topDomains(blocked: true)
         let clientsTop = try await topClients()
         let recent = try await queries()
-        let known = try await clients()
+        let known = try await activeClients(count: facts.activeClients)
         let groupRows = try await groups()
         let domainRows = try await domains()
         let listRows = try await lists()

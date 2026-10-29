@@ -61,6 +61,12 @@ struct GroupDashboard: View {
                 }
                 if !brief.rows.isEmpty {
                     StatusList(lines: lines, mark: .chip)
+                } else if brief.id != .piHealth || machine == nil {
+                    Text("No checks to show yet. Pull down to refresh. " +
+                         "If this keeps happening, check the status page in Settings.")
+                        .font(.body)
+                        .foregroundStyle(palette.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 meaning
             }

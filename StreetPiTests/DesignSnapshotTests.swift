@@ -11,6 +11,48 @@ final class DesignSnapshotTests: XCTestCase {
     private let now = Date.streetFixtureNow
     private let house = HouseholdSnapshot.healthyFixture
 
+    func testHomeLiveDestinations() {
+        let board = StatusPageFixture.previewBoard()
+        for tile in board.tiles {
+            assertHomeDetail(.room(tile.id), name: "home-live-\(tile.id.rawValue)", board: board)
+        }
+        assertHomeDetail(.room(.piHealth), name: "home-pi", board: board)
+        assertHomeDetail(.devices, name: "home-devices", board: board)
+        assertHomeDetail(.settings, name: "home-settings", board: board)
+    }
+
+    func testHomeMissingDestinations() {
+        assertHomeDetail(.room(.streaming), name: "home-no-checks", board: .notSetUp())
+        assertHomeDetail(.devices, name: "home-no-devices", board: .notSetUp(), desk: .emptyLookups)
+        assertHomeDetail(.devices, name: "home-devices-error", board: .notSetUp(), problem: .offline)
+    }
+
+    private func assertHomeDetail(
+        _ destination: HomeDestination,
+        name: String,
+        board: HouseStatusBoard,
+        desk: DNSDesk = .houseFixture,
+        problem: PiholeProblem? = nil
+    ) {
+        for size in SnapshotScale.allCases {
+            for device in SnapshotDevice.allCases {
+                let view = AppShell(
+                    section: .home, screen: .ready(house), now: now,
+                    onSection: { _ in }, desk: desk, dnsProblem: problem,
+                    statusBoard: board, initialDestination: destination
+                )
+                .preferredColorScheme(.dark)
+                .environment(\.colorScheme, .dark)
+                .environment(\.dynamicTypeSize, size.dynamicType)
+                .environment(\.streetPiStill, true)
+                recordSnapshot(
+                    of: view, layout: device.config, size: size,
+                    named: "dark-\(size.rawValue)-\(device.rawValue)", testName: name
+                )
+            }
+        }
+    }
+
     func testHome() {
         assertMatrix(section: .home, screen: .ready(house), testName: "home")
     }
