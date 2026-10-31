@@ -143,6 +143,9 @@ struct RootView: View {
         .task(id: watchToken) {
             guard scenePhase == .active else { return }
             passwordSaved = (try? KeychainSession(store: secretStore).hasAppPassword()) ?? false
+            if !LiveGate.usesFixtures {
+                MailboxSettingsStore(store: secretStore).seedIfNeeded(from: .bundled())
+            }
             loadMailboxForm()
             if LiveGate.usesFixtures {
                 await watchFixtures()
