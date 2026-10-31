@@ -56,7 +56,7 @@ enum HouseBoard {
                 figure: monitors.summary,
                 line: monitors.summary,
                 marks: monitors.rows.map { row in
-                    MonitorMark(id: row.id, name: row.name, up: row.state == "Up", word: row.state)
+                    MonitorMark(id: row.id, name: row.name, up: row.tone == .calm, word: row.state)
                 }
             )
         }

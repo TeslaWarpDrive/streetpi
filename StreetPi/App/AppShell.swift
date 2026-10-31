@@ -38,6 +38,11 @@ struct AppShell: View {
     var statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString
     var statusSlug: String = "house"
     var onStatusPage: (String, String) -> Void = { _, _ in }
+    var awayStatus: AwayStatus?
+    var mailboxAddress: String = ""
+    var mailboxTokenSaved: Bool = false
+    var onSaveMailbox: (String, String) -> MailboxSaveResult = { _, _ in .failed }
+    var onRemoveMailbox: () -> MailboxSaveResult = { .failed }
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -85,6 +90,11 @@ struct AppShell: View {
         statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString,
         statusSlug: String = "house",
         onStatusPage: @escaping (String, String) -> Void = { _, _ in },
+        awayStatus: AwayStatus? = nil,
+        mailboxAddress: String = "",
+        mailboxTokenSaved: Bool = false,
+        onSaveMailbox: @escaping (String, String) -> MailboxSaveResult = { _, _ in .failed },
+        onRemoveMailbox: @escaping () -> MailboxSaveResult = { .failed },
         initialRoom: HouseGroup? = nil,
         initialHomePath: [HomeDestination] = []
     ) {
@@ -124,6 +134,11 @@ struct AppShell: View {
         self.statusAddress = statusAddress
         self.statusSlug = statusSlug
         self.onStatusPage = onStatusPage
+        self.awayStatus = awayStatus
+        self.mailboxAddress = mailboxAddress
+        self.mailboxTokenSaved = mailboxTokenSaved
+        self.onSaveMailbox = onSaveMailbox
+        self.onRemoveMailbox = onRemoveMailbox
         _showAlerts = State(initialValue: section == .alerts)
         // Snapshot entry: opens House on one room page.
         _roomPath = State(initialValue: initialHomePath.isEmpty
@@ -168,6 +183,7 @@ struct AppShell: View {
                 }
             }
             .tint(theme.accent)
+            .environment(\.streetPiAway, isAway)
             .sheet(
                 isPresented: Binding(
                     get: { showAlerts && still == false },
@@ -211,8 +227,22 @@ struct AppShell: View {
         })
     }
 
-    @ViewBuilder
+    private var isAway: Bool {
+        awayStatus?.isAway == true
+    }
+
     private func page(_ tab: HouseTab) -> some View {
+        VStack(spacing: 0) {
+            if let awayStatus {
+                AwayBadgeBar(status: awayStatus, now: now) { select(.settings) }
+            }
+            tabPage(tab)
+        }
+        .background { theme.background.ignoresSafeArea() }
+    }
+
+    @ViewBuilder
+    private func tabPage(_ tab: HouseTab) -> some View {
         switch tab {
         case .house:
             house(wide: wide)
@@ -313,7 +343,12 @@ struct AppShell: View {
         onPending(blockerAction)
     }
 
+    /// Away, a hold opens the overview, which says why pausing waits for home.
     private func pauseBlocker() {
+        if isAway {
+            showBlocker = true
+            return
+        }
         let board = HouseBoard.make(screen: screen, desk: desk, now: now, piNotice: piNotice)
         guard board.blocker.canPause else { return }
         onPending(.pauseAdBlocking(.thirtySeconds))
@@ -403,6 +438,7 @@ struct AppShell: View {
                     onSetupSave: onSetupSave,
                     onSetupCancel: onSetupCancel
                 )
+                .refreshable { await onRefresh() }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(theme.background.ignoresSafeArea())
@@ -426,6 +462,7 @@ struct AppShell: View {
                     piNotice: piNotice,
                     onPage: onMachinePage
                 )
+                .refreshable { await onRefresh() }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(theme.background.ignoresSafeArea())
@@ -434,9 +471,18 @@ struct AppShell: View {
     }
 
     private var houseBoard: ControlBoard {
-        let board = HouseBoard.make(screen: screen, desk: desk, now: now, piNotice: piNotice)
-        guard let statusBoard else { return board }
-        return HouseBoard.applying(status: statusBoard, to: board)
+        var board = HouseBoard.make(screen: screen, desk: desk, now: now, piNotice: piNotice)
+        if let statusBoard {
+            board = HouseBoard.applying(status: statusBoard, to: board)
+        }
+        if isAway {
+            board.blocker.canPause = false
+        }
+        if let quiet = awayStatus?.quietHeadline(now: now) {
+            board.headline = quiet
+            board.tone = .attention
+        }
+        return board
     }
 
     /// The drill-down lists the same checks and status words as the Home monitor tile.
@@ -472,7 +518,11 @@ struct AppShell: View {
             onSaved: onSettingsSaved,
             statusAddress: statusAddress,
             statusSlug: statusSlug,
-            onStatusPage: onStatusPage
+            onStatusPage: onStatusPage,
+            mailboxAddress: mailboxAddress,
+            mailboxTokenSaved: mailboxTokenSaved,
+            onSaveMailbox: onSaveMailbox,
+            onRemoveMailbox: onRemoveMailbox
         )
     }
 

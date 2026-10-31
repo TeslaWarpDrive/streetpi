@@ -1,11 +1,13 @@
+import StreetPiCore
 import SwiftUI
 
 /// A quiet hint under the tiles. It sits back so the tiles lead.
 struct HouseFooter: View {
     @Environment(\.afterglowPalette) private var palette
+    @Environment(\.streetPiAway) private var away
 
     var body: some View {
-        Text("Tap a tile to open it. Hold the ad blocker to pause it.")
+        Text(away ? AwayCopy.tapToOpen : "Tap a tile to open it. Hold the ad blocker to pause it.")
             .font(.caption2)
             .foregroundStyle(palette.tertiary)
             .multilineTextAlignment(.center)

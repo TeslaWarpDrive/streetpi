@@ -557,6 +557,131 @@ enum SnapshotDevice: String, CaseIterable {
 }
 
 extension DesignSnapshotTests {
+    func testAwayHouse() throws {
+        try assertAwayMatrix(section: .home, testName: "away-house")
+    }
+
+    func testAwayStaleBadge() throws {
+        try assertAwayMatrix(section: .home, testName: "away-stale", ageSeconds: 90)
+    }
+
+    func testAwaySilentBadge() throws {
+        try assertAwayMatrix(section: .home, testName: "away-silent", ageSeconds: 7 * 60)
+    }
+
+    func testAwayMailboxTrouble() throws {
+        try assertAwayMatrix(section: .home, testName: "away-trouble", ageSeconds: 90, problem: .offline)
+    }
+
+    func testAwayAdBlocker() throws {
+        try assertAwayMatrix(section: .group(.adBlockerAndDNS), testName: "away-ad-blocker")
+    }
+
+    func testAwayOnlyAtHome() throws {
+        try assertAwayMatrix(section: .group(.adBlockerAndDNS), testName: "away-only-at-home", dnsPage: .queryLog)
+    }
+
+    func testAwayPi() throws {
+        try assertAwayMatrix(section: .group(.piHealth), testName: "away-pi")
+    }
+
+    func testAwayCharts() throws {
+        try assertAwayMatrix(section: .group(.piHealth), testName: "away-charts", machinePage: .chart)
+    }
+
+    func testAwayContainersOnlyAtHome() throws {
+        try assertAwayMatrix(section: .group(.piHealth), testName: "away-containers", machinePage: .containers)
+    }
+
+    func testAwayNotSetUp() {
+        var quiet = HouseholdSnapshot.healthyFixture
+        quiet.machine = nil
+        for size in SnapshotScale.allCases {
+            for device in SnapshotDevice.allCases {
+                let shell = AppShell(
+                    section: .home,
+                    screen: .ready(quiet),
+                    now: .streetFixtureNow,
+                    onSection: { _ in },
+                    awayStatus: .notSetUp
+                )
+                assertAway(shell, size: size, device: device, testName: "away-not-set-up")
+            }
+        }
+    }
+
+    func testAwaySettingsEmpty() {
+        assertArtifactMatrix(of: awaySettings(address: "", saved: false), testName: "away-settings-empty")
+    }
+
+    func testAwaySettingsSaved() {
+        assertArtifactMatrix(
+            of: awaySettings(address: "https://mailbox.example.test", saved: true),
+            testName: "away-settings-saved"
+        )
+    }
+
+    private func awaySettings(address: String, saved: Bool) -> some View {
+        ScrollView {
+            AwaySettingsSection(
+                theme: .house,
+                savedAddress: address,
+                tokenSaved: saved,
+                onSave: { _, _ in .saved },
+                onRemove: { .saved }
+            )
+            .controlPlate(theme: .house)
+            .padding(Rhythm.page)
+        }
+    }
+
+    private func assertAwayMatrix(
+        section: AppSection,
+        testName: String,
+        ageSeconds: TimeInterval = 12,
+        problem: MailboxProblem? = nil,
+        dnsPage: DNSPage? = nil,
+        machinePage: MachinePage? = nil
+    ) throws {
+        let board = try FixtureBook.awayBoard()
+        let report = try XCTUnwrap(board.snapshot)
+        let shown = report.capturedAt.addingTimeInterval(ageSeconds)
+        for size in SnapshotScale.allCases {
+            for device in SnapshotDevice.allCases {
+                let view = AppShell(
+                    section: section,
+                    screen: .explained(try XCTUnwrap(board.status?.briefing), report),
+                    now: shown,
+                    onSection: { _ in },
+                    desk: board.desk,
+                    dnsPage: dnsPage,
+                    machine: board.machine,
+                    machinePage: machinePage,
+                    piNotice: board.piNotice,
+                    machineReading: report.machine,
+                    statusBoard: board.status,
+                    awayStatus: .reading(generatedAt: report.capturedAt, problem: problem, note: nil)
+                )
+                assertAway(view, size: size, device: device, testName: testName)
+            }
+        }
+    }
+
+    private func assertAway(_ shell: AppShell, size: SnapshotScale, device: SnapshotDevice, testName: String) {
+        let view = shell
+            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
+            .environment(\.dynamicTypeSize, size.dynamicType)
+            .environment(\.streetPiStill, true)
+        recordSnapshot(
+            of: view,
+            layout: device.config,
+            size: size,
+            named: "dark-\(size.rawValue)-\(device.rawValue)",
+            testName: testName
+        )
+    }
+
     func testRoomSmartHome() {
         assertShellMatrix(section: .home, testName: "room-smart-home", initialRoom: .smartHome)
     }

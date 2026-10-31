@@ -30,6 +30,12 @@ struct RootView: View {
     @State private var statusAddress: String
     @State private var statusSlug: String
     @State private var statusBoard: HouseStatusBoard?
+    @State private var mode = HouseMode.home
+    @State private var modeCheck = 0
+    @State private var awaySession = AwaySession()
+    @State private var mailboxSession = MailboxURLSession()
+    @State private var mailboxAddress = ""
+    @State private var mailboxTokenSaved = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.secretStore) private var secretStore
 
@@ -68,9 +74,10 @@ struct RootView: View {
     }
 
     var body: some View {
+        let away = awayBoard
         AppShell(
             section: section,
-            screen: screen,
+            screen: away.map(awayScreen) ?? screen,
             now: clock,
             onSection: { next in
                 section = next
@@ -81,15 +88,15 @@ struct RootView: View {
                     machinePage = nil
                 }
             },
-            desk: desk,
+            desk: away?.desk ?? desk,
             dnsPage: dnsPage,
-            machine: machine,
+            machine: away?.machine ?? machine,
             machinePage: machinePage,
             pendingAction: pending,
             actionNotice: actionNotice,
             passwordSaved: passwordSaved,
             showsSetup: showsSetup,
-            dnsProblem: dnsProblem,
+            dnsProblem: away == nil ? dnsProblem : nil,
             sessionActive: dnsSession.signedIn,
             trustNote: setupTrustNote,
             offersSetup: !passwordSaved,
@@ -112,12 +119,17 @@ struct RootView: View {
             piHost: $piHost,
             hostNote: hostNote,
             onCommitHost: commitPiHost,
-            piNotice: piNotice,
-            machineReading: liveReading,
-            statusBoard: statusBoard,
+            piNotice: away == nil ? piNotice : away?.piNotice,
+            machineReading: away == nil ? liveReading : away?.snapshot?.machine,
+            statusBoard: away == nil ? statusBoard : away?.status,
             statusAddress: statusAddress,
             statusSlug: statusSlug,
-            onStatusPage: saveStatusPage
+            onStatusPage: saveStatusPage,
+            awayStatus: awayStatus,
+            mailboxAddress: mailboxAddress,
+            mailboxTokenSaved: mailboxTokenSaved,
+            onSaveMailbox: saveMailbox,
+            onRemoveMailbox: removeMailbox
         )
         .launchOverlay(isPresented: $showLaunch)
         .preferredColorScheme(.dark)
@@ -131,14 +143,21 @@ struct RootView: View {
         .task(id: watchToken) {
             guard scenePhase == .active else { return }
             passwordSaved = (try? KeychainSession(store: secretStore).hasAppPassword()) ?? false
+            loadMailboxForm()
             if LiveGate.usesFixtures {
                 await watchFixtures()
             } else {
                 await watchLive()
             }
         }
-        .task(id: dnsPage) {
-            guard !LiveGate.usesFixtures, dnsPage == .liveLog, scenePhase == .active else { return }
+        .task {
+            guard !LiveGate.usesFixtures else { return }
+            for await _ in NetworkPathChanges.stream() {
+                modeCheck += 1
+            }
+        }
+        .task(id: "\(String(describing: dnsPage))|\(modeCheck)") {
+            guard !LiveGate.usesFixtures, dnsPage == .liveLog, scenePhase == .active, awayBoard == nil else { return }
             while !Task.isCancelled, dnsPage == .liveLog, scenePhase == .active, signedOut == false {
                 await refreshLiveLog()
                 try? await Task.sleep(for: .seconds(4))
@@ -147,7 +166,41 @@ struct RootView: View {
     }
 
     private var watchToken: String {
-        "\(scenePhase)|\(committedHost)|\(retry)|\(signedOut)|\(statusAddress)|\(statusSlug)"
+        "\(scenePhase)|\(committedHost)|\(retry)|\(signedOut)|\(statusAddress)|\(statusSlug)|\(modeCheck)"
+    }
+
+    /// Nil at home. Away, the screens read this and the home state waits untouched.
+    private var awayBoard: AwayBoard? {
+        guard case .away = mode else { return nil }
+        return awaySession.board
+    }
+
+    private var awayStatus: AwayStatus? {
+        switch mode {
+        case .home:
+            nil
+        case .homeOnly:
+            .notSetUp
+        case .away:
+            awaySession.status
+        }
+    }
+
+    private func awayScreen(_ board: AwayBoard) -> HouseScreen {
+        guard let snapshot = board.snapshot, let status = board.status else {
+            return .explained(
+                PlainEnglishStatus(
+                    headline: HouseReadingCopy.lookingTitle,
+                    detail: HouseReadingCopy.emptyDetail,
+                    tone: .calm,
+                    linkLine: "Away"
+                ),
+                nil
+            )
+        }
+        var briefing = status.briefing
+        briefing.linkLine = "Away"
+        return .explained(briefing, snapshot)
     }
 
     private var setupTrustNote: String {
@@ -172,11 +225,41 @@ struct RootView: View {
     }
 
     private func watchLive() async {
+        let next = await chooseMode()
+        guard !Task.isCancelled else { return }
+        mode = next
+        if case .away(let setup) = next {
+            await watchAway(setup)
+            return
+        }
         async let house: Void = watchHouse()
         async let status: Void = pumpStatus()
         async let meters: Void = pumpMeters()
         async let history: Void = pumpHistory()
         _ = await (house, status, meters, history)
+    }
+
+    private func chooseMode() async -> HouseMode {
+        let answered = await PiProbe().piAnswers()
+        return HouseMode.choose(piAnswered: answered, setup: MailboxSettingsStore(store: secretStore).load())
+    }
+
+    private func watchAway(_ setup: MailboxSetup) async {
+        var failures = 0
+        while !Task.isCancelled {
+            guard await pullAway(setup) else { return }
+            failures = awaySession.problem == nil ? 0 : failures + 1
+            try? await Task.sleep(for: .seconds(AwayPace.waitSeconds(afterFailures: failures)))
+        }
+    }
+
+    /// False when the read was cancelled.
+    private func pullAway(_ setup: MailboxSetup) async -> Bool {
+        let client = MailboxClient(transport: mailboxSession, setup: setup)
+        guard let next = try? await awaySession.refreshed(using: client, now: Date()) else { return false }
+        awaySession = next
+        clock = Date()
+        return true
     }
 
     /// Tests keep the fixture screen and never open a socket.
@@ -194,8 +277,19 @@ struct RootView: View {
         }
     }
 
+    /// A pull looks for the Pi again. A new answer restarts the watch on the right road.
     private func refreshNow() async {
-        guard LiveReaderGate.opensSockets, signedOut == false else { return }
+        guard LiveReaderGate.opensSockets else { return }
+        let next = await chooseMode()
+        guard next == mode else {
+            modeCheck += 1
+            return
+        }
+        if case .away(let setup) = next {
+            _ = await pullAway(setup)
+            return
+        }
+        guard signedOut == false else { return }
         let client = await clientForCurrentSettings()
         apply(await refresh(client, now: Date()))
     }
@@ -366,8 +460,42 @@ private extension RootView {
         }
     }
 
+    func loadMailboxForm() {
+        let store = MailboxSettingsStore(store: secretStore)
+        mailboxAddress = store.addressText()
+        mailboxTokenSaved = store.tokenSaved()
+    }
+
+    func saveMailbox(address: String, token: String) -> MailboxSaveResult {
+        let result = MailboxSettingsStore(store: secretStore).save(address: address, token: token)
+        if result == .saved {
+            loadMailboxForm()
+            modeCheck += 1
+        }
+        return result
+    }
+
+    func removeMailbox() -> MailboxSaveResult {
+        let result = MailboxSettingsStore(store: secretStore).remove()
+        if result == .saved {
+            loadMailboxForm()
+            awaySession = AwaySession()
+            modeCheck += 1
+        }
+        return result
+    }
+
     private func confirm(_ action: HouseholdAction) async {
         guard !sending else { return }
+        if awayStatus?.isAway == true, AwayGate.allows(action) == false {
+            actionNotice = ActionNotice(
+                title: AwayCopy.onlyAtHomeTitle,
+                detail: AwayCopy.onlyAtHomeDetail,
+                failed: false
+            )
+            pending = nil
+            return
+        }
         sending = true
         defer { sending = false }
         let policy = ActionPolicy.confirmation(for: action)

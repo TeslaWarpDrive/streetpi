@@ -53,10 +53,20 @@ private struct StreetStillKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+private struct StreetAwayKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 extension EnvironmentValues {
     /// Snapshot stand-in for Reduce Motion. The system key is read-only in the iOS 26 SDK.
     var streetPiStill: Bool {
         get { self[StreetStillKey.self] }
         set { self[StreetStillKey.self] = newValue }
+    }
+
+    /// True while the app reads the mailbox. Writes and private pages stay home.
+    var streetPiAway: Bool {
+        get { self[StreetAwayKey.self] }
+        set { self[StreetAwayKey.self] = newValue }
     }
 }
