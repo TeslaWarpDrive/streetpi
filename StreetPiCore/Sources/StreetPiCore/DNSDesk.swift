@@ -31,6 +31,9 @@ public struct DNSDesk: Sendable, Equatable, Codable {
     public var textLogKnown: Bool
     public var liveReadNote: String?
     public var textLogReadNote: String?
+    /// Counts from a mailbox report. The hours may be older, so the totals stand on their own.
+    public var reportedQueries: Int?
+    public var reportedBlocked: Int?
 
     public init(
         textLogFileEnabled: Bool,
