@@ -16,8 +16,8 @@ public struct LookupShare: Sendable, Equatable {
 
     public static func from(desk: DNSDesk) -> LookupShare {
         LookupShare(
-            stopped: desk.blockedToday,
-            lookups: desk.queriesToday,
+            stopped: desk.reportedBlocked ?? desk.blockedToday,
+            lookups: desk.reportedQueries ?? desk.queriesToday,
             hourlyStopped: desk.day.map(\.blocked)
         )
     }

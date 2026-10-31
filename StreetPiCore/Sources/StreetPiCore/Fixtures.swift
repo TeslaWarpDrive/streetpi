@@ -27,6 +27,13 @@ public enum FixtureBook {
         let data = try Data(contentsOf: url)
         return try StreetJSON.decoder().decode(HouseholdSnapshot.self, from: data)
     }
+
+    public static func away(named name: String) throws -> AwaySnapshot {
+        guard let url = Bundle.module.url(forResource: name, withExtension: "json") else {
+            throw FixtureError.missing(name)
+        }
+        return try JSONDecoder().decode(AwaySnapshot.self, from: Data(contentsOf: url))
+    }
 }
 
 extension HouseholdSnapshot {
