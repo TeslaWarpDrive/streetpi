@@ -69,6 +69,9 @@ jobs:
       - name: Test StreetPiCore
         run: swift test --package-path StreetPiCore
 
+      - name: Test IPA sealing
+        run: bash scripts/test-seal-ipa.sh
+
   mailbox:
     name: Mailbox Worker
     runs-on: ubuntu-24.04
@@ -136,8 +139,16 @@ jobs:
           path: ${{ runner.temp }}/snapshot-failures
           if-no-files-found: ignore
 
+      # Fixture values, so the macOS openssl is proven before any real secret exists.
+      - name: Test IPA sealing
+        run: bash scripts/test-seal-ipa.sh
+
+      # The only step that sees these secrets. The public IPA below never holds them.
       - name: Unsigned IPA
         if: success()
+        env:
+          AWAY_MAILBOX_URL: ${{ secrets.AWAY_MAILBOX_URL }}
+          AWAY_READ_TOKEN: ${{ secrets.AWAY_READ_TOKEN }}
         run: bash scripts/unsigned-ipa.sh
 
       - name: Upload unsigned IPA
@@ -147,3 +158,11 @@ jobs:
           name: streetpi-unsigned-ipa
           path: StreetPi-unsigned.ipa
           if-no-files-found: error
+
+      - name: Upload encrypted provisioned IPA
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: streetpi-provisioned-ipa-encrypted
+          path: StreetPi-provisioned.ipa.enc
+          if-no-files-found: ignore

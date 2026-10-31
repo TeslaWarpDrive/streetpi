@@ -1,6 +1,8 @@
 .build/
 DerivedData/
 *.ipa
+*.ipa.enc
+AwayProvision.plist
 *.xcresult
 xcuserdata/
 *.xcuserstate

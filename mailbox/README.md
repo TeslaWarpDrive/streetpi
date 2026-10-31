@@ -76,13 +76,24 @@ Only run this with Bradley's OK. It needs a Cloudflare login and it changes his 
    curl -s https://pistats-mailbox.<your-subdomain>.workers.dev/healthz
    ```
 
-5. Hand off, then destroy the copies. `write-token` goes to `MAILBOX_WRITE_TOKEN` in the Pi's root `600` `.env`. `read-token` goes into Settings > Away on each phone.
+5. Give the Pi its token. `write-token` goes to `MAILBOX_WRITE_TOKEN` in the Pi's root `600` `.env`.
+
+6. So nobody types anything on a phone, Bradley adds two repo secrets. Save the deployed mailbox address in `$handoff/mailbox-url` using a local editor. The private handoff directory was created with `umask 077`. Both secrets are read from files through stdin, keeping the values out of commands, shell history, and output.
 
    ```sh
-   shred -u "$handoff/write-token" "$handoff/read-token"
+   gh secret set AWAY_MAILBOX_URL --repo TeslaWarpDrive/streetpi < "$handoff/mailbox-url"
+   gh secret set AWAY_READ_TOKEN --repo TeslaWarpDrive/streetpi < "$handoff/read-token"
+   ```
+
+   The next CI run also builds the provisioned IPA. See "Provisioned IPA" in the main README. Without these secrets the build still succeeds, and the phone's Settings > Away takes the address and `read-token` by hand.
+
+7. Keep `read-token` in Bradley's password manager, because it opens the provisioned IPA. Then destroy the copies.
+
+   ```sh
+   shred -u "$handoff/write-token" "$handoff/read-token" "$handoff/mailbox-url"
    rmdir "$handoff"
    ```
 
 On a Mac without `shred`, use `rm -P`.
 
-To replace a token, repeat its line from step 3 and hand the new one over. The old one stops working at once.
+To replace a token, repeat its line from step 3 and hand the new one over. The old one stops working at once. A phone that already has a mailbox keeps it, so after replacing the read token, update `AWAY_READ_TOKEN` and either replace the token in Settings > Away or remove the app and install the new build.

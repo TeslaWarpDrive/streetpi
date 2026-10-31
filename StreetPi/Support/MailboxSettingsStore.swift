@@ -25,6 +25,7 @@ enum MailboxSaveResult: Equatable {
 /// `UserDefaults` is thread-safe and is not marked `Sendable` in this SDK.
 struct MailboxSettingsStore: @unchecked Sendable {
     private static let addressKey = "settings.away.mailbox"
+    private static let seedHandledKey = "settings.away.seedHandled"
 
     private let defaults: UserDefaults
     private let keychain: KeychainSession
@@ -73,6 +74,35 @@ struct MailboxSettingsStore: @unchecked Sendable {
             return .failed
         }
         defaults.removeObject(forKey: Self.addressKey)
+        defaults.set(true, forKey: Self.seedHandledKey)
         return .saved
+    }
+
+    /// Fills an empty phone from the build, once. A failed save tries again next launch.
+    func seedIfNeeded(from seed: MailboxSeed?) {
+        let step = MailboxSeedStep.next(
+            handled: defaults.bool(forKey: Self.seedHandledKey),
+            configured: load() != nil,
+            seed: seed
+        )
+        switch step {
+        case .nothing:
+            return
+        case .markHandled:
+            defaults.set(true, forKey: Self.seedHandledKey)
+        case .seed(let setup):
+            guard save(address: setup.address.text, token: setup.token.secret) == .saved else { return }
+            defaults.set(true, forKey: Self.seedHandledKey)
+        }
+    }
+}
+
+extension MailboxSeed {
+    /// Nil in every local and test build, and in a CI build with no secrets.
+    static func bundled(in bundle: Bundle = .main) -> MailboxSeed? {
+        guard let url = bundle.url(forResource: resourceName, withExtension: "plist"),
+              let data = try? Data(contentsOf: url)
+        else { return nil }
+        return MailboxSeed(plist: data)
     }
 }
