@@ -238,6 +238,7 @@ struct AppShell: View {
             }
             tabPage(tab)
         }
+        .background { theme.background.ignoresSafeArea() }
     }
 
     @ViewBuilder
