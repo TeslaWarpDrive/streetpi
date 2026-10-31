@@ -13,6 +13,10 @@ struct SettingsView: View {
     var statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString
     var statusSlug: String = "house"
     var onStatusPage: (String, String) -> Void = { _, _ in }
+    var mailboxAddress: String = ""
+    var mailboxTokenSaved: Bool = false
+    var onSaveMailbox: (String, String) -> MailboxSaveResult = { _, _ in .failed }
+    var onRemoveMailbox: () -> MailboxSaveResult = { .failed }
 
     @State private var address: String
     @State private var pin: String
@@ -31,7 +35,11 @@ struct SettingsView: View {
         onSaved: @escaping () -> Void = {},
         statusAddress: String = LiveEndpoints.house.uptimeKuma.absoluteString,
         statusSlug: String = "house",
-        onStatusPage: @escaping (String, String) -> Void = { _, _ in }
+        onStatusPage: @escaping (String, String) -> Void = { _, _ in },
+        mailboxAddress: String = "",
+        mailboxTokenSaved: Bool = false,
+        onSaveMailbox: @escaping (String, String) -> MailboxSaveResult = { _, _ in .failed },
+        onRemoveMailbox: @escaping () -> MailboxSaveResult = { .failed }
     ) {
         self.theme = theme
         self.passwordSaved = passwordSaved
@@ -44,6 +52,10 @@ struct SettingsView: View {
         self.statusAddress = statusAddress
         self.statusSlug = statusSlug
         self.onStatusPage = onStatusPage
+        self.mailboxAddress = mailboxAddress
+        self.mailboxTokenSaved = mailboxTokenSaved
+        self.onSaveMailbox = onSaveMailbox
+        self.onRemoveMailbox = onRemoveMailbox
         _address = State(initialValue: LiveHostStore().piholeText())
         _pin = State(initialValue: LiveHostStore().pinText())
         _note = State(initialValue: "")
@@ -99,6 +111,13 @@ struct SettingsView: View {
                 .controlPlate(theme: theme)
             piAddress
             statusPage
+            AwaySettingsSection(
+                theme: theme,
+                savedAddress: mailboxAddress,
+                tokenSaved: mailboxTokenSaved,
+                onSave: onSaveMailbox,
+                onRemove: onRemoveMailbox
+            )
         }
         .onAppear {
             let hosts = LiveHostStore()
@@ -269,7 +288,6 @@ struct SettingsView: View {
                     .font(.body)
                     .foregroundStyle(theme.ink)
                     .fixedSize(horizontal: false, vertical: true)
-                    .reportsLayout("page-end")
                     .frame(minHeight: 44, alignment: .leading)
                     .padding(.horizontal, Rhythm.line)
                     .padding(.vertical, 10)
@@ -277,7 +295,6 @@ struct SettingsView: View {
                     .overlay { Capsule().stroke(theme.hairline, lineWidth: 1) }
             }
             .buttonStyle(.plain)
-            .reportsLayout("page-end")
         }
     }
 

@@ -13,6 +13,8 @@ struct DNSHub: View {
 
     var onAction: (HouseholdAction) -> Void = { _ in }
 
+    @Environment(\.streetPiAway) private var away
+
     /// The shared ad blocker view first, then the rest of the ad blocker pages.
     var body: some View {
         AfterglowScope(paintsGround: false) {
@@ -26,14 +28,18 @@ struct DNSHub: View {
                         line: "Devices the house knows.",
                         theme: theme
                     )
-                    NumberTile(
-                        label: "Lists",
-                        number: desk.listCount.formatted(),
-                        line: "Lists the filter uses.",
-                        theme: theme
-                    )
+                    if away == false {
+                        NumberTile(
+                            label: "Lists",
+                            number: desk.listCount.formatted(),
+                            line: "Lists the filter uses.",
+                            theme: theme
+                        )
+                    }
                 }
-                phoneTile
+                if away == false {
+                    phoneTile
+                }
                 ForEach(DNSShelf.allCases) { shelf in
                     shelfBlock(shelf)
                 }

@@ -9,7 +9,18 @@ struct DNSPageBody: View {
     var now: Date
     var onAction: (HouseholdAction) -> Void
 
+    @Environment(\.streetPiAway) private var away
+
     var body: some View {
+        if away, AwayGate.allows(page) == false {
+            OnlyAtHomePage(title: page.title, line: page.blurb, theme: theme, wide: wide)
+        } else {
+            reading
+        }
+    }
+
+    @ViewBuilder
+    private var reading: some View {
         switch page {
         case .today:
             DNSToday(desk: desk, theme: theme, wide: wide, onAction: onAction)
