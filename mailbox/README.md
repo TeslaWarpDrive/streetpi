@@ -30,7 +30,7 @@ The check adds these rules to the plan:
 
 Each `history` push already carries a full day of points, so the app asks for `GET /v1/history?limit=1` and pays for about 16 KB. Without the limit the answer can reach 4.6 MB.
 
-A full history push sits close to the 16 KB cap. `historySnapshot()` in `test/fixtures.ts` is a realistic full day, and a test proves that it fits.
+A full history push sits close to the 16 KB cap: about 16,020 bytes on a typical day, and about 16,450 on a busy one, which is over and gets `413`. The Pi should send `busy` as a whole number and JSON with no spaces. That brings a busy day to about 15,880 bytes. `historySnapshot()` in `test/fixtures.ts` is a realistic full day, and a test proves that it fits.
 
 ## Test
 
