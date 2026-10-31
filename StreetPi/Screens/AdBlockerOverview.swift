@@ -16,6 +16,7 @@ struct AdBlockerOverview<More: View>: View {
     @Environment(\.afterglowPalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.streetPiStill) private var still
+    @Environment(\.streetPiAway) private var away
     @State private var explainer: NumberExplainer?
 
     private var share: LookupShare {
@@ -39,7 +40,7 @@ struct AdBlockerOverview<More: View>: View {
                     if !desk.blocking.enabled, let endsAt = desk.blocking.pauseEndsAt {
                         PauseCountdown(endsAt: endsAt, now: still ? .streetFixtureNow : Date())
                     }
-                    PausePills(enabled: desk.blocking.enabled, onAction: onAction)
+                    pauseControls
                         .padding(.top, AfterglowShape.tight)
                     hours
                         .padding(.top, AfterglowShape.tight)
@@ -91,9 +92,20 @@ struct AdBlockerOverview<More: View>: View {
     }
 
     @ViewBuilder
+    private var pauseControls: some View {
+        if away {
+            OnlyAtHomeNote(detail: AwayCopy.pauseDetail, theme: theme)
+        } else {
+            PausePills(enabled: desk.blocking.enabled, onAction: onAction)
+        }
+    }
+
+    @ViewBuilder
     private var hours: some View {
         if desk.hasDayLookups {
             HourBars(samples: desk.day, stopped: share.stopped)
+        } else if away {
+            EmptyNote(title: AwayCopy.chartWaitingTitle, detail: AwayCopy.chartWaiting, theme: theme)
         } else {
             EmptyNote(title: DNSCopy.emptyChartTitle, detail: DNSCopy.emptyChartDetail, theme: theme)
         }

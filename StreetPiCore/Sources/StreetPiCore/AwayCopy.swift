@@ -14,6 +14,8 @@ public enum AwayCopy {
     public static let notSure = "The Pi isn't sure if ad blocking is on."
     public static let noBackupWord = "The Pi can't tell from here."
     public static let backupFailed = "The last backup did not finish."
+    public static let quietHeadline = "No word from the Pi."
+    public static let tapToOpen = "Tap a tile to open it."
     public static let waitingFirstReport = "Away · waiting for the Pi's first report"
     public static let notSetUp = "Can't reach the Pi"
     public static let notSetUpDetail = "Set up Away in Settings to see the house from anywhere."

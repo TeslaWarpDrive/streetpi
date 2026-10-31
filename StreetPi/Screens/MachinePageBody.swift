@@ -11,7 +11,18 @@ struct MachinePageBody: View {
     var piNotice: String?
     var onPage: (MachinePage) -> Void
 
+    @Environment(\.streetPiAway) private var away
+
     var body: some View {
+        if away, AwayGate.allows(page) == false {
+            OnlyAtHomePage(title: page.title, line: page.blurb, theme: theme, wide: wide)
+        } else {
+            reading
+        }
+    }
+
+    @ViewBuilder
+    private var reading: some View {
         switch page {
         case .dashboard:
             MachineHome(

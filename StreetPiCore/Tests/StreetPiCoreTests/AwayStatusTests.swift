@@ -69,6 +69,15 @@ final class AwayStatusTests: XCTestCase {
         XCTAssertTrue(badge.spoken.hasSuffix("Can't reach the mailbox right now."))
     }
 
+    func testTheHeadlineStopsGuessingOnceThePiGoesQuiet() {
+        func status(age: TimeInterval) -> AwayStatus {
+            .reading(generatedAt: now.addingTimeInterval(-age), problem: nil, note: nil)
+        }
+        XCTAssertNil(status(age: 179).quietHeadline(now: now))
+        XCTAssertEqual(status(age: 180).quietHeadline(now: now), AwayCopy.quietHeadline)
+        XCTAssertNil(AwayStatus.notSetUp.quietHeadline(now: now))
+    }
+
     func testBadgeBeforeTheFirstReport() {
         let badge = AwayStatus.reading(generatedAt: nil, problem: nil, note: nil).badge(now: now)
         XCTAssertEqual(badge.line, "Away · waiting for the Pi's first report")
