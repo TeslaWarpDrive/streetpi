@@ -3,6 +3,9 @@
 # readable with the token, and nothing left behind in the plain payload.
 set -euo pipefail
 
+# Never let a caller's provisioning credentials enter a fixture test.
+unset AWAY_MAILBOX_URL AWAY_READ_TOKEN
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$(mktemp -d)"
 trap 'rm -rf "${WORK}"' EXIT
@@ -52,4 +55,14 @@ assert fields == {
     "readToken": "fixture-not-a-real-read-token",
 }
 PY
+
+# A failed encryption must also remove the clear resource from the staged app.
+if bash "${ROOT}/scripts/seal-provisioned-ipa.sh" "${WORK}/stage" "${WORK}/missing/sealed.enc" >/dev/null 2>&1; then
+  echo "Sealing unexpectedly succeeded with an invalid output path" >&2
+  exit 1
+fi
+[[ ! -e "${WORK}/stage/Payload/StreetPi.app/AwayProvision.plist" ]] || {
+  echo "Failed sealing left the clear plist behind" >&2
+  exit 1
+}
 echo "Sealing works."

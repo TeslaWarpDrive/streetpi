@@ -19,6 +19,9 @@ if [[ -z "${AWAY_MAILBOX_URL:-}" || -z "${AWAY_READ_TOKEN:-}" ]]; then
   exit 0
 fi
 
+# Remove the clear bundle resource even if plist creation, zip, or encryption fails.
+trap 'rm -f "${APP}/AwayProvision.plist"' EXIT
+
 python3 - "${APP}/AwayProvision.plist" <<'PY'
 import os
 import plistlib
