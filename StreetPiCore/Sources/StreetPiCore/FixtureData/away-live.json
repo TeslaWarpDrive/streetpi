@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "kind": "live",
+  "generatedAt": "2026-10-19T14:59:48Z",
+  "adBlocker": {
+    "blocking": "enabled",
+    "queriesToday": 41234,
+    "blockedToday": 6120,
+    "percentBlocked": 14.8,
+    "domainsOnLists": 182340,
+    "activeDevices": 14
+  },
+  "machine": {
+    "cpuBusyPercent": 7.4,
+    "memoryUsedPercent": 41.2,
+    "memoryUsedMB": 3380,
+    "memoryTotalMB": 8192,
+    "temperatureC": 52.1,
+    "diskUsedPercent": 38,
+    "uptimeSeconds": 1209600
+  },
+  "monitors": {
+    "up": 8,
+    "down": 0,
+    "total": 8,
+    "items": [
+      {
+        "name": "Pi-hole DNS",
+        "status": "up"
+      },
+      {
+        "name": "Unbound",
+        "status": "up"
+      },
+      {
+        "name": "MediaFlow proxy",
+        "status": "up"
+      },
+      {
+        "name": "AIOStreams",
+        "status": "up"
+      },
+      {
+        "name": "Home Assistant",
+        "status": "up"
+      },
+      {
+        "name": "RustDesk relay",
+        "status": "up"
+      },
+      {
+        "name": "DuckDNS points home",
+        "status": "up"
+      },
+      {
+        "name": "Weekly SD backup",
+        "status": "up"
+      }
+    ]
+  },
+  "streamingProxy": {
+    "healthy": true
+  },
+  "backup": {
+    "lastRunAt": "2026-10-16T15:00:00Z",
+    "ok": true
+  },
+  "sources": {
+    "adBlocker": "ok",
+    "machine": "ok",
+    "monitors": "ok"
+  }
+}
