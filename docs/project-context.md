@@ -39,8 +39,8 @@ Mockups show mood. They are not final pixels. Do not copy a "Cool" label under M
 - Accessibility and Reduce Motion. Status is never color alone.
 - iOS 18 minimum. Swift 6. iPhone and iPad.
 - `StreetPiCore` is pure Swift and must pass `swift test` on Linux. The app is a thin SwiftUI layer.
-- Fixtures and mocks only. No network call to a real host.
-- ATS allows local networking only. Never set `NSAllowsArbitraryLoads`.
+- Tests, previews, and snapshots use fixtures and never call a real host. The app talks to the Pi at home and to the Away mailbox over https.
+- ATS allows local networking plus default https. Never set `NSAllowsArbitraryLoads`.
 - Free sideload. CI produces an unsigned `.ipa` on the standard macOS runner.
 - No widgets, Live Activities, Watch app, or TV app in v1.
 - The design suite stays: SwiftUI Pro, Liquid Glass with a material fallback on older iOS, swift-snapshot-testing, and SF Symbols 7. Pow is unused.
