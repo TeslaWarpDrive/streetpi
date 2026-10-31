@@ -69,6 +69,26 @@ jobs:
       - name: Test StreetPiCore
         run: swift test --package-path StreetPiCore
 
+  mailbox:
+    name: Mailbox Worker
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: mailbox
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
   ios:
     name: iOS snapshots and unsigned IPA
     runs-on: macos-26
