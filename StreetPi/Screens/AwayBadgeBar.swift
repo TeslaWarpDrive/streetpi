@@ -26,6 +26,12 @@ private struct AwayBadgeLine: View {
     var onSetUp: () -> Void
 
     @Environment(\.afterglowPalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// A step smaller at accessibility sizes, like the status pill, so the page keeps the screen.
+    private var lineFont: Font {
+        dynamicTypeSize.isAccessibilitySize ? .caption : .footnote
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: AfterglowShape.tight) {
@@ -48,17 +54,17 @@ private struct AwayBadgeLine: View {
     private var summary: some View {
         HStack(alignment: .firstTextBaseline, spacing: AfterglowShape.tight) {
             Image(systemName: badge.symbol)
-                .font(.footnote.weight(.semibold))
+                .font(lineFont.weight(.semibold))
                 .foregroundStyle(palette.tone(badge.tone))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(badge.line)
-                    .font(.footnote.weight(.semibold).monospacedDigit())
+                    .font(lineFont.weight(.semibold).monospacedDigit())
                     .foregroundStyle(palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
                 if let detail = badge.detail {
                     Text(detail)
-                        .font(.footnote)
+                        .font(lineFont)
                         .foregroundStyle(palette.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

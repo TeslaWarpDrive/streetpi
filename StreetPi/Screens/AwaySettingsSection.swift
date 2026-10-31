@@ -65,7 +65,8 @@ struct AwaySettingsSection: View {
         TextField(
             "Mailbox address",
             text: $address,
-            prompt: Text("https://").foregroundStyle(theme.tertiary)
+            prompt: Text("https://").foregroundStyle(theme.tertiary),
+            axis: .vertical
         )
         .textFieldStyle(.plain)
         .font(.body)

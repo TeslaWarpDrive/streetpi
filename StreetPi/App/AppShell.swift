@@ -232,12 +232,12 @@ struct AppShell: View {
     }
 
     private func page(_ tab: HouseTab) -> some View {
-        tabPage(tab)
-            .safeAreaInset(edge: .top, spacing: 0) {
-                if let awayStatus {
-                    AwayBadgeBar(status: awayStatus, now: now) { select(.settings) }
-                }
+        VStack(spacing: 0) {
+            if let awayStatus {
+                AwayBadgeBar(status: awayStatus, now: now) { select(.settings) }
             }
+            tabPage(tab)
+        }
     }
 
     @ViewBuilder
@@ -471,11 +471,17 @@ struct AppShell: View {
 
     private var houseBoard: ControlBoard {
         var board = HouseBoard.make(screen: screen, desk: desk, now: now, piNotice: piNotice)
+        if let statusBoard {
+            board = HouseBoard.applying(status: statusBoard, to: board)
+        }
         if isAway {
             board.blocker.canPause = false
         }
-        guard let statusBoard else { return board }
-        return HouseBoard.applying(status: statusBoard, to: board)
+        if let quiet = awayStatus?.quietHeadline(now: now) {
+            board.headline = quiet
+            board.tone = .attention
+        }
+        return board
     }
 
     /// The drill-down lists the same checks and status words as the Home monitor tile.

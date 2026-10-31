@@ -233,6 +233,8 @@ private enum AwayStatusBuilder {
             return
         }
         tile.summary = "\(monitors.up) of \(monitors.total) up"
+        let named = Set(monitors.items.map(\.name))
+        tile.rows = tile.rows.filter { named.contains($0.name) }
         if monitors.down > 0 {
             tile.tone = .problem
         } else {

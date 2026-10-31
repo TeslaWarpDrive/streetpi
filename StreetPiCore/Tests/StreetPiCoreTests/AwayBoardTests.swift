@@ -92,6 +92,11 @@ final class AwayBoardTests: XCTestCase {
         XCTAssertEqual(try tile(.monitors, in: board).summary, "8 of 8 up")
     }
 
+    func testMonitorRowsAreTheReportedChecks() throws {
+        let board = AwayBoard.make(latest: try live(), history: nil)
+        XCTAssertEqual(try tile(.monitors, in: board).rows.count, 8)
+    }
+
     func testTheProxyDrivesStreaming() throws {
         let latest = try live { $0.streamingProxy = try Self.proxy(healthy: false) }
         let board = AwayBoard.make(latest: latest, history: nil)

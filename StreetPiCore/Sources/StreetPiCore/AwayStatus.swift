@@ -78,6 +78,14 @@ public enum AwayStatus: Sendable, Equatable {
         return false
     }
 
+    /// Replaces the house headline once the Pi goes quiet. An old "the house is up" would be a guess.
+    public func quietHeadline(now: Date) -> String? {
+        guard case .reading(let generatedAt?, _, _) = self,
+              AwayFreshness.make(generatedAt: generatedAt, now: now).level == .silent
+        else { return nil }
+        return AwayCopy.quietHeadline
+    }
+
     public func badge(now: Date) -> AwayBadge {
         switch self {
         case .notSetUp:
