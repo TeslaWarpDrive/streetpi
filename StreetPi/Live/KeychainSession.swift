@@ -38,6 +38,18 @@ struct KeychainSession: Sendable, CustomStringConvertible, CustomDebugStringConv
         try store.delete(for: AppPassword.account)
     }
 
+    func saveMailboxToken(_ token: MailboxToken) throws {
+        try save(token.secret, account: MailboxToken.account)
+    }
+
+    func loadMailboxToken() throws -> MailboxToken? {
+        try text(for: MailboxToken.account).flatMap { MailboxToken(text: $0) }
+    }
+
+    func deleteMailboxToken() throws {
+        try store.delete(for: MailboxToken.account)
+    }
+
     func hasSessionID() throws -> Bool {
         try store.load(for: Self.sessionAccount) != nil
     }
