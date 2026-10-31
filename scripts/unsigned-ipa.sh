@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DERIVED="${ROOT}/build/unsigned"
 OUTPUT="${ROOT}/StreetPi-unsigned.ipa"
 
-rm -rf "${DERIVED}" "${OUTPUT}"
+rm -rf "${DERIVED}" "${OUTPUT}" "${ROOT}/StreetPi-provisioned.ipa.enc"
 xcodebuild \
   -project "${ROOT}/StreetPi.xcodeproj" \
   -scheme StreetPi \
@@ -26,6 +26,7 @@ if [[ -z "${APP}" ]]; then
 fi
 
 STAGE="$(mktemp -d)"
+trap 'rm -rf "${STAGE}"' EXIT
 mkdir -p "${STAGE}/Payload"
 cp -R "${APP}" "${STAGE}/Payload/"
 rm -rf "${STAGE}/Payload/StreetPi.app/_CodeSignature"
@@ -33,5 +34,6 @@ rm -rf "${STAGE}/Payload/StreetPi.app/_CodeSignature"
   cd "${STAGE}"
   zip -qr "${OUTPUT}" Payload
 )
-rm -rf "${STAGE}"
 echo "Wrote ${OUTPUT}"
+
+bash "${ROOT}/scripts/seal-provisioned-ipa.sh" "${STAGE}" "${ROOT}/StreetPi-provisioned.ipa.enc"

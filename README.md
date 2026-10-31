@@ -16,7 +16,22 @@ The app looks for the Pi first, for about 1.5 seconds. If the Pi doesn't answer 
 
 Away is view-only. A badge shows how old the numbers are: "Away · updated 12s ago", a stale look after a minute, and "Pi hasn't reported in 3 min" after three. Pausing, the allow and deny lists, the logs, top domains and devices, and the device list show "Only at home".
 
-Settings > Away holds the mailbox address and the read token. The token is masked, lives only in the Keychain, shows "Saved" with no way to reveal it, and can be removed.
+Settings > Away holds the mailbox address and the read token. The token is masked, lives only in the Keychain, shows "Saved" with no way to reveal it, and can be replaced or removed.
+
+### Provisioned IPA
+
+So nobody has to type anything on a phone, a build can carry the mailbox. After deploying, Bradley adds the repo secrets `AWAY_MAILBOX_URL` and `AWAY_READ_TOKEN` with `gh secret set`, reading from stdin. The commands are in `mailbox/README.md`.
+
+With both secrets, the IPA step of CI also produces the `streetpi-provisioned-ipa-encrypted` artifact. On first launch, if this phone has no mailbox, the app fills the Keychain from the build. A mailbox already saved is kept, and Remove stays removed. A build without the secrets, including every local and test build, has no mailbox and Away stays unconfigured until someone fills in Settings.
+
+This repository is public, and anyone signed in to GitHub can download its Actions artifacts. That is why the normal `streetpi-unsigned-ipa` artifact never holds the mailbox, and the provisioned one is encrypted with the read token. Open it with the read token in the `AWAY_READ_TOKEN` environment variable, and never share the opened file:
+
+```sh
+openssl enc -d -aes-256-cbc -md sha256 -pbkdf2 -iter 200000 -pass env:AWAY_READ_TOKEN \
+  -in StreetPi-provisioned.ipa.enc -out StreetPi-provisioned.ipa
+```
+
+The opened IPA holds the read token in plain form, so treat it like the token.
 
 ### What leaves the house
 
@@ -50,7 +65,7 @@ Closed decisions are in `docs/project-context.md`. The rules are in `AGENTS.md`.
 
 Bundle id defaults to `com.streetfam.streetpi`. Override `STREETPI_BUNDLE_IDENTIFIER` in `Config/Shared.xcconfig`. `STREETPI_APP_GROUP_IDENTIFIER` is reserved and is not an entitlement yet.
 
-Secrets go in the iOS Keychain (`KeychainSecretStore`). Tests use `MemorySecretStore` and the strings `fixture-not-a-real-secret` and `fixture-not-a-real-password`. Those strings are never printed. The mailbox's tokens are Worker secrets, and nothing logs a token or a report.
+Secrets go in the iOS Keychain (`KeychainSecretStore`). Tests use `MemorySecretStore` and the strings `fixture-not-a-real-secret` and `fixture-not-a-real-password`. Those strings are never printed. The mailbox's tokens are Worker secrets, the read token's build copy is a repo secret seen only by the IPA step, and nothing logs a token or a report.
 
 ## CI
 
