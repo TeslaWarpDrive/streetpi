@@ -39,6 +39,13 @@ struct AwayGatewaySection: View {
                 .keyboardType(.URL)
             credentials
             saveButton
+            if replacingKey {
+                Button("Cancel", action: cancelReplace)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(theme.ink)
+                    .frame(minHeight: 44, alignment: .leading)
+                    .accessibilityLabel("Cancel replacing the gateway key")
+            }
             if form.saved, replacingKey == false {
                 Button("Replace key", action: beginReplace)
                     .font(.body.weight(.semibold))
@@ -148,6 +155,13 @@ struct AwayGatewaySection: View {
         secret = ""
         note = ""
         replacingKey = true
+    }
+
+    private func cancelReplace() {
+        clientID = ""
+        secret = ""
+        note = ""
+        replacingKey = false
     }
 
     private func save() {

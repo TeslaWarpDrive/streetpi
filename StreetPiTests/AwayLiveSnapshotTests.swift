@@ -68,26 +68,46 @@ final class AwayLiveSnapshotTests: XCTestCase {
     }
 
     func testAwaySettingsMasked() {
-        let saved = AwayGatewayForm(address: "https://gateway.example.test", saved: true)
-        assertMatrix(testName: "tunnel-settings-away") { size in
-            ScrollView {
-                AwayGatewaySection(theme: .house, form: saved)
-                    .controlPlate(theme: .house)
-                    .padding(Rhythm.page)
-            }
-            .styled(size)
-        }
+        assertSettingsMatrix(testName: "tunnel-settings-away", replacingKey: false)
     }
 
     func testAwaySettingsReplacingKey() {
+        assertSettingsMatrix(testName: "tunnel-settings-away-replace", replacingKey: true)
+    }
+
+    private func assertSettingsMatrix(testName: String, replacingKey: Bool) {
         let saved = AwayGatewayForm(address: "https://gateway.example.test", saved: true)
-        assertMatrix(testName: "tunnel-settings-away-replace") { size in
-            ScrollView {
-                AwayGatewaySection(theme: .house, form: saved, replacingKey: true)
+        for size in SnapshotScale.allCases {
+            for device in SnapshotDevice.allCases {
+                let section = AwayGatewaySection(theme: .house, form: saved, replacingKey: replacingKey)
                     .controlPlate(theme: .house)
                     .padding(Rhythm.page)
+                // At the largest text size, capture the full form at each device's width.
+                // A viewport snapshot hides the credential fields below the introduction.
+                let view = Group {
+                    if size == .largest {
+                        section.frame(width: device.config.size?.width ?? 320)
+                    } else {
+                        ScrollView { section }
+                    }
+                }
+                .styled(size)
+                assertSnapshot(
+                    of: view,
+                    as: .image(
+                        drawHierarchyInKeyWindow: true,
+                        precision: 0.96,
+                        perceptualPrecision: 0.98,
+                        layout: size == .largest ? .sizeThatFits : .device(config: device.config),
+                        traits: UITraitCollection(traitsFrom: [
+                            UITraitCollection(userInterfaceStyle: .dark),
+                            UITraitCollection(preferredContentSizeCategory: size.category),
+                        ])
+                    ).standardRange(),
+                    named: "dark-\(size.rawValue)-\(device.rawValue)",
+                    testName: testName
+                )
             }
-            .styled(size)
         }
     }
 

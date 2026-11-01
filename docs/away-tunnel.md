@@ -10,6 +10,6 @@ Proton VPN can stay on. The phone is calling a normal public website name, not t
 
 The token that opens the gate lives in the phone's keychain. It is not written in this note and it is not in the git repository. If that token leaks, or you think it might have, say so. Do not paste the token into chat, email, or a screenshot.
 
-To rotate that key, make a new Cloudflare service token. Enter it on both phones: in Settings, choose Replace key, type the new client id and secret, and save. The saved secret stays hidden. You can instead sideload a new provisioned IPA. A new seed does not overwrite a key this phone has already saved. After both phones have the new key, revoke the old one in Cloudflare Access.
+To rotate that key, make a new Cloudflare service token. Enter it on both phones: in Settings, choose Replace key, type the new client id and secret, and save. The saved secret stays hidden. Sideloading a newly provisioned IPA does not replace an already-saved key. Use Replace key, or Remove and then enter the new credentials manually. Remove does not re-enable automatic provisioning. An IPA seeds a key only when this phone has no saved key and has never handled provisioning. After both phones have the new key, revoke the old one in Cloudflare Access.
 
 Keep the decrypted IPA private. A sideload file that has been unlocked can hold a copy of a token. Do not send that file to anyone. Do not put it in a shared drive. Leave the encrypted download encrypted until it is on the phone's computer, and delete the opened file when you are done.
