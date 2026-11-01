@@ -4,14 +4,13 @@ import SwiftUI
 /// Finding the road to the house, and the parts that only exist away from home.
 extension RootView {
     func probeMode() async -> ConnectionMode {
-        let prober = ConnectionProber(
-            piAnswers: { await PiProbe().piAnswers() },
-            gatewayAnswers: { await GatewayProbe().answers($0) }
-        )
-        return await prober.mode(
+        let reading = await PiProbe().connection(
             gateway: AwayGatewayStore(store: secretStore).active(),
             mailbox: MailboxSettingsStore(store: secretStore).load()
         )
+        guard !Task.isCancelled else { return mode }
+        probeReading = reading
+        return reading.mode
     }
 
     /// A session id belongs to one road, so a new road drops it and signs in again.
@@ -27,10 +26,12 @@ extension RootView {
 
     /// One look after a failed request. The dwell runs out first, then a new answer restarts the watch.
     func reprobe() async {
+        defer { dwell.reprobeFinished(now: Date()) }
         let left = dwell.secondsLeft(now: Date())
         if left > 0 {
             try? await Task.sleep(for: .seconds(left))
         }
+        guard !Task.isCancelled else { return }
         let probed = await probeMode()
         guard !Task.isCancelled, probed != mode else { return }
         modeTrigger = .requestFailed
@@ -40,7 +41,7 @@ extension RootView {
     func noteRead(worked: Bool) {
         if worked {
             dwell.requestSucceeded()
-        } else if dwell.wantsReprobe() {
+        } else if dwell.wantsReprobe(now: Date()) {
             reprobeAsk += 1
         }
     }

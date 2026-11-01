@@ -19,6 +19,7 @@ struct RootView: View {
     @State private var dnsProblem: PiholeProblem?
     @State private var presentedPin: String?
     @State private var declinedPin: String?
+    @State var probeReading = PiProbe.Reading(mode: .home)
     @State private var signedOut = false
     @State private var retry = 0
     @State private var piHost: String
@@ -104,7 +105,7 @@ struct RootView: View {
             actionNotice: actionNotice,
             passwordSaved: passwordSaved,
             showsSetup: showsSetup,
-            dnsProblem: away == nil ? dnsProblem : nil,
+            dnsProblem: probeReading.problem(declinedPin: declinedPin) ?? (away == nil ? dnsProblem : nil),
             sessionActive: dnsSession.signedIn,
             trustNote: setupTrustNote,
             offersSetup: !passwordSaved,
@@ -440,7 +441,8 @@ private extension RootView {
     }
 
     private func trustPresentedPin() {
-        guard let presentedPin, PiholePin.isSHA256Pin(presentedPin) else { return }
+        guard let presentedPin = probeReading.presentedPin ?? presentedPin,
+              PiholePin.isSHA256Pin(presentedPin) else { return }
         let hosts = LiveHostStore()
         do {
             try hosts.savePin(presentedPin)
@@ -451,12 +453,14 @@ private extension RootView {
         liveClient.apply(hosts)
         declinedPin = nil
         self.presentedPin = nil
+        probeReading.presentedPin = nil
         signedOut = false
+        modeTrigger = .settingsChanged
         retry += 1
     }
 
     private func keepSavedPin() {
-        declinedPin = presentedPin ?? declinedPin
+        declinedPin = probeReading.presentedPin ?? presentedPin ?? declinedPin
         apply(AdBlockerHome.failed(.pinKept, now: Date()))
     }
 
