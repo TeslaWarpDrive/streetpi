@@ -42,15 +42,16 @@ For every screen: dark, Dynamic Type `.large`, Dynamic Type `.accessibility5`, s
 - Copy is original plain English. Alerts never name a person. No text, icons, or screenshots from Open Pi or Pi-hole Remote.
 - Reduce Motion, VoiceOver labels, and Dynamic Type were considered.
 - No analytics, ads, crash reporting, or tracking SDK.
-- No secret in the repo, in logs, or in a fixture that pretends to be real.
+- No secret in the repo, in logs, in `gateway/`, or in a fixture that pretends to be real. Never commit or print a private key, a certificate key, or a token.
 
 ## Product constraints
 
 - One app for everyone in the house. No per-person screens, modes, or areas. Face ID protects a destructive action, not a person.
 - iOS 18 minimum. Swift 6. iPhone and iPad. Tabs are House, Ad blocker, Pi, and Settings. Sidebar on iPad.
 - `StreetPiCore` is pure Swift and must pass `swift test` on Linux. The app is a thin SwiftUI layer.
-- Fixtures and mocks only until a later phase. No network call to a real host. No Tailscale. No changes to the Pi, router, DNS, or port forwards.
-- Secrets live in the iOS Keychain. ATS allows local networking only. Never set `NSAllowsArbitraryLoads`.
+- Tests, previews, and snapshots use fixtures and never call a real host. Away from home, the app calls `https://pistats.thestreetfam.com`. That hostname is the Pi's existing Cloudflare Tunnel `pi-grok-stats`, locked by Cloudflare Access. cloudflared "Protect with Access" checks the Access JWT and forwards to `http://127.0.0.1:8447` (`gateway/`). The origin is that IPv4 address. The gateway binds IPv4 only. The site address is `http://:8447`, so the public Host matches. Pi Keeper reviews and deploys the gateway. Do not deploy it from here, and do not change the Pi, the router, DNS, or port forwards. No Tailscale.
+- No secret in the repo, in logs, in `gateway/`, or in a fixture. Tests use obvious fakes. Never commit or print a private key, a certificate key, or a token.
+- Secrets live in the iOS Keychain. ATS allows local networking for the house Pi and ordinary HTTPS for the away hostname. Never set `NSAllowsArbitraryLoads`.
 - Free sideload. CI produces an unsigned `.ipa` on a standard macOS runner. No paid runner size. No Apple Developer Program. No paid SDK.
 - No widgets, Live Activities, Watch app, or TV app in v1.
 - No new dependency without asking. No Chinese-owned SDK or vendor. No unlicensed or GPL-3.0 code copied into the app.

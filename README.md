@@ -10,11 +10,23 @@ Pi health is look-only. It shows the processor, temperature, memory, disk, and u
 
 ## Away mode
 
-The Pi pushes a read-only report to a free Cloudflare Worker, the mailbox: live numbers every 10 seconds and a day of history every 5 minutes. Nothing on the Pi listens to the internet, and no router port changes. See `mailbox/README.md`.
+At home the app talks to the Pi at `192.168.1.78`. Away from home it calls `https://pistats.thestreetfam.com`.
+
+That name is published by the Pi's existing Cloudflare Tunnel, `pi-grok-stats`. Cloudflare Access checks a service token. `cloudflared` protects the hostname with Access, checks the Access JWT, and connects to `http://127.0.0.1:8447`. The public name is the Host, and the gate accepts it. The origin uses `127.0.0.1` because the gate binds IPv4 only. The gate allows only the paths in `gateway/allowlist.json`. Pi Keeper reviews and deploys the gate. The steps, checks, and undo are in `gateway/README.md`. Plain words for the house are in `docs/away-tunnel.md`.
+
+Brandy does not set this up. Proton VPN can stay on. The phone is calling a public name, not the house address, so the VPN does not have to be off.
+
+The Access token stays in the iOS Keychain. It is not in this repository. If it leaks, rotate it in Cloudflare Access and update the phone. The old token stops working. Do not paste it into chat.
+
+Keep the decrypted IPA private.
+
+The gate does not rate limit. One free Cloudflare rule does, described in `gateway/README.md`. Nothing in this repo changes the Pi, the router, DNS, or the tunnel. The gate allows the app's write paths. This build still shows pause, block, and allow as only at home until the phone calls the tunnel.
+
+The Pi can still push a read-only report to a free Cloudflare Worker, the mailbox: live numbers every 10 seconds and a day of history every 5 minutes. Nothing on the Pi listens for that report, and no router port changes. See `mailbox/README.md`. The tunnel forwards the allowed API calls, including lookup logs and client lists, to the phone. The mailbox does not.
 
 The app looks for the Pi first, for about 1.5 seconds. If the Pi doesn't answer it reads the mailbox instead. It looks again when the app comes to the front, when the network changes, and on pull-to-refresh. It never reads the Wi-Fi name and does nothing in the background.
 
-Away is view-only. A badge shows how old the numbers are: "Away · updated 12s ago", a stale look after a minute, and "Pi hasn't reported in 3 min" after three. Pausing, the allow and deny lists, the logs, top domains and devices, and the device list show "Only at home".
+Away through the mailbox is view-only. A badge shows how old the numbers are: "Away · updated 12s ago", a stale look after a minute, and "Pi hasn't reported in 3 min" after three. Pausing, the allow and deny lists, the logs, top domains and devices, and the device list show "Only at home".
 
 Settings > Away holds the mailbox address and the read token. The token is masked, lives only in the Keychain, shows "Saved" with no way to reveal it, and can be replaced or removed.
 
@@ -24,7 +36,7 @@ So nobody has to type anything on a phone, a build can carry the mailbox. After 
 
 With both secrets, the IPA step of CI also produces the `streetpi-provisioned-ipa-encrypted` artifact. On first launch, if this phone has no mailbox, the app fills the Keychain from the build. A mailbox already saved is kept, and Remove stays removed. A build without the secrets, including every local and test build, has no mailbox and Away stays unconfigured until someone fills in Settings.
 
-This repository is public, and anyone signed in to GitHub can download its Actions artifacts. That is why the normal `streetpi-unsigned-ipa` artifact never holds the mailbox, and the provisioned one is encrypted with the read token. Open it with the read token in the `AWAY_READ_TOKEN` environment variable, and never share the opened file:
+This repository is public, and anyone signed in to GitHub can download its Actions artifacts. That is why the normal `streetpi-unsigned-ipa` artifact never holds the mailbox, and the provisioned one is encrypted with the read token. Open it with the read token in the `AWAY_READ_TOKEN` environment variable. Keep the decrypted IPA private, and never share the opened file:
 
 ```sh
 openssl enc -d -aes-256-cbc -md sha256 -pbkdf2 -iter 200000 -pass env:AWAY_READ_TOKEN \
@@ -35,6 +47,8 @@ The opened IPA holds the read token in plain form, so treat it like the token.
 
 ### What leaves the house
 
+This list is the mailbox only. The tunnel is a different path, and it forwards the allowed API calls.
+
 Only these numbers and words go to the mailbox:
 
 - Ad blocker: on, off, or unknown, today's lookups and blocked count, the blocked percent, how many domains are on the lists, a count of active devices, and lookup totals for the last day.
@@ -42,7 +56,7 @@ Only these numbers and words go to the mailbox:
 - Checks: how many are up, plus the name and state of the service checks on the Pi's allowlist.
 - Whether the streaming proxy is healthy, when the weekly backup last ran and whether it worked, and whether each reading was fresh.
 
-These never leave: device or client names, IP and MAC addresses, the domains anyone looked up, top domains, hostnames, Wi-Fi names, people's names, ports, tokens, and passwords. The mailbox rejects a report with any field it doesn't know, so a bug on the Pi can't add one.
+These never go to the mailbox: device or client names, IP and MAC addresses, the domains anyone looked up, top domains, hostnames, Wi-Fi names, people's names, ports, tokens, and passwords. The mailbox rejects a report with any field it doesn't know, so a bug on the Pi can't add one.
 
 Cloudflare can see the report in transit, and stores the newest report and a day of history. The app has no analytics.
 
