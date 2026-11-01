@@ -20,28 +20,36 @@ final class ConnectionModeTests: XCTestCase {
         )
     }
 
+    private struct Row {
+        var pi: Bool
+        var saved: AwayGatewaySettings?
+        var answered: Bool
+        var box: MailboxSetup?
+        var expected: ConnectionMode
+    }
+
     func testDecisionTable() throws {
         let gateway = try gateway()
         let mailbox = try mailbox()
-        let rows: [(Bool, AwayGatewaySettings?, Bool, MailboxSetup?, ConnectionMode)] = [
-            (true, gateway, true, mailbox, .home),
-            (true, nil, false, nil, .home),
-            (false, gateway, true, mailbox, .awayLive(gateway)),
-            (false, gateway, true, nil, .awayLive(gateway)),
-            (false, gateway, false, mailbox, .awayMailbox(mailbox)),
-            (false, nil, false, mailbox, .awayMailbox(mailbox)),
-            (false, nil, true, mailbox, .awayMailbox(mailbox)),
-            (false, gateway, false, nil, .offline),
-            (false, nil, false, nil, .offline),
+        let rows: [Row] = [
+            Row(pi: true, saved: gateway, answered: true, box: mailbox, expected: .home),
+            Row(pi: true, saved: nil, answered: false, box: nil, expected: .home),
+            Row(pi: false, saved: gateway, answered: true, box: mailbox, expected: .awayLive(gateway)),
+            Row(pi: false, saved: gateway, answered: true, box: nil, expected: .awayLive(gateway)),
+            Row(pi: false, saved: gateway, answered: false, box: mailbox, expected: .awayMailbox(mailbox)),
+            Row(pi: false, saved: nil, answered: false, box: mailbox, expected: .awayMailbox(mailbox)),
+            Row(pi: false, saved: nil, answered: true, box: mailbox, expected: .awayMailbox(mailbox)),
+            Row(pi: false, saved: gateway, answered: false, box: nil, expected: .offline),
+            Row(pi: false, saved: nil, answered: false, box: nil, expected: .offline),
         ]
-        for (pi, saved, answered, box, expected) in rows {
+        for row in rows {
             let mode = ConnectionMode.choose(
-                piAnswered: pi,
-                gateway: saved,
-                gatewayAnswered: answered,
-                mailbox: box
+                piAnswered: row.pi,
+                gateway: row.saved,
+                gatewayAnswered: row.answered,
+                mailbox: row.box
             )
-            XCTAssertEqual(mode, expected)
+            XCTAssertEqual(mode, row.expected)
         }
     }
 

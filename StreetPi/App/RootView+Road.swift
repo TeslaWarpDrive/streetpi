@@ -159,4 +159,14 @@ extension RootView {
             awayGravity = nil
         }
     }
+
+    /// Reuses the open reader client, so the next action sends the same session id.
+    func preparedClient() async -> PiholeClient? {
+        if let client = dnsSession.client {
+            return client
+        }
+        guard LiveReaderGate.opensSockets else { return nil }
+        guard AdBlockerSecrets.password(in: secretStore).isEmpty == false else { return nil }
+        return await clientForCurrentSettings()
+    }
 }

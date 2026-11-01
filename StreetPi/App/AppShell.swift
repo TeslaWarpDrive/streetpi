@@ -503,39 +503,6 @@ struct AppShell: View {
         return next
     }
 
-    private var settings: some View {
-        NavigationStack {
-            settingsBody
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(theme.background.ignoresSafeArea())
-                .toolbar(.hidden, for: .navigationBar)
-        }
-    }
-
-    private var settingsBody: some View {
-        SettingsView(
-            theme: theme,
-            passwordSaved: passwordSaved,
-            onPasswordSetup: {
-                onSection(.group(.adBlockerAndDNS))
-                onSavePassword()
-            },
-            onSignOut: { onPending(.signOutOfAdBlocker) },
-            piHost: piHost,
-            hostNote: hostNote,
-            onCommitHost: onCommitHost,
-            onSaved: onSettingsSaved,
-            statusAddress: statusAddress,
-            statusSlug: statusSlug,
-            onStatusPage: onStatusPage,
-            mailboxAddress: mailboxAddress,
-            mailboxTokenSaved: mailboxTokenSaved,
-            onSaveMailbox: onSaveMailbox,
-            onRemoveMailbox: onRemoveMailbox,
-            gatewayForm: gatewayForm
-        )
-    }
-
     private var alerts: some View {
         AlertsSheet(alerts: machine.alerts, note: machine.alertNote, theme: theme, wide: false) {
             showAlerts = false
@@ -559,5 +526,40 @@ private struct NestedBack: View {
         }
         .padding(.horizontal, Rhythm.page)
         .padding(.top, Rhythm.tight)
+    }
+}
+
+private extension AppShell {
+    var settings: some View {
+        NavigationStack {
+            settingsBody
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(theme.background.ignoresSafeArea())
+                .toolbar(.hidden, for: .navigationBar)
+        }
+    }
+
+    var settingsBody: some View {
+        SettingsView(
+            theme: theme,
+            passwordSaved: passwordSaved,
+            onPasswordSetup: {
+                onSection(.group(.adBlockerAndDNS))
+                onSavePassword()
+            },
+            onSignOut: { onPending(.signOutOfAdBlocker) },
+            piHost: piHost,
+            hostNote: hostNote,
+            onCommitHost: onCommitHost,
+            onSaved: onSettingsSaved,
+            statusAddress: statusAddress,
+            statusSlug: statusSlug,
+            onStatusPage: onStatusPage,
+            mailboxAddress: mailboxAddress,
+            mailboxTokenSaved: mailboxTokenSaved,
+            onSaveMailbox: onSaveMailbox,
+            onRemoveMailbox: onRemoveMailbox,
+            gatewayForm: gatewayForm
+        )
     }
 }
