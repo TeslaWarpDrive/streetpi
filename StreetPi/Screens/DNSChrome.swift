@@ -2,7 +2,7 @@ import SwiftUI
 import StreetPiCore
 
 extension EnvironmentValues {
-    @Entry var dnsActionNotice: ActionNotice?
+    @Entry var dnsActionNotice: ActionNotice? = nil
 }
 
 struct DeskScroll<Content: View>: View {
