@@ -174,6 +174,66 @@ final class PiholeClientTests: XCTestCase {
         }
     }
 
+    func testReachabilityMapsAccessForbiddenAwayFromNotSetUp() async {
+        let bodies = [
+            "<html><title>Cloudflare Access</title><p>fixture</p></html>",
+            "Forbidden",
+        ]
+        for body in bodies {
+            let transport = ScriptedPiholeTransport(steps: [
+                ScriptedPiholeTransport.Step(status: 403, body: Data(body.utf8)),
+            ])
+            let client = PiholeClient(
+                transport: transport,
+                password: { Self.fixturePassword },
+                now: { .streetFixtureNow }
+            )
+            do {
+                _ = try await client.reachability()
+                XCTFail("Expected a rejected away key")
+            } catch let rejected as AwayKeyProblem {
+                XCTAssertEqual(rejected, .rejected)
+                XCTAssertEqual(rejected.message, "Away key was rejected – replace it in Settings")
+                XCTAssertEqual(rejected.errorDescription, rejected.message)
+                XCTAssertFalse(rejected.message.localizedCaseInsensitiveContains("not set up"))
+                XCTAssertFalse(rejected.message.contains("403"))
+                XCTAssertFalse(rejected.message.localizedCaseInsensitiveContains("token"))
+                XCTAssertFalse(rejected.message.localizedCaseInsensitiveContains("secret"))
+            } catch let problem as PiholeProblem {
+                XCTFail("Read as \(problem)")
+            } catch {
+                XCTFail("Unexpected error")
+            }
+            let described = transport.sent.map { String(describing: $0) }.joined(separator: " ")
+            XCTAssertFalse(described.contains(Self.fixturePassword))
+            XCTAssertEqual(transport.sent.map(\.path), ["/api/info/login"])
+            XCTAssertTrue(transport.sent.allSatisfy { $0.headers.isEmpty })
+        }
+    }
+
+    func testReachabilityLeavesOtherStatusesAsNotSetUp() async {
+        let cases = [
+            (401, "{}"),
+            (404, #"{"error":"missing"}"#),
+            (409, #"{"error":"conflict"}"#),
+        ]
+        for (status, body) in cases {
+            let transport = ScriptedPiholeTransport(steps: [
+                ScriptedPiholeTransport.Step(status: status, body: Data(body.utf8)),
+            ])
+            let client = PiholeClient(transport: transport, password: { "" }, now: { .streetFixtureNow })
+            do {
+                _ = try await client.reachability()
+                XCTFail("Expected not set up for \(status)")
+            } catch let problem as PiholeProblem {
+                XCTAssertEqual(problem, .notSetUp)
+                XCTAssertNotEqual(problem, .busy)
+            } catch {
+                XCTFail("Unexpected error for \(status)")
+            }
+        }
+    }
+
     func testCertificateNotAfterIsReadFromTheBytes() {
         let validity = der(0x30, der(0x17, ascii("250101000000Z")) + der(0x18, ascii("20551231235959Z")))
         let version = der(0xA0, der(0x02, [0x02]))
