@@ -97,12 +97,13 @@ struct MailboxSettingsStore: @unchecked Sendable {
     }
 }
 
-extension MailboxSeed {
+extension ProvisionSeed {
     /// Nil in every local and test build, and in a CI build with no secrets.
-    static func bundled(in bundle: Bundle = .main) -> MailboxSeed? {
-        guard let url = bundle.url(forResource: resourceName, withExtension: "plist"),
+    static func bundled(in bundle: Bundle = .main) -> ProvisionSeed? {
+        guard let url = bundle.url(forResource: resourceName, withExtension: "json")
+            ?? bundle.url(forResource: resourceName, withExtension: "plist"),
               let data = try? Data(contentsOf: url)
         else { return nil }
-        return MailboxSeed(plist: data)
+        return try? ProvisionSeed.decode(data)
     }
 }

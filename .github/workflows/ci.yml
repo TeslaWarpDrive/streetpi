@@ -149,6 +149,10 @@ jobs:
         env:
           AWAY_MAILBOX_URL: ${{ secrets.AWAY_MAILBOX_URL }}
           AWAY_READ_TOKEN: ${{ secrets.AWAY_READ_TOKEN }}
+          AWAY_GATEWAY_URL: ${{ secrets.AWAY_GATEWAY_URL }}
+          AWAY_ACCESS_CLIENT_ID: ${{ secrets.AWAY_ACCESS_CLIENT_ID }}
+          AWAY_ACCESS_CLIENT_SECRET: ${{ secrets.AWAY_ACCESS_CLIENT_SECRET }}
+          AWAY_IPA_PASSPHRASE: ${{ secrets.AWAY_IPA_PASSPHRASE }}
         run: bash scripts/unsigned-ipa.sh
 
       - name: Upload unsigned IPA

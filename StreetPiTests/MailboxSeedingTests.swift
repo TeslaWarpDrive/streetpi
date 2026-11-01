@@ -42,7 +42,7 @@ final class MailboxSeedingTests: XCTestCase {
     func testAnEmptyPhoneIsFilledFromTheBuild() throws {
         let store = settings(MemorySecretStore())
         store.seedIfNeeded(from: try seed())
-        XCTAssertEqual(store.load(), try seed().setup)
+        XCTAssertEqual(store.load(), try seed().mailbox)
         XCTAssertTrue(store.tokenSaved())
     }
 
@@ -100,10 +100,41 @@ final class MailboxSeedingTests: XCTestCase {
         defaults.removePersistentDomain(forName: suite)
         let store = settings(secrets)
         store.seedIfNeeded(from: try seed())
-        XCTAssertEqual(store.load(), try seed().setup)
+        XCTAssertEqual(store.load(), try seed().mailbox)
     }
 
     func testTheAppBundleCarriesNoSeed() {
         XCTAssertNil(MailboxSeed.bundled())
     }
+
+    func testVersionTwoMailboxSeedsWithoutConsumingGatewayOnlyBuild() throws {
+        let store = settings(MemorySecretStore())
+        let gateway = #"""
+        "gateway":{"url":"https://gateway.example.test","clientId":"test-client.access",
+        "clientSecret":"cfast_FAKE"}
+        """#
+        store.seedIfNeeded(from: try ProvisionSeed.decode(Data((#"{"version":2,"# + gateway + "}").utf8)))
+        XCTAssertNil(store.load())
+        let json = """
+        {"version":2,"mailbox":{"url":"https://mailbox.example.test","readToken":"test-read-FAKE"}}
+        """
+        store.seedIfNeeded(from: try ProvisionSeed.decode(Data(json.utf8)))
+        XCTAssertEqual(store.load()?.token.secret, "test-read-FAKE")
+    }
+
+    func testBundleReaderPassesThroughBothSeedGroups() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".bundle")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let json = """
+        {"version":2,"mailbox":{"url":"https://mailbox.example.test","readToken":"test-read-FAKE"},
+        "gateway":{"url":"https://gateway.example.test","clientId":"test-client.access","clientSecret":"cfast_FAKE"}}
+        """
+        try Data(json.utf8).write(to: folder.appendingPathComponent("AwayProvision.json"))
+        let bundle = try XCTUnwrap(Bundle(url: folder))
+        let seed = try XCTUnwrap(ProvisionSeed.bundled(in: bundle))
+        XCTAssertEqual(seed.mailbox?.token.secret, "test-read-FAKE")
+        XCTAssertEqual(seed.gateway?.clientSecret, "cfast_FAKE")
+    }
+
 }

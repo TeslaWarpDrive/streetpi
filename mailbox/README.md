@@ -97,3 +97,33 @@ Only run this with Bradley's OK. It needs a Cloudflare login and it changes his 
 On a Mac without `shred`, use `rm -P`.
 
 To replace a token, repeat its line from step 3 and hand the new one over. The old one stops working at once. A phone that already has a mailbox keeps it, so after replacing the read token, update `AWAY_READ_TOKEN` and either replace the token in Settings > Away or remove the app and install the new build.
+
+## Decrypt and sideload the provisioned IPA
+
+For a separate `AWAY_IPA_PASSPHRASE`, generate a random value and keep it in your password manager. CI requires at least 32 characters with no internal whitespace. Generate it into a private file, without printing it:
+
+```sh
+set +x
+umask 077
+openssl rand -base64 32 > /path/to/private/passphrase-file
+```
+
+Use that same file when configuring the GitHub secret and decrypting the artifact. Do not replace an existing passphrase when decrypting an older build.
+
+Download `streetpi-provisioned-ipa-encrypted` from CI. Set `AWAY_IPA_PASSPHRASE` locally using a private file or password manager. Use the CI value of that secret, or `AWAY_READ_TOKEN` if no separate passphrase was set.
+
+```sh
+set +x
+umask 077
+# Read the passphrase from a private file, without putting its value in shell history.
+export AWAY_IPA_PASSPHRASE="$(cat /path/to/private/passphrase-file)"
+openssl enc -d -aes-256-cbc -md sha256 -pbkdf2 -iter 200000 -pass env:AWAY_IPA_PASSPHRASE \
+  -in StreetPi-provisioned.ipa.enc -out StreetPi-provisioned.ipa
+unset AWAY_IPA_PASSPHRASE
+```
+
+Sideload `StreetPi-provisioned.ipa` with your usual signing tool. The decrypted IPA contains the Access token; keep it private. It can also contain the mailbox read token. Delete the decrypted copy after installing it.
+
+CI accepts the mailbox pair, the gateway trio, or both. A gateway-only build needs `AWAY_IPA_PASSPHRASE`. Partial secret sets fail with the missing secret names. Leading and trailing whitespace is trimmed from credentials and passphrases; internal whitespace is rejected. Gateway URLs must be HTTPS origins, with no path other than `/`, user information, query, or fragment. Invalid provisioning fails CI before an artifact can reach a phone. The ordinary unsigned IPA contains no seed.
+
+When `AWAY_READ_TOKEN` supplies the encryption passphrase, anyone holding that mailbox token can also decrypt the Access token. Keep the read token private too.
