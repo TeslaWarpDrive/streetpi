@@ -27,18 +27,32 @@ final class RootCertificateRecoveryTests: XCTestCase {
         for mode in try fallbackRoads() {
             let root = RootView(now: .streetFixtureNow, mode: mode)
             root.certificateRecovery.reading = PiProbe.Reading(mode: mode, presentedPin: fakePin)
+            root.certificateRecovery.dnsProblem = .pinKept
             let desk = root.desk
             XCTAssertEqual(root.displayedDNSProblem, .certificateChanged)
 
             root.keepSavedPin()
 
             XCTAssertNil(root.displayedDNSProblem)
+            XCTAssertNil(root.certificateRecovery.dnsProblem)
             XCTAssertEqual(root.mode, mode)
             XCTAssertEqual(root.desk, desk)
             // A later probe sees the same certificate. It must not cover the desk again.
             root.certificateRecovery.reading = PiProbe.Reading(mode: mode, presentedPin: fakePin)
             XCTAssertNil(root.displayedDNSProblem)
         }
+    }
+
+    func testDeclinePreservesAnUnrelatedGatewayProblem() throws {
+        let mode = ConnectionMode.awayLive(try gateway())
+        let root = RootView(now: .streetFixtureNow, mode: mode)
+        root.certificateRecovery.reading = PiProbe.Reading(mode: mode, presentedPin: fakePin)
+        root.certificateRecovery.dnsProblem = .offline
+
+        root.keepSavedPin()
+
+        XCTAssertEqual(root.displayedDNSProblem, .offline)
+        XCTAssertEqual(root.certificateRecovery.dnsProblem, .offline)
     }
 
     func testKeepingThePinAtHomeStillShowsPinKept() {

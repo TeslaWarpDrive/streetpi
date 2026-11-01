@@ -6,6 +6,7 @@ import SwiftUI
 final class CertificateRecovery {
     var reading = PiProbe.Reading(mode: .home)
     var declinedPin: String?
+    var dnsProblem: PiholeProblem?
     var trigger = ConnectionTrigger.launch
     var retry = 0
     var generation = 0
