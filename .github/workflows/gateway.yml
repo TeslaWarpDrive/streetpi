@@ -1,0 +1,34 @@
+name: Gateway
+
+# Standard GitHub-hosted runner. Do not switch this to a larger runner.
+# Runs only when the gateway, or this workflow, changes.
+on:
+  pull_request:
+    paths:
+      - "gateway/**"
+      - ".github/workflows/gateway.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "gateway/**"
+      - ".github/workflows/gateway.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: streetpi-gateway-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: gateway/test.sh
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run gateway tests
+        run: bash gateway/test.sh
