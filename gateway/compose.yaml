@@ -1,0 +1,40 @@
+# Pi Stats away gateway. Pi Keeper deploys this on the Pi. Do not run it from CI.
+# The image line is not deployable until <PIN-ME> is a real digest.
+#   docker pull caddy:2
+#   docker image inspect caddy:2 --format '{{index .RepoDigests 0}}'
+# Paste the hex digest in place of <PIN-ME>. Do not deploy the floating tag.
+services:
+  pistats-gateway:
+    image: caddy:2@sha256:<PIN-ME>
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+    network_mode: host
+    read_only: true
+    tmpfs:
+      - /data
+      - /config
+      - /tmp
+    cap_drop:
+      - ALL
+    # Stock caddy:2 sets cap_net_bind_service on /usr/bin/caddy. Linux
+    # refuses to exec that file when the capability is not in the bounding
+    # set (the error is "operation not permitted"). Port 8447 does not use
+    # it. It is added back only so the binary can start.
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 64
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "3"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Pi Keeper chooses the host path. Mount the Pi-hole CA certificate only,
+      # never a private key. The container path matches tls_trust_pool in the Caddyfile.
+      # Example host path, not a default on the Pi: /home/pi/streetpi/pihole-ca.pem
+      - /PATH/CHOSEN/BY/PI-KEEPER/pihole-ca.pem:/etc/caddy/pihole-ca.pem:ro

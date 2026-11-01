@@ -1,0 +1,349 @@
+# StreetPi away gateway for stock caddy:2. No plugins.
+# Listens on the Pi at http://127.0.0.1:8447 only.
+# Anything that is not a named allowlist matcher returns 404.
+# A missing Cf-Access-Jwt-Assertion header returns 403.
+# Rate limiting is a Cloudflare edge rule. Do not add it here.
+{
+	admin off
+	auto_https off
+}
+
+(pihole) {
+	reverse_proxy https://127.0.0.1:443 {
+		header_up -CF-Access-Client-Id
+		header_up -CF-Access-Client-Secret
+		header_up -Cf-Access-Jwt-Assertion
+		header_up -Cookie
+		transport http {
+			tls_server_name pi.hole
+			tls_trust_pool file /etc/caddy/pihole-ca.pem
+			response_header_timeout 30s
+		}
+	}
+}
+
+(pihole_stream) {
+	reverse_proxy https://127.0.0.1:443 {
+		header_up -CF-Access-Client-Id
+		header_up -CF-Access-Client-Secret
+		header_up -Cf-Access-Jwt-Assertion
+		header_up -Cookie
+		flush_interval -1
+		transport http {
+			tls_server_name pi.hole
+			tls_trust_pool file /etc/caddy/pihole-ca.pem
+			response_header_timeout 30s
+		}
+	}
+}
+
+(pihole_gravity) {
+	reverse_proxy https://127.0.0.1:443 {
+		header_up -CF-Access-Client-Id
+		header_up -CF-Access-Client-Secret
+		header_up -Cf-Access-Jwt-Assertion
+		header_up -Cookie
+		transport http {
+			tls_server_name pi.hole
+			tls_trust_pool file /etc/caddy/pihole-ca.pem
+			response_header_timeout 310s
+		}
+	}
+}
+
+(netdata) {
+	route {
+		uri strip_prefix /netdata
+		reverse_proxy 127.0.0.1:19999 {
+			header_up -CF-Access-Client-Id
+			header_up -CF-Access-Client-Secret
+			header_up -Cf-Access-Jwt-Assertion
+			header_up -Cookie
+			transport http {
+				response_header_timeout 30s
+			}
+		}
+	}
+}
+
+(kuma) {
+	route {
+		uri strip_prefix /kuma
+		reverse_proxy 127.0.0.1:3001 {
+			header_up -CF-Access-Client-Id
+			header_up -CF-Access-Client-Secret
+			header_up -Cf-Access-Jwt-Assertion
+			header_up -Cookie
+			transport http {
+				response_header_timeout 30s
+			}
+		}
+	}
+}
+
+http://127.0.0.1:8447 {
+	bind 127.0.0.1
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				# Keep the path and drop the query string. A backslash
+				# before "?" does not survive adapt, so the class is the mark.
+				request>uri regexp "[?].*$" ""
+				request>headers delete
+				resp_headers delete
+			}
+		}
+	}
+
+	request_body {
+		max_size 4KB
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		Cache-Control no-store
+		defer
+	}
+
+	@nojwt not header Cf-Access-Jwt-Assertion *
+	handle @nojwt {
+		respond "Forbidden" 403
+	}
+
+	@allow_get_api_info_login {
+		method GET
+		path /api/info/login
+	}
+	handle @allow_get_api_info_login {
+		import pihole
+	}
+	@allow_get_api_stats_summary {
+		method GET
+		path /api/stats/summary
+	}
+	handle @allow_get_api_stats_summary {
+		import pihole
+	}
+	@allow_get_api_history {
+		method GET
+		path /api/history
+	}
+	handle @allow_get_api_history {
+		import pihole
+	}
+	@allow_get_api_dns_blocking {
+		method GET
+		path /api/dns/blocking
+	}
+	handle @allow_get_api_dns_blocking {
+		import pihole
+	}
+	@allow_get_api_stats_top_domains {
+		method GET
+		path /api/stats/top_domains
+	}
+	handle @allow_get_api_stats_top_domains {
+		import pihole
+	}
+	@allow_get_api_stats_top_clients {
+		method GET
+		path /api/stats/top_clients
+	}
+	handle @allow_get_api_stats_top_clients {
+		import pihole
+	}
+	@allow_get_api_queries {
+		method GET
+		path /api/queries
+	}
+	handle @allow_get_api_queries {
+		import pihole_stream
+	}
+	@allow_get_api_logs_dnsmasq {
+		method GET
+		path /api/logs/dnsmasq
+	}
+	handle @allow_get_api_logs_dnsmasq {
+		import pihole_stream
+	}
+	@allow_get_api_clients {
+		method GET
+		path /api/clients
+	}
+	handle @allow_get_api_clients {
+		import pihole
+	}
+	@allow_get_api_groups {
+		method GET
+		path /api/groups
+	}
+	handle @allow_get_api_groups {
+		import pihole
+	}
+	@allow_get_api_lists {
+		method GET
+		path /api/lists
+	}
+	handle @allow_get_api_lists {
+		import pihole
+	}
+	@allow_get_api_domains_deny {
+		method GET
+		path /api/domains/deny
+	}
+	handle @allow_get_api_domains_deny {
+		import pihole
+	}
+	@allow_get_api_domains_allow {
+		method GET
+		path /api/domains/allow
+	}
+	handle @allow_get_api_domains_allow {
+		import pihole
+	}
+	@allow_get_api_domains_deny_exact {
+		method GET
+		path /api/domains/deny/exact
+	}
+	handle @allow_get_api_domains_deny_exact {
+		import pihole
+	}
+	@allow_get_api_domains_allow_exact {
+		method GET
+		path /api/domains/allow/exact
+	}
+	handle @allow_get_api_domains_allow_exact {
+		import pihole
+	}
+	@allow_get_api_config_dns_hosts {
+		method GET
+		path /api/config/dns/hosts
+	}
+	handle @allow_get_api_config_dns_hosts {
+		import pihole
+	}
+	@allow_get_api_config_dns_cnameRecords {
+		method GET
+		path /api/config/dns/cnameRecords
+	}
+	handle @allow_get_api_config_dns_cnameRecords {
+		import pihole
+	}
+	@allow_get_api_config_dns_queryLogging {
+		method GET
+		path /api/config/dns/queryLogging
+	}
+	handle @allow_get_api_config_dns_queryLogging {
+		import pihole
+	}
+	@allow_post_api_auth {
+		method POST
+		path /api/auth
+	}
+	handle @allow_post_api_auth {
+		import pihole
+	}
+	@allow_post_api_dns_blocking {
+		method POST
+		path /api/dns/blocking
+	}
+	handle @allow_post_api_dns_blocking {
+		import pihole
+	}
+	@allow_post_api_domains_deny_exact {
+		method POST
+		path /api/domains/deny/exact
+	}
+	handle @allow_post_api_domains_deny_exact {
+		import pihole
+	}
+	@allow_post_api_domains_allow_exact {
+		method POST
+		path /api/domains/allow/exact
+	}
+	handle @allow_post_api_domains_allow_exact {
+		import pihole
+	}
+	@allow_post_api_action_gravity {
+		method POST
+		path /api/action/gravity
+	}
+	handle @allow_post_api_action_gravity {
+		import pihole_gravity
+	}
+	@allow_delete_api_auth {
+		method DELETE
+		path /api/auth
+	}
+	handle @allow_delete_api_auth {
+		import pihole
+	}
+	@allow_get_netdata_api_v1_info {
+		method GET
+		path /netdata/api/v1/info
+	}
+	handle @allow_get_netdata_api_v1_info {
+		import netdata
+	}
+	@allow_get_netdata_api_v2_info {
+		method GET
+		path /netdata/api/v2/info
+	}
+	handle @allow_get_netdata_api_v2_info {
+		import netdata
+	}
+	@allow_get_netdata_api_v1_charts {
+		method GET
+		path /netdata/api/v1/charts
+	}
+	handle @allow_get_netdata_api_v1_charts {
+		import netdata
+	}
+	@allow_get_netdata_api_v1_data {
+		method GET
+		path /netdata/api/v1/data
+	}
+	handle @allow_get_netdata_api_v1_data {
+		import netdata
+	}
+	@allow_get_netdata_api_v3_data {
+		method GET
+		path /netdata/api/v3/data
+	}
+	handle @allow_get_netdata_api_v3_data {
+		import netdata
+	}
+	@allow_get_netdata_api_v1_alarms {
+		method GET
+		path /netdata/api/v1/alarms
+	}
+	handle @allow_get_netdata_api_v1_alarms {
+		import netdata
+	}
+	@allow_get_kuma_api_status_page_house {
+		method GET
+		path /kuma/api/status-page/house
+	}
+	handle @allow_get_kuma_api_status_page_house {
+		import kuma
+	}
+	@allow_get_kuma_api_status_page_heartbeat_house {
+		method GET
+		path /kuma/api/status-page/heartbeat/house
+	}
+	handle @allow_get_kuma_api_status_page_heartbeat_house {
+		import kuma
+	}
+	@allow_get_healthz {
+		method GET
+		path /healthz
+	}
+	handle @allow_get_healthz {
+		respond "ok" 200
+	}
+	handle {
+		respond "Not found" 404
+	}
+}
