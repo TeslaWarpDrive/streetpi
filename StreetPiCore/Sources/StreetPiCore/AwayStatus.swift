@@ -1,21 +1,5 @@
 import Foundation
 
-/// Which road the app takes to the house.
-public enum HouseMode: Sendable, Equatable {
-    /// The Pi answered. Everything works.
-    case home
-    /// The Pi did not answer, so the app reads the mailbox.
-    case away(MailboxSetup)
-    /// The Pi did not answer and no mailbox is saved. The app keeps trying the Pi.
-    case homeOnly
-
-    public static func choose(piAnswered: Bool, setup: MailboxSetup?) -> HouseMode {
-        if piAnswered { return .home }
-        if let setup { return .away(setup) }
-        return .homeOnly
-    }
-}
-
 /// How old a report is, in the words the badge uses.
 public struct AwayFreshness: Sendable, Equatable {
     public static let staleAfter: TimeInterval = 60
@@ -70,6 +54,8 @@ public struct AwayFreshness: Sendable, Equatable {
 public enum AwayStatus: Sendable, Equatable {
     /// No mailbox is saved. Controls stay open because the app is still trying the Pi.
     case notSetUp
+    /// The gateway is saved and did not answer. There is nothing to set up.
+    case unreachable
     case reading(generatedAt: Date?, problem: MailboxProblem?, note: String?)
 
     /// Private pages and every write are held back.
@@ -96,6 +82,15 @@ public enum AwayStatus: Sendable, Equatable {
                 symbol: "wifi.slash",
                 spoken: "\(AwayCopy.notSetUp). \(AwayCopy.notSetUpDetail)",
                 offersSetup: true
+            )
+        case .unreachable:
+            return AwayBadge(
+                line: AwayCopy.notSetUp,
+                detail: AwayCopy.keepTrying,
+                tone: .attention,
+                symbol: "wifi.slash",
+                spoken: "\(AwayCopy.notSetUp). \(AwayCopy.keepTrying)",
+                offersSetup: false
             )
         case .reading(nil, nil, _):
             return AwayBadge(

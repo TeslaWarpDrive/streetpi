@@ -2,19 +2,19 @@ import SwiftUI
 import StreetPiCore
 
 struct RootView: View {
-    @State private var clock: Date
+    @State var clock: Date
     @State private var screen: HouseScreen
     @State private var section = AppSection.home
-    @State private var desk: DNSDesk
+    @State var desk: DNSDesk
     @State private var dnsPage: DNSPage?
     @State private var machine: MachineDesk
     @State private var machinePage: MachinePage?
-    @State private var pending: HouseholdAction?
-    @State private var actionNotice: ActionNotice?
+    @State var pending: HouseholdAction?
+    @State var actionNotice: ActionNotice?
     @State private var sending = false
     @State private var passwordSaved = false
     @State private var showsSetup = false
-    @State private var dnsSession = DNSSessionHold()
+    @State var dnsSession = DNSSessionHold()
     @State private var showLaunch: Bool
     @State private var dnsProblem: PiholeProblem?
     @State private var presentedPin: String?
@@ -26,18 +26,26 @@ struct RootView: View {
     @State private var hostNote: String?
     @State private var piNotice: String?
     @State private var liveReading: MachineReading?
-    @State private var liveClient: LiveHTTPClient
+    @State var liveClient: LiveHTTPClient
     @State private var statusAddress: String
     @State private var statusSlug: String
     @State private var statusBoard: HouseStatusBoard?
-    @State private var mode = HouseMode.home
-    @State private var modeCheck = 0
-    @State private var awaySession = AwaySession()
-    @State private var mailboxSession = MailboxURLSession()
+    @State var mode = ConnectionMode.home
+    @State var modeCheck = 0
+    @State var modeTrigger = ConnectionTrigger.launch
+    @State var dwell = ConnectionDwell()
+    @State var reprobeAsk = 0
+    @State var awayRoad = AwayRoadHold()
+    @State var awayGravity: Task<Void, Never>?
+    @State var gatewayAddress = ""
+    @State var gatewaySaved = false
+    @State var gatewayEnabled = true
+    @State var awaySession = AwaySession()
+    @State var mailboxSession = MailboxURLSession()
     @State private var mailboxAddress = ""
     @State private var mailboxTokenSaved = false
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.secretStore) private var secretStore
+    @Environment(\.secretStore) var secretStore
 
     init(now: Date) {
         _clock = State(initialValue: now)
@@ -129,7 +137,9 @@ struct RootView: View {
             mailboxAddress: mailboxAddress,
             mailboxTokenSaved: mailboxTokenSaved,
             onSaveMailbox: saveMailbox,
-            onRemoveMailbox: removeMailbox
+            onRemoveMailbox: removeMailbox,
+            awayLive: isAwayLive,
+            gatewayForm: gatewayForm
         )
         .launchOverlay(isPresented: $showLaunch)
         .preferredColorScheme(.dark)
@@ -145,8 +155,10 @@ struct RootView: View {
             passwordSaved = (try? KeychainSession(store: secretStore).hasAppPassword()) ?? false
             if !LiveGate.usesFixtures {
                 MailboxSettingsStore(store: secretStore).seedIfNeeded(from: .bundled())
+                AwayGatewayStore(store: secretStore).seedIfNeeded(from: .bundled())
             }
             loadMailboxForm()
+            loadGatewayForm()
             if LiveGate.usesFixtures {
                 await watchFixtures()
             } else {
@@ -156,8 +168,13 @@ struct RootView: View {
         .task {
             guard !LiveGate.usesFixtures else { return }
             for await _ in NetworkPathChanges.stream() {
+                modeTrigger = .pathChanged
                 modeCheck += 1
             }
+        }
+        .task(id: reprobeAsk) {
+            guard reprobeAsk > 0 else { return }
+            await reprobe()
         }
         .task(id: "\(String(describing: dnsPage))|\(modeCheck)") {
             guard !LiveGate.usesFixtures, dnsPage == .liveLog, scenePhase == .active, awayBoard == nil else { return }
@@ -174,17 +191,17 @@ struct RootView: View {
 
     /// Nil at home. Away, the screens read this and the home state waits untouched.
     private var awayBoard: AwayBoard? {
-        guard case .away = mode else { return nil }
+        guard case .awayMailbox = mode else { return nil }
         return awaySession.board
     }
 
     private var awayStatus: AwayStatus? {
         switch mode {
-        case .home:
+        case .home, .awayLive:
             nil
-        case .homeOnly:
-            .notSetUp
-        case .away:
+        case .offline:
+            gatewaySaved && gatewayEnabled ? .unreachable : .notSetUp
+        case .awayMailbox:
             awaySession.status
         }
     }
@@ -228,10 +245,12 @@ struct RootView: View {
     }
 
     private func watchLive() async {
-        let next = await chooseMode()
+        let probed = await probeMode()
         guard !Task.isCancelled else { return }
-        mode = next
-        if case .away(let setup) = next {
+        let trigger = modeTrigger
+        modeTrigger = .foreground
+        adopt(dwell.settle(probed, trigger: trigger, now: Date()))
+        if case .awayMailbox(let setup) = mode {
             await watchAway(setup)
             return
         }
@@ -240,29 +259,6 @@ struct RootView: View {
         async let meters: Void = pumpMeters()
         async let history: Void = pumpHistory()
         _ = await (house, status, meters, history)
-    }
-
-    private func chooseMode() async -> HouseMode {
-        let answered = await PiProbe().piAnswers()
-        return HouseMode.choose(piAnswered: answered, setup: MailboxSettingsStore(store: secretStore).load())
-    }
-
-    private func watchAway(_ setup: MailboxSetup) async {
-        var failures = 0
-        while !Task.isCancelled {
-            guard await pullAway(setup) else { return }
-            failures = awaySession.problem == nil ? 0 : failures + 1
-            try? await Task.sleep(for: .seconds(AwayPace.waitSeconds(afterFailures: failures)))
-        }
-    }
-
-    /// False when the read was cancelled.
-    private func pullAway(_ setup: MailboxSetup) async -> Bool {
-        let client = MailboxClient(transport: mailboxSession, setup: setup)
-        guard let next = try? await awaySession.refreshed(using: client, now: Date()) else { return false }
-        awaySession = next
-        clock = Date()
-        return true
     }
 
     /// Tests keep the fixture screen and never open a socket.
@@ -275,6 +271,9 @@ struct RootView: View {
             if Task.isCancelled || signedOut { break }
             apply(board)
             failures = board.problem == nil ? 0 : failures + 1
+            if board.problem == .offline {
+                noteRead(worked: false)
+            }
             let wait = RefreshPace.waitSeconds(afterFailures: failures)
             try? await Task.sleep(for: .seconds(wait))
         }
@@ -283,12 +282,13 @@ struct RootView: View {
     /// A pull looks for the Pi again. A new answer restarts the watch on the right road.
     private func refreshNow() async {
         guard LiveReaderGate.opensSockets else { return }
-        let next = await chooseMode()
+        let next = await probeMode()
         guard next == mode else {
+            modeTrigger = .manual
             modeCheck += 1
             return
         }
-        if case .away(let setup) = next {
+        if case .awayMailbox(let setup) = next {
             _ = await pullAway(setup)
             return
         }
@@ -298,6 +298,9 @@ struct RootView: View {
     }
 
     private func clientForCurrentSettings() async -> PiholeClient {
+        if case .awayLive(let gateway) = mode {
+            return awayClient(gateway)
+        }
         let hosts = LiveHostStore()
         let endpoint = PiholeBaseAddress.endpoint(from: hosts.piholeText()) ?? .house
         let pin = hosts.pinText()
@@ -380,7 +383,11 @@ struct RootView: View {
         desk = keepingLog(board.desk)
         var snapshot = board.snapshot
         snapshot.machine = liveReading
-        screen = .explained(board.status, snapshot)
+        var status = board.status
+        if isAwayLive {
+            status.linkLine = AwayCopy.awayChip
+        }
+        screen = .explained(status, snapshot)
         dnsProblem = board.problem
         if board.problem != .certificateChanged {
             presentedPin = nil
@@ -421,10 +428,13 @@ private extension RootView {
     }
 
     func readStatusPage() async throws -> StatusPageLoad {
-        guard let base = LiveAddress.validated(statusAddress, schemes: ["http", "https"]),
-              let endpoint = StatusPageEndpoint.make(base: base, slug: statusSlug)
+        let road = liveRoad
+        let address = road.isAway ? road.endpoints.uptimeKuma.absoluteString : statusAddress
+        let slug = road.isAway ? AwayGatewaySettings.statusSlug : statusSlug
+        guard let base = LiveAddress.validated(address, schemes: ["http", "https"]),
+              let endpoint = StatusPageEndpoint.make(base: base, slug: slug)
         else { throw StatusPageProblem.notUnderstood }
-        let transport = StatusPageLiveTransport(sender: liveClient, base: base)
+        let transport = StatusPageLiveTransport(sender: road.sender, base: base)
         let reader = StatusPageReader(transport: transport, endpoint: endpoint, now: { Date() })
         return try await reader.load()
     }
@@ -490,7 +500,7 @@ private extension RootView {
 
     private func confirm(_ action: HouseholdAction) async {
         guard !sending else { return }
-        if awayStatus?.isAway == true, AwayGate.allows(action) == false {
+        if mode.allows(action) == false {
             actionNotice = ActionNotice(
                 title: AwayCopy.onlyAtHomeTitle,
                 detail: AwayCopy.onlyAtHomeDetail,
@@ -524,7 +534,11 @@ private extension RootView {
                 pending = nil
                 return
             }
-            await performLive(action)
+            if action == .updateBlockLists, isAwayLive {
+                await startAwayGravity()
+            } else {
+                await performLive(action)
+            }
         }
     }
 
@@ -548,7 +562,7 @@ private extension RootView {
     }
 
     /// Reuses the open reader client, so the next action sends the same session id.
-    private func preparedClient() async -> PiholeClient? {
+    func preparedClient() async -> PiholeClient? {
         if let client = dnsSession.client {
             return client
         }
@@ -581,17 +595,20 @@ private extension RootView {
     private func pumpMeters() async {
         var failures = 0
         while !Task.isCancelled {
-            let base = LiveHostStore().load().netdata
-            guard let result = await PiMeterRefresh(client: liveClient, base: base).load() else { return }
+            let road = liveRoad
+            let refresh = PiMeterRefresh(client: road.sender, base: road.endpoints.netdata)
+            guard let result = await refresh.load() else { return }
             if Task.isCancelled { return }
             switch result {
             case .success(let meters):
                 apply(meters)
                 failures = meters.reading.hasSignal ? 0 : failures + 1
+                noteRead(worked: true)
             case .failure(let problem):
                 liveReading = nil
                 piNotice = problem.sentence
                 failures += 1
+                noteRead(worked: false)
             }
             showMachine()
             let wait = RefreshPace.waitSeconds(afterFailures: failures)
@@ -605,9 +622,9 @@ private extension RootView {
         var queryFeed = LiveLogFeed()
         var failures = 0
         while !Task.isCancelled {
-            let base = LiveHostStore().load().netdata
+            let road = liveRoad
             let reader = NetdataHistoryReader(
-                transport: NetdataLiveTransport(client: liveClient, base: base),
+                transport: NetdataLiveTransport(client: road.sender, base: road.endpoints.netdata),
                 now: { Date() }
             )
             let history = await reader.load()
@@ -622,63 +639,19 @@ private extension RootView {
         }
     }
 
-    private struct LogPull {
-        var queries: LiveLogFeed
-        var text: TextLogFeed
-        var liveNote: String?
-        var textNote: String?
-    }
-
     private func pullLogs(textFeed: TextLogFeed, queryFeed: LiveLogFeed) async -> LogPull {
         guard signedOut == false, LiveReaderGate.opensSockets else {
             let note = PiholeProblem.needsSignIn.title
             return LogPull(queries: queryFeed, text: textFeed, liveNote: note, textNote: note)
         }
         let client = await clientForCurrentSettings()
-        async let live = pullLive(client: client, feed: queryFeed)
-        async let text = pullText(client: client, feed: textFeed)
-        let liveResult = await live
-        let textResult = await text
-        return LogPull(
-            queries: liveResult.feed,
-            text: textResult.feed,
-            liveNote: liveResult.note,
-            textNote: textResult.note
-        )
-    }
-
-    private func pullLive(
-        client: PiholeClient,
-        feed: LiveLogFeed
-    ) async -> (feed: LiveLogFeed, note: String?) {
-        do {
-            let rows = try await client.liveQueries()
-            return (feed.applying(rows), nil)
-        } catch let problem as PiholeProblem {
-            return (feed, LiveReadCopy.pihole(problem, fallback: LiveReadCopy.liveLog))
-        } catch {
-            return (feed, LiveReadCopy.offline)
-        }
-    }
-
-    private func pullText(
-        client: PiholeClient,
-        feed: TextLogFeed
-    ) async -> (feed: TextLogFeed, note: String?) {
-        do {
-            let page = try await client.textLog(after: feed.nextID)
-            return (feed.applying(page), nil)
-        } catch let problem as PiholeProblem {
-            return (feed, LiveReadCopy.pihole(problem, fallback: LiveReadCopy.textLog))
-        } catch {
-            return (feed, LiveReadCopy.offline)
-        }
+        return await LogPull.both(client: client, textFeed: textFeed, queryFeed: queryFeed)
     }
 
     private func refreshLiveLog() async {
         guard signedOut == false else { return }
         let client = await clientForCurrentSettings()
-        let pulled = await pullLive(client: client, feed: LiveLogFeed(queries: desk.liveFeed ?? []))
+        let pulled = await LogPull.live(client: client, feed: LiveLogFeed(queries: desk.liveFeed ?? []))
         desk.liveFeed = pulled.feed.queries
         desk.liveReadNote = pulled.feed.queries.isEmpty ? pulled.note : nil
     }

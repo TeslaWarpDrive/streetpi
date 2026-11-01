@@ -39,7 +39,19 @@ final class DNSSessionHold {
     var endpoint: PiholeEndpoint?
     var pin: String?
     var presented: PresentedPinBox?
+    var gateway: AwayGatewaySettings?
     var signedIn = false
+
+    /// The session id belongs to one road. The next call builds a new client and signs in.
+    func clear() {
+        client = nil
+        http = nil
+        endpoint = nil
+        pin = nil
+        presented = nil
+        gateway = nil
+        signedIn = false
+    }
 }
 
 /// Live transport. The session id and the app password are never written to a log.

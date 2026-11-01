@@ -36,7 +36,7 @@ struct MailboxURLSession: MailboxTransport {
     }
 }
 
-private final class RedirectRefusal: NSObject, URLSessionTaskDelegate, Sendable {
+final class RedirectRefusal: NSObject, URLSessionTaskDelegate, Sendable {
     func urlSession(
         _ session: URLSession,
         task: URLSessionTask,

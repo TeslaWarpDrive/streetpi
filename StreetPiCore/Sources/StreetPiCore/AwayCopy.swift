@@ -22,6 +22,16 @@ public enum AwayCopy {
     public static let someEarlier = "Some readings are from earlier."
     public static let someMissing = "Some readings are missing."
 
+    public static let awayChip = "Away"
+    public static let awayChipSpoken = "Away from home. Connected through the gateway."
+    public static let keepTrying = "Raspberry Pi Stats will keep trying on its own."
+    public static let gravityUpdatingTitle = "Updating block lists…"
+    public static let gravityUpdatingDetail = "This can take a few minutes. Ads stay blocked while it runs."
+    public static let gravityBusyTitle = "The house is busy."
+    public static let gravityBusyDetail = "Too many requests for a moment. Trying again shortly."
+    public static let gravityStillTitle = "Still updating block lists."
+    public static let gravityStillDetail = "This is taking a while. Check back later."
+
     static func problem(_ problem: MailboxProblem) -> String {
         switch problem {
         case .offline:

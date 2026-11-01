@@ -91,6 +91,10 @@ public actor PiholeClient {
         try PiholeDecode.summaryFacts(from: try await get("/api/stats/summary"))
     }
 
+    public func gravityMark() async throws -> GravityMark {
+        try GravityMark.decode(from: try await get("/api/stats/summary"))
+    }
+
     public func history(ending: Date) async throws -> [DayChartSample] {
         let until = Int(ending.timeIntervalSince1970)
         let from = until - 86_400

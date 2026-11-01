@@ -16,20 +16,6 @@ final class AwayStatusTests: XCTestCase {
         AwayFreshness.make(generatedAt: now.addingTimeInterval(-age), now: now)
     }
 
-    func testModePrefersThePi() throws {
-        XCTAssertEqual(HouseMode.choose(piAnswered: true, setup: try setup()), .home)
-        XCTAssertEqual(HouseMode.choose(piAnswered: true, setup: nil), .home)
-    }
-
-    func testModeFallsBackToTheMailbox() throws {
-        let setup = try setup()
-        XCTAssertEqual(HouseMode.choose(piAnswered: false, setup: setup), .away(setup))
-    }
-
-    func testModeWithNoMailboxKeepsTryingThePi() {
-        XCTAssertEqual(HouseMode.choose(piAnswered: false, setup: nil), .homeOnly)
-    }
-
     func testFreshUnderAMinute() {
         XCTAssertEqual(freshness(age: 12).line, "Away · updated 12s ago")
         XCTAssertEqual(freshness(age: 59.9).level, .fresh)

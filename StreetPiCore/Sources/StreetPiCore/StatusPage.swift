@@ -6,32 +6,50 @@ public enum StatusPageProblem: Error, Equatable {
 }
 
 /// Where the house status page lives. The slug starts as house and can be edited.
+/// At home it is plain http on its own port. Away it is https behind a path on the gateway.
 public struct StatusPageEndpoint: Sendable, Equatable, Codable {
     public var host: String
     public var port: Int
     public var slug: String
+    public var scheme: String
+    public var pathPrefix: String
 
-    public init(host: String, port: Int, slug: String) {
+    public init(host: String, port: Int, slug: String, scheme: String = "http", pathPrefix: String = "") {
         self.host = host
         self.port = port
         self.slug = slug
+        self.scheme = scheme
+        self.pathPrefix = pathPrefix
     }
 
     public static let house = StatusPageEndpoint(host: "192.168.1.78", port: 3001, slug: "house")
 
     public static func make(base: URL, slug: String) -> StatusPageEndpoint? {
         guard let host = base.host, !host.isEmpty else { return nil }
-        let port = base.port ?? (base.scheme == "https" ? 443 : 80)
-        return StatusPageEndpoint(host: host, port: port, slug: slug).cleaned()
+        let secure = base.scheme?.lowercased() == "https"
+        let port = base.port ?? (secure ? 443 : 80)
+        var prefix = base.path
+        while prefix.hasSuffix("/") {
+            prefix.removeLast()
+        }
+        return StatusPageEndpoint(
+            host: host,
+            port: port,
+            slug: slug,
+            scheme: secure ? "https" : "http",
+            pathPrefix: prefix
+        ).cleaned()
     }
 
     public func cleaned() -> StatusPageEndpoint? {
         let host = host.trimmingCharacters(in: .whitespacesAndNewlines)
         let slug = slug.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard (1...65_535).contains(port), Self.isHost(host), Self.isSlug(slug) else {
+        guard (1...65_535).contains(port), Self.isHost(host), Self.isSlug(slug),
+              scheme == "http" || scheme == "https"
+        else {
             return nil
         }
-        return StatusPageEndpoint(host: host, port: port, slug: slug)
+        return StatusPageEndpoint(host: host, port: port, slug: slug, scheme: scheme, pathPrefix: pathPrefix)
     }
 
     public var pagePath: String? {
@@ -47,10 +65,10 @@ public struct StatusPageEndpoint: Sendable, Equatable, Codable {
     public func url(path: String) -> URL? {
         guard let clean = cleaned(), path.hasPrefix("/") else { return nil }
         var parts = URLComponents()
-        parts.scheme = "http"
+        parts.scheme = clean.scheme
         parts.host = clean.host
-        parts.port = clean.port
-        parts.path = path
+        parts.port = clean.scheme == "https" && clean.port == 443 ? nil : clean.port
+        parts.path = clean.pathPrefix + path
         return parts.url
     }
 

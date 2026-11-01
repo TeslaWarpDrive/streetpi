@@ -236,7 +236,7 @@ final class LiveHTTPClient: LiveHTTPSending, @unchecked Sendable {
         }
     }
 
-    private static func headerMap(_ response: HTTPURLResponse) -> [String: String] {
+    static func headerMap(_ response: HTTPURLResponse) -> [String: String] {
         var mapped: [String: String] = [:]
         for (field, value) in response.allHeaderFields {
             guard let name = field as? String, let text = value as? String else { continue }
@@ -245,7 +245,7 @@ final class LiveHTTPClient: LiveHTTPSending, @unchecked Sendable {
         return mapped
     }
 
-    private static func problem(from error: URLError) -> Error {
+    static func problem(from error: URLError) -> Error {
         if error.code == .cancelled, Task.isCancelled {
             return CancellationError()
         }

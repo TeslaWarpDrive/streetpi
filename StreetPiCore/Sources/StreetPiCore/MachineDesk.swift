@@ -127,8 +127,10 @@ public enum NetdataAPI {
 
     public static let routes: [NetdataRoute] = [
         NetdataRoute(method: "GET", path: "/api/v1/info"),
+        NetdataRoute(method: "GET", path: "/api/v2/info"),
         NetdataRoute(method: "GET", path: "/api/v1/charts"),
         NetdataRoute(method: "GET", path: "/api/v1/data"),
+        NetdataRoute(method: "GET", path: "/api/v2/data"),
         NetdataRoute(method: "GET", path: "/api/v3/data"),
         NetdataRoute(method: "GET", path: "/api/v1/alarms"),
     ]
@@ -137,4 +139,5 @@ public enum NetdataAPI {
 public enum StatusPageAPI {
     /// Public status page. No login and no host in the path.
     public static let route = NetdataRoute(method: "GET", path: "/api/status-page/house")
+    public static let heartbeatRoute = NetdataRoute(method: "GET", path: "/api/status-page/heartbeat/house")
 }

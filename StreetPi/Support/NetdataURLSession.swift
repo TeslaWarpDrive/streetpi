@@ -2,7 +2,7 @@ import Foundation
 import StreetPiCore
 
 struct PiMeterRefresh: Sendable {
-    var client: LiveHTTPClient
+    var client: any LiveHTTPSending
     var base: URL
 
     func load() async -> Result<NetdataMeters, NetdataProblem>? {
@@ -20,7 +20,7 @@ struct PiMeterRefresh: Sendable {
 }
 
 struct NetdataLiveTransport: NetdataTransport {
-    var client: LiveHTTPClient
+    var client: any LiveHTTPSending
     var base: URL
 
     func get(_ path: String) async throws -> NetdataReply {
@@ -33,6 +33,9 @@ struct NetdataLiveTransport: NetdataTransport {
         let response = try await reply(for: url)
         if (300..<400).contains(response.status) {
             throw NetdataProblem.redirected
+        }
+        if AwayGatewayReply.problem(status: response.status) != nil {
+            throw NetdataProblem.offline
         }
         return NetdataReply(status: response.status, body: response.body)
     }
