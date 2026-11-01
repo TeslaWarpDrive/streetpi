@@ -82,7 +82,8 @@ final class RootCertificateRecoveryTests: XCTestCase {
                 )
             }
             XCTAssertEqual(
-                dwell.settle(probed, trigger: root.certificateRecovery.trigger, now: now.addingTimeInterval(1)),
+                dwell.settle(try XCTUnwrap(probed), trigger: root.certificateRecovery.trigger,
+                             now: now.addingTimeInterval(1)),
                 .home
             )
             XCTAssertNil(root.displayedDNSProblem)
@@ -105,7 +106,7 @@ final class RootCertificateRecoveryTests: XCTestCase {
         await pending.finish(with: stale)
         let returned = await probe.value
 
-        XCTAssertEqual(returned, mode)
+        XCTAssertNil(returned)
         XCTAssertNil(root.certificateRecovery.reading.presentedPin)
         XCTAssertNil(root.displayedDNSProblem)
         XCTAssertEqual(root.certificateRecovery.trigger, .settingsChanged)

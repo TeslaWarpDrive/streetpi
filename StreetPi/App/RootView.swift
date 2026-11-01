@@ -281,8 +281,7 @@ struct RootView: View {
     }
 
     private func watchLive() async {
-        let probed = await probeMode()
-        guard !Task.isCancelled else { return }
+        guard let probed = await probeMode(), !Task.isCancelled else { return }
         let trigger = certificateRecovery.trigger
         certificateRecovery.trigger = .foreground
         adopt(dwell.settle(probed, trigger: trigger, now: Date()))
@@ -318,7 +317,7 @@ struct RootView: View {
     /// A pull looks for the Pi again. A new answer restarts the watch on the right road.
     private func refreshNow() async {
         guard LiveReaderGate.opensSockets else { return }
-        let next = await probeMode()
+        guard let next = await probeMode() else { return }
         guard next == mode else {
             certificateRecovery.trigger = .manual
             modeCheck += 1

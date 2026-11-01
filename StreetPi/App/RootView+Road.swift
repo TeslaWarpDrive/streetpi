@@ -13,7 +13,7 @@ final class CertificateRecovery {
 
 /// Finding the road to the house, and the parts that only exist away from home.
 extension RootView {
-    func probeMode() async -> ConnectionMode {
+    func probeMode() async -> ConnectionMode? {
         await probeMode {
             await PiProbe().connection(
                 gateway: AwayGatewayStore(store: secretStore).active(),
@@ -22,10 +22,10 @@ extension RootView {
         }
     }
 
-    func probeMode(using probe: () async -> PiProbe.Reading) async -> ConnectionMode {
+    func probeMode(using probe: () async -> PiProbe.Reading) async -> ConnectionMode? {
         let generation = certificateRecovery.generation
         let reading = await probe()
-        guard !Task.isCancelled, generation == certificateRecovery.generation else { return mode }
+        guard !Task.isCancelled, generation == certificateRecovery.generation else { return nil }
         certificateRecovery.reading = reading
         return reading.mode
     }
@@ -49,7 +49,7 @@ extension RootView {
             try? await Task.sleep(for: .seconds(left))
         }
         guard !Task.isCancelled else { return }
-        let probed = await probeMode()
+        guard let probed = await probeMode() else { return }
         guard !Task.isCancelled, probed != mode else { return }
         certificateRecovery.trigger = .requestFailed
         modeCheck += 1
