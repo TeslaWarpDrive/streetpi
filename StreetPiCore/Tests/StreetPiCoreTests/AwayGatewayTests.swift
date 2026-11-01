@@ -181,6 +181,20 @@ final class AwayGravityTests: XCTestCase {
         XCTAssertEqual(log.sleeps, [15])
     }
 
+    func testAnUntrustedCutMeansCheckBack() async throws {
+        let (receipt, log) = try await run([summary(100, 5), .fail(.untrusted), summary(200, 9)])
+        XCTAssertEqual(receipt.title, "Block lists updated.")
+        XCTAssertTrue(receipt.detail.contains("9"))
+        XCTAssertEqual(log.sleeps, [15])
+    }
+
+    func testAnAlreadyRunningPiMeansCheckBack() async throws {
+        let (receipt, log) = try await run([summary(100, 5), .json(409, ""), summary(100, 5), summary(200, 9)])
+        XCTAssertEqual(receipt.title, "Block lists updated.")
+        XCTAssertTrue(receipt.detail.contains("9"))
+        XCTAssertEqual(log.sleeps, [15, 15])
+    }
+
     func testAMissedCheckKeepsChecking() async throws {
         let (receipt, log) = try await run([
             summary(100, 5), .json(524, ""), .fail(.offline), .json(530, ""), summary(200, 9),
@@ -214,6 +228,87 @@ final class AwayGravityTests: XCTestCase {
         XCTAssertEqual(log.sleeps.reduce(0, +), AwayGravityFlow.capSeconds - AwayGravityFlow.pollSeconds)
     }
 
+    func testNoAnsweredPollEndsInCouldNotCheck() async throws {
+        let silent = Array(repeating: ScriptedPiholeTransport.Step.fail(.offline), count: 50)
+        let (receipt, _) = try await run([summary(100, 5), .fail(.offline)] + silent)
+        XCTAssertEqual(receipt.title, AwayGravityFlow.couldNotCheckTitle)
+        XCTAssertTrue(receipt.pending)
+        XCTAssertNil(receipt.listsUpdatedAt)
+    }
+
+    func testRateLimitedPollsAloneEndInCouldNotCheck() async throws {
+        let limited = Array(repeating: ScriptedPiholeTransport.Step.json(429, ""), count: 50)
+        let (receipt, _) = try await run([summary(100, 5), .json(524, "")] + limited)
+        XCTAssertEqual(receipt.title, AwayGravityFlow.couldNotCheckTitle)
+        XCTAssertNil(receipt.listsUpdatedAt)
+    }
+
+    func testRateLimitsThatOutlastTheStartEndInCouldNotCheck() async throws {
+        let limited = Array(repeating: ScriptedPiholeTransport.Step.json(429, ""), count: 50)
+        let (receipt, log) = try await run([summary(100, 5)] + limited)
+        XCTAssertEqual(receipt.title, AwayGravityFlow.couldNotCheckTitle)
+        XCTAssertNil(receipt.listsUpdatedAt)
+        XCTAssertLessThanOrEqual(log.sleeps.reduce(0, +), AwayGravityFlow.capSeconds)
+    }
+
+    func testOneAnsweredPollIsEnoughForStillUpdating() async throws {
+        let silent = Array(repeating: ScriptedPiholeTransport.Step.fail(.offline), count: 50)
+        let (receipt, _) = try await run([summary(100, 5), .json(524, ""), summary(100, 5)] + silent)
+        XCTAssertEqual(receipt.title, AwayCopy.gravityStillTitle)
+    }
+
+    func testTheOldCountIsReadOnceMore() async throws {
+        let (receipt, log) = try await run([
+            summary(100, 5), .json(524, ""), summary(200, 5), summary(200, 7),
+        ])
+        XCTAssertTrue(receipt.detail.contains("7"))
+        XCTAssertEqual(log.sleeps, [15, 15])
+    }
+
+    func testACountThatStaysTheSameIsAcceptedAfterOneMoreRead() async throws {
+        let (receipt, log) = try await run([
+            summary(100, 5), .json(524, ""), summary(200, 5), summary(200, 5),
+        ])
+        XCTAssertEqual(receipt.title, "Block lists updated.")
+        XCTAssertTrue(receipt.detail.contains("5"))
+        XCTAssertEqual(log.sleeps, [15, 15])
+    }
+
+    func testABadCountIsNotReported() async throws {
+        let (receipt, _) = try await run([
+            summary(100, 5), .json(524, ""), summary(200, -1), summary(200, 7),
+        ])
+        XCTAssertTrue(receipt.detail.contains("7"))
+        XCTAssertFalse(receipt.detail.contains("-1"))
+    }
+
+    func testAMissingCountIsReadAgain() async throws {
+        let (receipt, _) = try await run([
+            summary(100, 5), .json(524, ""),
+            .json(200, "{\"gravity\":{\"last_update\":200}}"), summary(200, 7),
+        ])
+        XCTAssertTrue(receipt.detail.contains("7"))
+    }
+
+    func testACountThatNeverSettlesFinishesWithoutOne() async throws {
+        let broken = Array(repeating: summary(200, -1), count: 50)
+        let (receipt, _) = try await run([summary(100, 5), .json(524, "")] + broken)
+        XCTAssertEqual(receipt.title, "Block lists updated.")
+        XCTAssertEqual(receipt.detail, "The Pi finished updating the block lists.")
+        XCTAssertNotNil(receipt.listsUpdatedAt)
+    }
+
+    func testTheFinalLookNeverReportsTheOldCount() async throws {
+        let log = GravityLog()
+        let script = ScriptedPiholeTransport(steps: [
+            Self.signedIn, summary(100, 5), .json(524, ""), summary(100, 5), summary(200, 5),
+        ])
+        let transport = GravityTimingTransport(base: script, onStart: { log.slept(570) })
+        let receipt = try await flow(transport, log: log).run()
+        XCTAssertEqual(receipt.title, "Block lists updated.")
+        XCTAssertEqual(receipt.detail, "The Pi finished updating the block lists.")
+    }
+
     func testTheFinalLookCanConfirmCompletionBeforeGivingUp() async throws {
         let log = GravityLog()
         let script = ScriptedPiholeTransport(steps: [
@@ -233,7 +328,7 @@ final class AwayGravityTests: XCTestCase {
         ])
         let transport = GravityTimingTransport(base: script, onStart: { log.slept(601) })
         let receipt = try await flow(transport, log: log).run()
-        XCTAssertEqual(receipt.title, AwayCopy.gravityStillTitle)
+        XCTAssertEqual(receipt.title, AwayGravityFlow.couldNotCheckTitle)
         XCTAssertNil(receipt.listsUpdatedAt)
         XCTAssertEqual(script.sent.filter { $0.path == "/api/stats/summary" }.count, 1)
     }
@@ -247,22 +342,25 @@ final class AwayGravityTests: XCTestCase {
         let receipt = try await AwayGravityFlow(
             client: client, timeLimit: 0.1, sleep: { _ in }, onStep: { _ in }
         ).run()
-        XCTAssertEqual(receipt.title, AwayCopy.gravityStillTitle)
+        XCTAssertEqual(receipt.title, AwayGravityFlow.couldNotCheckTitle)
         XCTAssertNil(receipt.listsUpdatedAt)
         let cancelled = await transport.wasCancelled
         XCTAssertTrue(cancelled)
     }
 
-    func testTheDeadlineAlsoCancelsAnInitialSignIn() async throws {
-        let transport = HangingGravityLogin()
+    func testTheDeadlineLeavesASharedSignInAlone() async throws {
+        let transport = HeldGravityLogin(summary: summary(100, 5))
         let client = PiholeClient(transport: transport, password: { "fixture-password" })
+        let reader = Task { try await client.gravityMark() }
+        await transport.waitForSignIn()
         let receipt = try await AwayGravityFlow(
             client: client, timeLimit: 0.1, sleep: { _ in }, onStep: { _ in }
         ).run()
-        XCTAssertEqual(receipt.title, AwayCopy.gravityStillTitle)
+        XCTAssertEqual(receipt.title, AwayGravityFlow.couldNotCheckTitle)
         XCTAssertNil(receipt.listsUpdatedAt)
-        let cancelled = await transport.wasCancelled
-        XCTAssertTrue(cancelled)
+        await transport.release()
+        let mark = try await reader.value
+        XCTAssertEqual(mark.lastUpdate, 100)
     }
 
     private func flow(_ transport: any PiholeTransport, log: GravityLog) -> AwayGravityFlow {
@@ -377,16 +475,26 @@ private actor HangingGravityPoll: PiholeTransport {
     }
 }
 
-private actor HangingGravityLogin: PiholeTransport {
-    private(set) var wasCancelled = false
+private actor HeldGravityLogin: PiholeTransport {
+    private let summary: ScriptedPiholeTransport.Step
+    private var signingIn = false
+    private var released = false
+
+    init(summary: ScriptedPiholeTransport.Step) { self.summary = summary }
+
+    func waitForSignIn() async {
+        while !signingIn { await Task.yield() }
+    }
+
+    func release() { released = true }
 
     func send(_ request: PiholeRequest) async throws -> PiholeResponse {
-        do {
-            try await Task.sleep(for: .seconds(30))
-        } catch {
-            wasCancelled = true
-            throw error
+        guard request.path == "/api/auth" else {
+            return PiholeResponse(status: summary.status, body: summary.body)
         }
-        throw PiholeProblem.offline
+        signingIn = true
+        while !released { try await Task.sleep(for: .milliseconds(5)) }
+        let reply = "{\"session\":{\"sid\":\"fixture-not-a-real-session\",\"validity\":1800}}"
+        return PiholeResponse(status: 200, body: Data(reply.utf8))
     }
 }
