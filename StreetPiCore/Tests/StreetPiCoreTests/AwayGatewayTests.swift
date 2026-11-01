@@ -253,6 +253,18 @@ final class AwayGravityTests: XCTestCase {
         XCTAssertTrue(cancelled)
     }
 
+    func testTheDeadlineAlsoCancelsAnInitialSignIn() async throws {
+        let transport = HangingGravityLogin()
+        let client = PiholeClient(transport: transport, password: { "fixture-password" })
+        let receipt = try await AwayGravityFlow(
+            client: client, timeLimit: 0.1, sleep: { _ in }, onStep: { _ in }
+        ).run()
+        XCTAssertEqual(receipt.title, AwayCopy.gravityStillTitle)
+        XCTAssertNil(receipt.listsUpdatedAt)
+        let cancelled = await transport.wasCancelled
+        XCTAssertTrue(cancelled)
+    }
+
     private func flow(_ transport: any PiholeTransport, log: GravityLog) -> AwayGravityFlow {
         AwayGravityFlow(
             client: PiholeClient(transport: AwayPiholeTransport(base: transport), password: { "fixture-password" }),
@@ -362,5 +374,19 @@ private actor HangingGravityPoll: PiholeTransport {
             }
         }
         return try await AwayPiholeTransport(base: base).send(request)
+    }
+}
+
+private actor HangingGravityLogin: PiholeTransport {
+    private(set) var wasCancelled = false
+
+    func send(_ request: PiholeRequest) async throws -> PiholeResponse {
+        do {
+            try await Task.sleep(for: .seconds(30))
+        } catch {
+            wasCancelled = true
+            throw error
+        }
+        throw PiholeProblem.offline
     }
 }

@@ -168,7 +168,7 @@ final class AwayLiveTests: XCTestCase {
 
     func testNetdataReadsThroughTheGateway() async throws {
         let road = try XCTUnwrap(LiveEndpoints.away(try gateway()))
-        let transport = NetdataLiveTransport(client: try client(), base: road.netdata)
+        let transport = NetdataLiveTransport(client: try client(), base: road.netdata, isAway: true)
         _ = try await transport.get("/api/v1/info")
         XCTAssertEqual(GatewayStub.requests.first?.url?.path, "/netdata/api/v1/info")
     }
@@ -219,6 +219,13 @@ final class AwayLiveTests: XCTestCase {
         let mode = await prober.mode(gateway: gateway, mailbox: nil)
         XCTAssertEqual(mode, .awayLive(gateway))
         XCTAssertEqual(sender.paths, ["/api/info/login"])
+        let mailbox = MailboxSetup(
+            address: try XCTUnwrap(MailboxAddress(text: "https://mailbox.example.test")),
+            token: try XCTUnwrap(MailboxToken(text: "FAKE_mailbox_token"))
+        )
+        let fallback = ConnectionProber(piAnswers: { answered }, gatewayAnswers: { _ in false })
+        let mailboxMode = await fallback.mode(gateway: gateway, mailbox: mailbox)
+        XCTAssertEqual(mailboxMode, .awayMailbox(mailbox))
     }
 
     func testATypedGatewayIsKept() throws {

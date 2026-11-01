@@ -176,9 +176,15 @@ public struct AwayGravityFlow: Sendable {
                 throw PiholeProblem.offline
             }
             defer { group.cancelAll() }
-            guard let value = try await group.next(), now() < deadline else { throw GravityDeadline.reached }
-            try Task.checkCancellation()
-            return value
+            do {
+                guard let value = try await group.next(), now() < deadline else { throw GravityDeadline.reached }
+                try Task.checkCancellation()
+                return value
+            } catch {
+                try Task.checkCancellation()
+                if now() >= deadline { throw GravityDeadline.reached }
+                throw error
+            }
         }
     }
 

@@ -586,7 +586,7 @@ private extension RootView {
         var failures = 0
         while !Task.isCancelled {
             let road = liveRoad
-            let refresh = PiMeterRefresh(client: road.sender, base: road.endpoints.netdata)
+            let refresh = PiMeterRefresh(client: road.sender, base: road.endpoints.netdata, isAway: road.isAway)
             guard let result = await refresh.load() else { return }
             if Task.isCancelled { return }
             switch result {
@@ -614,7 +614,7 @@ private extension RootView {
         while !Task.isCancelled {
             let road = liveRoad
             let reader = NetdataHistoryReader(
-                transport: NetdataLiveTransport(client: road.sender, base: road.endpoints.netdata),
+                transport: NetdataLiveTransport(client: road.sender, base: road.endpoints.netdata, isAway: road.isAway),
                 now: { Date() }
             )
             let history = await reader.load()
