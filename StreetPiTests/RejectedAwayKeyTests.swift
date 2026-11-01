@@ -70,10 +70,15 @@ final class RejectedAwayKeyTests: XCTestCase {
     }
 
     func testForbiddenDuringAwayRefreshReachesTheNotice() async throws {
+        try await assertRefreshRejection(protocolClass: RejectedKeyHTTPStub.self)
+        try await assertRefreshRejection(protocolClass: RejectedAfterLoginHTTPStub.self)
+    }
+
+    private func assertRefreshRejection(protocolClass: URLProtocol.Type) async throws {
         let gateway = try gateway()
         let root = RootView(now: .streetFixtureNow, mode: .awayLive(gateway))
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [RejectedKeyHTTPStub.self]
+        configuration.protocolClasses = [protocolClass]
         let http = AwayHTTPClient(settings: gateway, configuration: configuration)
         root.certificateRecovery.awayHTTP = http
         let client = PiholeClient(
@@ -82,7 +87,10 @@ final class RejectedAwayKeyTests: XCTestCase {
             )),
             password: { "FAKE_password" }
         )
-        _ = await root.refresh(client, now: .streetFixtureNow)
+        let secrets = MemorySecretStore()
+        try KeychainSession(store: secrets).saveAppPassword("FAKE_password")
+        let board = await root.refresh(client, now: .streetFixtureNow, secrets: secrets)
+        XCTAssertEqual(board.problem, .offline)
         XCTAssertTrue(root.awayKeyRejected)
         XCTAssertEqual(root.certificateRecovery.gatewayReply, .rejectedKey)
     }
@@ -93,8 +101,7 @@ final class RejectedAwayKeyTests: XCTestCase {
             transport: ScriptedPiholeTransport(steps: [.json(403, "{}")]),
             password: { "FAKE_password" }
         )
-        let board = await root.refresh(client, now: .streetFixtureNow)
-        XCTAssertEqual(board.problem, .notSetUp)
+        _ = await root.refresh(client, now: .streetFixtureNow, secrets: MemorySecretStore())
         XCTAssertFalse(root.awayKeyRejected)
     }
 }
@@ -116,17 +123,36 @@ private struct ProbeReply: LiveHTTPSending {
     }
 }
 
-private final class RejectedKeyHTTPStub: URLProtocol, @unchecked Sendable {
+private class RejectedKeyHTTPStub: URLProtocol, @unchecked Sendable {
+    class var rejectsLogin: Bool { true }
+
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func stopLoading() {}
 
     override func startLoading() {
-        guard let url = request.url,
-              let response = HTTPURLResponse(url: url, statusCode: 403, httpVersion: nil, headerFields: nil)
+        guard let url = request.url else { return }
+        let status: Int
+        let body: String
+        switch url.path {
+        case "/api/info/login" where !Self.rejectsLogin:
+            status = 200
+            body = "{\"dns\":true}"
+        case "/api/auth":
+            status = 200
+            body = "{\"session\":{\"sid\":\"FAKE_session\",\"validity\":1800}}"
+        default:
+            status = 403
+            body = "{}"
+        }
+        guard let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: nil)
         else { return }
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: Data("{}".utf8))
+        client?.urlProtocol(self, didLoad: Data(body.utf8))
         client?.urlProtocolDidFinishLoading(self)
     }
+}
+
+private final class RejectedAfterLoginHTTPStub: RejectedKeyHTTPStub, @unchecked Sendable {
+    override class var rejectsLogin: Bool { false }
 }

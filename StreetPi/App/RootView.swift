@@ -386,15 +386,19 @@ struct RootView: View {
         certificateRecovery.gatewayReply == .rejectedKey
     }
 
-    func refresh(_ client: PiholeClient, now: Date) async -> AdBlockerBoard {
+    func refresh(
+        _ client: PiholeClient, now: Date, secrets: (any SecretStoring)? = nil
+    ) async -> AdBlockerBoard {
         let generation = certificateRecovery.generation
         let http = isAwayLive ? certificateRecovery.awayHTTP : nil
         _ = http?.takeKeyRejection()
-        let board = await readBoard(client, now: now)
+        let saved = AdBlockerSecrets.password(in: secrets ?? secretStore).isEmpty == false
+        let board = await readBoard(client, now: now, saved: saved)
         if !Task.isCancelled, generation == certificateRecovery.generation,
            let http, http === certificateRecovery.awayHTTP {
             if http.takeKeyRejection() {
                 certificateRecovery.gatewayReply = .rejectedKey
+                return AdBlockerHome.offline(now: now)
             } else if board.problem == nil {
                 certificateRecovery.gatewayReply = .answered
             }
@@ -402,8 +406,7 @@ struct RootView: View {
         return board
     }
 
-    private func readBoard(_ client: PiholeClient, now: Date) async -> AdBlockerBoard {
-        let saved = AdBlockerSecrets.password(in: secretStore).isEmpty == false
+    private func readBoard(_ client: PiholeClient, now: Date, saved: Bool) async -> AdBlockerBoard {
         do {
             let state = try await client.reachability()
             guard saved else { return AdBlockerHome.notSetUp(now: now) }
