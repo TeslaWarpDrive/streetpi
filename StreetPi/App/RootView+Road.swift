@@ -1,15 +1,32 @@
 import StreetPiCore
 import SwiftUI
 
+@Observable
+@MainActor
+final class CertificateRecovery {
+    var reading = PiProbe.Reading(mode: .home)
+    var declinedPin: String?
+    var trigger = ConnectionTrigger.launch
+    var retry = 0
+    var generation = 0
+}
+
 /// Finding the road to the house, and the parts that only exist away from home.
 extension RootView {
     func probeMode() async -> ConnectionMode {
-        let reading = await PiProbe().connection(
-            gateway: AwayGatewayStore(store: secretStore).active(),
-            mailbox: MailboxSettingsStore(store: secretStore).load()
-        )
-        guard !Task.isCancelled else { return mode }
-        probeReading = reading
+        await probeMode {
+            await PiProbe().connection(
+                gateway: AwayGatewayStore(store: secretStore).active(),
+                mailbox: MailboxSettingsStore(store: secretStore).load()
+            )
+        }
+    }
+
+    func probeMode(using probe: () async -> PiProbe.Reading) async -> ConnectionMode {
+        let generation = certificateRecovery.generation
+        let reading = await probe()
+        guard !Task.isCancelled, generation == certificateRecovery.generation else { return mode }
+        certificateRecovery.reading = reading
         return reading.mode
     }
 
@@ -34,7 +51,7 @@ extension RootView {
         guard !Task.isCancelled else { return }
         let probed = await probeMode()
         guard !Task.isCancelled, probed != mode else { return }
-        modeTrigger = .requestFailed
+        certificateRecovery.trigger = .requestFailed
         modeCheck += 1
     }
 
@@ -127,7 +144,7 @@ extension RootView {
 
     func gatewayChanged() {
         loadGatewayForm()
-        modeTrigger = .settingsChanged
+        certificateRecovery.trigger = .settingsChanged
         modeCheck += 1
     }
 

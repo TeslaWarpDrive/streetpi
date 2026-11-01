@@ -33,7 +33,7 @@ final class PiProbeTests: XCTestCase {
         XCTAssertEqual(reading.mode, .awayLive(gateway))
         XCTAssertEqual(reading.presentedPin, fakePin)
         XCTAssertEqual(reading.problem(declinedPin: nil), .certificateChanged)
-        XCTAssertEqual(reading.problem(declinedPin: fakePin), .pinKept)
+        XCTAssertNil(reading.problem(declinedPin: fakePin))
         XCTAssertEqual(transport.sent, [PiholeRequest(
             method: "GET", path: "/api/info/login", headers: [:], body: nil
         )])

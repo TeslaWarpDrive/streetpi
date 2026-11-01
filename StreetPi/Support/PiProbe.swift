@@ -41,7 +41,11 @@ struct PiProbe: Sendable {
 
         func problem(declinedPin: String?) -> PiholeProblem? {
             guard let presentedPin else { return nil }
-            return presentedPin == declinedPin ? .pinKept : .certificateChanged
+            guard presentedPin == declinedPin else { return .certificateChanged }
+            switch mode {
+            case .awayLive, .awayMailbox: return nil
+            case .home, .offline: return .pinKept
+            }
         }
     }
 
