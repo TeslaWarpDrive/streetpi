@@ -3,6 +3,7 @@ import SwiftUI
 
 /// Settings > Away, the live road. The secret goes in once and never comes back out:
 /// the fields empty on save, and from then on the screen only says it is saved.
+/// Replace key opens empty fields over that saved pair. It does not reveal the secret.
 struct AwayGatewaySection: View {
     var theme: StreetTheme
     var form: AwayGatewayForm
@@ -11,11 +12,13 @@ struct AwayGatewaySection: View {
     @State private var clientID = ""
     @State private var secret = ""
     @State private var note = ""
+    @State private var replacingKey: Bool
 
-    init(theme: StreetTheme, form: AwayGatewayForm) {
+    init(theme: StreetTheme, form: AwayGatewayForm, replacingKey: Bool = false) {
         self.theme = theme
         self.form = form
         _address = State(initialValue: form.address)
+        _replacingKey = State(initialValue: replacingKey)
     }
 
     var body: some View {
@@ -36,6 +39,13 @@ struct AwayGatewaySection: View {
                 .keyboardType(.URL)
             credentials
             saveButton
+            if form.saved, replacingKey == false {
+                Button("Replace key", action: beginReplace)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(theme.ink)
+                    .frame(minHeight: 44, alignment: .leading)
+                    .accessibilityLabel("Replace the saved gateway key")
+            }
             if form.saved {
                 Button("Remove", role: .destructive, action: remove)
                     .font(.body.weight(.semibold))
@@ -53,6 +63,11 @@ struct AwayGatewaySection: View {
         .onChange(of: form.address) { _, saved in
             address = saved
         }
+        .onChange(of: form.saved) { _, saved in
+            if saved == false {
+                replacingKey = false
+            }
+        }
     }
 
     private var enabledBinding: Binding<Bool> {
@@ -68,7 +83,8 @@ struct AwayGatewaySection: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(minHeight: 44, alignment: .leading)
                 .accessibilityLabel("Gateway client id and secret saved on this phone")
-        } else {
+        }
+        if AwayKeyReplace.showsFields(saved: form.saved, replacing: replacingKey) {
             field("Client id", text: $clientID, prompt: "Client id")
             SecureField(
                 "Client secret",
@@ -127,12 +143,24 @@ struct AwayGatewaySection: View {
             }
     }
 
+    private func beginReplace() {
+        clientID = ""
+        secret = ""
+        note = ""
+        replacingKey = true
+    }
+
     private func save() {
+        guard AwayKeyReplace.canSave(replacing: replacingKey, clientID: clientID, secret: secret) else {
+            note = AwayGatewaySaveResult.missingCredentials.note
+            return
+        }
         let result = form.onSave(address, clientID, secret)
         note = result.note
         if result == .saved {
             clientID = ""
             secret = ""
+            replacingKey = false
         }
     }
 
@@ -143,7 +171,23 @@ struct AwayGatewaySection: View {
             address = ""
             clientID = ""
             secret = ""
+            replacingKey = false
         }
+    }
+}
+
+/// A saved gateway key stays masked until Replace key. The secret is never copied into the fields.
+enum AwayKeyReplace {
+    static func showsFields(saved: Bool, replacing: Bool) -> Bool {
+        saved == false || replacing
+    }
+
+    /// An empty replacement would keep the saved secret, so both new values are required.
+    static func canSave(replacing: Bool, clientID: String, secret: String) -> Bool {
+        guard replacing else { return true }
+        let id = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let key = secret.trimmingCharacters(in: .whitespacesAndNewlines)
+        return id.isEmpty == false && key.isEmpty == false
     }
 }
 

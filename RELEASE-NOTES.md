@@ -1,5 +1,7 @@
 # Unreleased
 
+- Settings can replace a saved away key without removing the gateway. The saved secret stays hidden.
+- A rejected away key is no longer treated as an ad blocker that was never set up.
 - Away from home can call https://pistats.thestreetfam.com. The Pi's existing tunnel reaches a small gate at 127.0.0.1 port 8447. The gate accepts that public name and allows only the app's paths, including the chart fallback. Pi Keeper deploys the gate. See `docs/away-tunnel.md`.
 
 # Raspberry Pi Stats 1.1.0 (3)

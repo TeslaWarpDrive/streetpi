@@ -42,15 +42,17 @@ Then run the 401 check in Checks. Then add the Cloudflare rate limit rule below,
 
 ## Rate limit
 
-The free Cloudflare plan allows one rate limiting rule. The only counting characteristic is IP. The only period is 10 seconds, and the only block duration is 10 seconds. The expression may use the Path field. Do not add a second rule, and do not add a rate limit to the Caddyfile. Availability is listed at <https://developers.cloudflare.com/waf/rate-limiting-rules/#availability>.
+The free Cloudflare plan allows one rate limiting rule. The only counting characteristic is IP. The only period is 10 seconds, and the only block duration is 10 seconds. Do not add a second rule, and do not add a rate limit to the Caddyfile. Availability is listed at <https://developers.cloudflare.com/waf/rate-limiting-rules/#availability>.
 
 Use one rule:
 
-- Expression, Path field only: path starts with `/api/`, `/netdata/api/`, or `/kuma/api/`.
+- Expression: the host is `pistats.thestreetfam.com`, and the path starts with `/api/`, `/netdata/api/`, or `/kuma/api/`.
 
 ```
-(starts_with(http.request.uri.path, "/api/") or starts_with(http.request.uri.path, "/netdata/api/") or starts_with(http.request.uri.path, "/kuma/api/"))
+(http.host eq "pistats.thestreetfam.com" and (starts_with(http.request.uri.path, "/api/") or starts_with(http.request.uri.path, "/netdata/api/") or starts_with(http.request.uri.path, "/kuma/api/")))
 ```
+
+The host match is required because the free plan allows only this one rule for the whole zone. Without `http.host eq "pistats.thestreetfam.com"`, any other hostname on the zone whose path starts with those prefixes shares the counter. Traffic on another site could block the Pi Stats gateway, and this app's traffic could block that other site. The host keeps the counter on this gate.
 
 - Characteristic: IP.
 - Requests: 60 in 10 seconds. More than 60 requests from one IP in that period blocks for 10 seconds.

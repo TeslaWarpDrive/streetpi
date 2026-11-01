@@ -79,6 +79,62 @@ final class AwayLiveSnapshotTests: XCTestCase {
         }
     }
 
+    func testAwaySettingsReplacingKey() {
+        let saved = AwayGatewayForm(address: "https://gateway.example.test", saved: true)
+        assertMatrix(testName: "tunnel-settings-away-replace") { size in
+            ScrollView {
+                AwayGatewaySection(theme: .house, form: saved, replacingKey: true)
+                    .controlPlate(theme: .house)
+                    .padding(Rhythm.page)
+            }
+            .styled(size)
+        }
+    }
+
+    func testReplaceKeyShowsEmptyFieldsAndWritesOverTheSavedKey() throws {
+        XCTAssertFalse(AwayKeyReplace.showsFields(saved: true, replacing: false))
+        XCTAssertTrue(AwayKeyReplace.showsFields(saved: true, replacing: true))
+        XCTAssertTrue(AwayKeyReplace.showsFields(saved: false, replacing: false))
+        XCTAssertFalse(AwayKeyReplace.canSave(replacing: true, clientID: "", secret: "cfast_FAKE_new"))
+        XCTAssertFalse(AwayKeyReplace.canSave(replacing: true, clientID: "new.access", secret: " "))
+        XCTAssertTrue(AwayKeyReplace.canSave(replacing: true, clientID: "new.access", secret: "cfast_FAKE_new"))
+        XCTAssertTrue(AwayKeyReplace.canSave(replacing: false, clientID: "", secret: ""))
+
+        let suite = "streetpi.tests.replace-key"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defaults.removePersistentDomain(forName: suite)
+        let secrets = MemorySecretStore()
+        let store = AwayGatewayStore(store: secrets, defaults: defaults)
+        let saved = "cfast_FAKE_saved"
+        let replaced = "cfast_FAKE_replaced"
+        XCTAssertEqual(
+            store.save(address: "https://gateway.example.test", clientID: "saved.access", secret: saved),
+            .saved
+        )
+        XCTAssertEqual(
+            store.save(address: "https://gateway.example.test", clientID: "replaced.access", secret: replaced),
+            .saved
+        )
+        let loaded = try XCTUnwrap(store.load())
+        XCTAssertEqual(loaded.clientID, "replaced.access")
+        XCTAssertEqual(loaded.clientSecret, replaced)
+        XCTAssertNotEqual(loaded.clientSecret, saved)
+        let stored = try XCTUnwrap(secrets.load(for: AwayGatewaySettings.account))
+        let payload = try XCTUnwrap(String(bytes: stored, encoding: .utf8))
+        XCTAssertTrue(payload.contains(replaced))
+        XCTAssertFalse(payload.contains(saved))
+        XCTAssertFalse(defaults.dictionaryRepresentation().description.contains(replaced))
+        XCTAssertFalse(defaults.dictionaryRepresentation().description.contains(saved))
+        store.seedIfNeeded(from: AwayGatewaySettings(
+            url: "https://seed.example.test",
+            clientID: "seed.access",
+            clientSecret: "cfast_FAKE_seed"
+        ))
+        XCTAssertEqual(store.load()?.clientSecret, replaced)
+        XCTAssertEqual(store.load()?.clientID, "replaced.access")
+        defaults.removePersistentDomain(forName: suite)
+    }
+
     func testAwaySettingsEmpty() {
         assertMatrix(testName: "tunnel-settings-away-empty") { size in
             ScrollView {

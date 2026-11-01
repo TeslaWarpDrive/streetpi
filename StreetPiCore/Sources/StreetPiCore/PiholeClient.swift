@@ -1,5 +1,20 @@
 import Foundation
 
+/// Cloudflare Access, or the gate behind it, refused the login probe.
+/// This is not a missing ad blocker. Callers should show `message`.
+public enum AwayKeyProblem: Error, Sendable, Equatable, LocalizedError {
+    case rejected
+
+    public var message: String {
+        switch self {
+        case .rejected:
+            "Away key was rejected – replace it in Settings"
+        }
+    }
+
+    public var errorDescription: String? { message }
+}
+
 /// Remembers the session id so the next call, and the next client, can reuse it.
 public protocol FTLSessionStoring: Sendable {
     func loadSID() -> String?
@@ -68,10 +83,14 @@ public actor PiholeClient {
     }
 
     /// No password and no session id. A 200 with `dns: true` means the ad blocker is there.
+    /// A 403 on this probe is the edge rejecting the away key. Other failures stay `notSetUp`.
     public func reachability() async throws -> PiholeLoginState {
         let response = try await sendPlain(
             PiholeRequest(method: "GET", path: "/api/info/login", headers: [:], body: nil)
         )
+        if response.status == 403 {
+            throw AwayKeyProblem.rejected
+        }
         guard (200...299).contains(response.status) else { throw PiholeProblem.notSetUp }
         switch PiholeDecode.loginProbe(from: response.body) {
         case .answering:
