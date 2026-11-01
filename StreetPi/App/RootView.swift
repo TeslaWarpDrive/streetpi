@@ -177,6 +177,7 @@ struct RootView: View {
             awayLive: isAwayLive,
             gatewayForm: gatewayForm
         )
+        .modifier(AwayKeyNotice(rejected: awayKeyRejected, section: section))
         .launchOverlay(isPresented: $showLaunch)
         .preferredColorScheme(.dark)
         .environment(\.secretStore, KeychainSecretStore())
@@ -381,7 +382,27 @@ struct RootView: View {
         return client
     }
 
-    private func refresh(_ client: PiholeClient, now: Date) async -> AdBlockerBoard {
+    var awayKeyRejected: Bool {
+        certificateRecovery.gatewayReply == .rejectedKey
+    }
+
+    func refresh(_ client: PiholeClient, now: Date) async -> AdBlockerBoard {
+        let generation = certificateRecovery.generation
+        let http = isAwayLive ? certificateRecovery.awayHTTP : nil
+        _ = http?.takeKeyRejection()
+        let board = await readBoard(client, now: now)
+        if !Task.isCancelled, generation == certificateRecovery.generation,
+           let http, http === certificateRecovery.awayHTTP {
+            if http.takeKeyRejection() {
+                certificateRecovery.gatewayReply = .rejectedKey
+            } else if board.problem == nil {
+                certificateRecovery.gatewayReply = .answered
+            }
+        }
+        return board
+    }
+
+    private func readBoard(_ client: PiholeClient, now: Date) async -> AdBlockerBoard {
         let saved = AdBlockerSecrets.password(in: secretStore).isEmpty == false
         do {
             let state = try await client.reachability()

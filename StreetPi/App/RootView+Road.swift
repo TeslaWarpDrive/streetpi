@@ -5,6 +5,8 @@ import SwiftUI
 @MainActor
 final class CertificateRecovery {
     var reading = PiProbe.Reading(mode: .home)
+    var gatewayReply = GatewayProbe.Reply.noAnswer
+    var awayHTTP: AwayHTTPClient?
     var declinedPin: String?
     var dnsProblem: PiholeProblem?
     var trigger = ConnectionTrigger.launch
@@ -15,12 +17,34 @@ final class CertificateRecovery {
 /// Finding the road to the house, and the parts that only exist away from home.
 extension RootView {
     func probeMode() async -> ConnectionMode? {
-        await probeMode {
-            await PiProbe().connection(
-                gateway: AwayGatewayStore(store: secretStore).active(),
-                mailbox: MailboxSettingsStore(store: secretStore).load()
+        await probeRoad(
+            gateway: AwayGatewayStore(store: secretStore).active(),
+            mailbox: MailboxSettingsStore(store: secretStore).load(),
+            home: { await PiProbe().connection(gateway: nil, mailbox: nil) },
+            gatewayReply: { await GatewayProbe().reply($0) }
+        )
+    }
+
+    func probeRoad(
+        gateway: AwayGatewaySettings?,
+        mailbox: MailboxSetup?,
+        home: () async -> PiProbe.Reading,
+        gatewayReply: (AwayGatewaySettings) async -> GatewayProbe.Reply
+    ) async -> ConnectionMode? {
+        let generation = certificateRecovery.generation
+        var reading = await home()
+        var reply = GatewayProbe.Reply.noAnswer
+        if reading.mode != .home {
+            if let gateway { reply = await gatewayReply(gateway) }
+            reading.mode = ConnectionMode.choose(
+                piAnswered: false, gateway: gateway,
+                gatewayAnswered: reply == .answered, mailbox: mailbox
             )
         }
+        guard !Task.isCancelled, generation == certificateRecovery.generation else { return nil }
+        certificateRecovery.gatewayReply = reply
+        certificateRecovery.reading = reading
+        return reading.mode
     }
 
     func probeMode(using probe: () async -> PiProbe.Reading) async -> ConnectionMode? {
@@ -103,6 +127,7 @@ extension RootView {
         let store = secretStore
         let base = gateway.piholeBase ?? LiveEndpoints.house.pihole
         let http = AwayHTTPClient(settings: gateway, configuration: AwayHTTPClient.piholeConfiguration())
+        certificateRecovery.awayHTTP = http
         let client = PiholeClient(
             transport: AwayPiholeTransport(base: LivePiholeTransport(http: http, base: base)),
             password: { AdBlockerSecrets.password(in: store) }
@@ -145,6 +170,8 @@ extension RootView {
 
     func gatewayChanged() {
         loadGatewayForm()
+        certificateRecovery.generation += 1
+        certificateRecovery.gatewayReply = .noAnswer
         certificateRecovery.trigger = .settingsChanged
         modeCheck += 1
     }
@@ -187,5 +214,27 @@ extension RootView {
         guard LiveReaderGate.opensSockets else { return nil }
         guard AdBlockerSecrets.password(in: secretStore).isEmpty == false else { return nil }
         return await clientForCurrentSettings()
+    }
+}
+
+/// Shared by the Ad blocker board and Settings, including the mailbox fallback.
+struct AwayKeyNotice: ViewModifier {
+    var rejected: Bool
+    var section: AppSection
+
+    static let message = "Away key was rejected – replace it in Settings"
+
+    func body(content: Content) -> some View {
+        content.safeAreaInset(edge: .top, spacing: 0) {
+            if rejected && (section == .group(.adBlockerAndDNS) || section == .settings) {
+                Label(Self.message, systemImage: "key.slash")
+                    .font(.subheadline)
+                    .foregroundStyle(StreetTheme.house.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(Rhythm.line)
+                    .background(StreetTheme.house.surface)
+            }
+        }
     }
 }
