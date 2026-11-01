@@ -84,8 +84,6 @@ for match in re.finditer(r"@([A-Za-z0-9_]+)\s*\{([^}]*)\}", text):
     path = re.search(r"(?m)^\s*path\s+(\S+)\s*$", body)
     if method and path:
         found[name] = (method.group(1), path.group(1))
-if ("nojwt",) in []:
-    pass
 pairs = set(found.values())
 if pairs != seen:
     missing = sorted(seen - pairs)
@@ -134,7 +132,8 @@ if text.count("response_header_timeout 30s") != 4:
 for needle in (
     "admin off",
     "auto_https off",
-    "http://127.0.0.1:8447",
+    "http://:8447",
+    "log default",
     "bind 127.0.0.1",
     "max_size 4KB",
     "tls_server_name pi.hole",
@@ -147,6 +146,10 @@ for needle in (
 ):
     if needle not in text:
         sys.exit(f"Caddyfile missing {needle}")
+if "http://127.0.0.1:8447" in text:
+    sys.exit("site address still pins Host to 127.0.0.1")
+if text.count("request>headers delete") < 2:
+    sys.exit("request headers must be dropped on the access log and the default log")
 if "insecure_skip_verify" in text or "rate_limit" in text:
     sys.exit("Caddyfile contains a forbidden directive")
 if "0.0.0.0" in text:
@@ -222,7 +225,8 @@ PY
 python3 "$root/stubs/upstream.py" --name pihole --port "$pihole_port" \
 	--record "$tmp/pihole.jsonl" --cert "$tmp/pi.crt" --key "$tmp/pi.key" \
 	>"$tmp/pihole.err" 2>&1 &
-echo $! >>"$tmp/pids"
+pihole_pid=$!
+echo "$pihole_pid" >>"$tmp/pids"
 python3 "$root/stubs/upstream.py" --name netdata --port "$netdata_port" \
 	--record "$tmp/netdata.jsonl" >"$tmp/netdata.err" 2>&1 &
 echo $! >>"$tmp/pids"
@@ -274,11 +278,21 @@ docker run -d --name "$container" \
 	-v "$tmp/ca.pem:/etc/caddy/pihole-ca.pem:ro" \
 	caddy:2 caddy run --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
 started=1
-wait_code "http://127.0.0.1:8447/healthz" 403
-
 jwt='fake-jwt-not-a-secret'
 base='http://127.0.0.1:8447'
+public_host=(-H 'Host: pistats.thestreetfam.com')
+for i in $(seq 1 50); do
+	code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 1 \
+		"${public_host[@]}" "$base/healthz" || true)
+	if [[ "$code" == "403" ]]; then
+		break
+	fi
+	sleep 0.2
+done
+[[ "$code" == "403" ]] || die "public Host /healthz was ${code:-none}, expected 403"
+
 common=(
+	-H 'Host: pistats.thestreetfam.com'
 	-H "Cf-Access-Jwt-Assertion: ${jwt}"
 	-H "CF-Access-Client-Id: fake-access-client-id"
 	-H "CF-Access-Client-Secret: fake-access-client-secret"
@@ -354,7 +368,6 @@ denied=(
 	"GET /api/action/flush"
 	"GET /api/queries/"
 	"DELETE /api/domains/allow/exact"
-	"GET /netdata/api/v2/data"
 	"GET /kuma/api/status-page/other"
 	"GET /kuma/api/status-page/heartbeat/other"
 )
@@ -374,19 +387,30 @@ for pair in "${denied[@]}"; do
 done
 say "deny: $denied_ok disallowed pairs returned 404"
 
-code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 "$base/healthz" || true)
+code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 \
+	-H 'Host: pistats.thestreetfam.com' \
+	-H "Cf-Access-Jwt-Assertion: ${jwt}" \
+	"$base/admin/" || true)
+[[ "$code" == "404" ]] || die "/admin/ with public Host returned $code, expected 404"
+say "public host: /admin/ 404"
+
+code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 \
+	-H 'Host: pistats.thestreetfam.com' "$base/healthz" || true)
 [[ "$code" == "403" ]] || die "GET /healthz without JWT returned $code"
-code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 "$base/api/stats/summary" || true)
+code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 \
+	-H 'Host: pistats.thestreetfam.com' "$base/api/stats/summary" || true)
 [[ "$code" == "403" ]] || die "GET /api/stats/summary without JWT returned $code"
 code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 \
-	-X POST -H 'Content-Type: application/json' --data-binary '{}' \
+	-X POST -H 'Host: pistats.thestreetfam.com' \
+	-H 'Content-Type: application/json' --data-binary '{}' \
 	-H 'X-No-Jwt-Probe: no-jwt-probe' "$base/api/auth" || true)
 [[ "$code" == "403" ]] || die "POST /api/auth without JWT returned $code"
 say "no jwt: 403"
 
 python3 -c 'import os,sys; os.write(sys.stdout.fileno(), b"a"*5120)' >"$tmp/big.bin"
 code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 \
-	-X POST -H 'Content-Type: application/octet-stream' \
+	-X POST -H 'Host: pistats.thestreetfam.com' \
+	-H 'Content-Type: application/octet-stream' \
 	-H 'X-Body-Probe: big-body-probe' \
 	-H "Cf-Access-Jwt-Assertion: ${jwt}" \
 	--data-binary @"$tmp/big.bin" "$base/api/auth" || true)
@@ -394,11 +418,14 @@ code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 \
 say "body 5120: 413"
 
 hdr=$(curl -sS -D - -o /dev/null --max-time 5 \
+	-H 'Host: pistats.thestreetfam.com' \
 	-H "Cf-Access-Jwt-Assertion: ${jwt}" "$base/healthz")
 printf '%s' "$hdr" | grep -qi '^x-content-type-options: nosniff' || die "missing nosniff on /healthz"
 printf '%s' "$hdr" | grep -qi '^cache-control: no-store' || die "missing no-store on /healthz"
 printf '%s' "$hdr" | grep -q '^HTTP/.* 200' || die "/healthz with JWT was not 200"
-body=$(curl -sS --max-time 5 -H "Cf-Access-Jwt-Assertion: ${jwt}" "$base/healthz")
+body=$(curl -sS --max-time 5 \
+	-H 'Host: pistats.thestreetfam.com' \
+	-H "Cf-Access-Jwt-Assertion: ${jwt}" "$base/healthz")
 [[ "$body" == "ok" ]] || die "/healthz body was not ok"
 say "healthz: 200 ok, nosniff, no-store"
 
@@ -482,6 +509,25 @@ if "/api/v1/data?chart=canary-not-a-secret" not in (tmp/"netdata.jsonl").read_te
 print("stubs: access headers stripped, prefixes stripped, query forwarded")
 PY
 
+kill "$pihole_pid" 2>/dev/null || true
+wait "$pihole_pid" 2>/dev/null || true
+for i in $(seq 1 50); do
+	if ! curl -sk --max-time 1 -o /dev/null "https://127.0.0.1:${pihole_port}/ready"; then
+		break
+	fi
+	sleep 0.1
+done
+code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 8 \
+	-H 'Host: pistats.thestreetfam.com' \
+	-H "Cf-Access-Jwt-Assertion: ${jwt}" \
+	-H "CF-Access-Client-Id: fake-access-client-id" \
+	-H "CF-Access-Client-Secret: fake-access-client-secret" \
+	-H "Cookie: sid=fake-cookie-not-a-secret" \
+	-H "X-FTL-SID: fake-sid-not-a-secret" \
+	"$base/api/stats/summary?n=canary-not-a-secret" || true)
+[[ "$code" == "502" ]] || die "upstream down returned $code, expected 502"
+say "upstream down: 502"
+
 logs=$(docker logs "$container" 2>&1 || true)
 printf '%s' "$logs" | python3 -c '
 import json, sys
@@ -492,12 +538,14 @@ banned = (
     "fake-access-client-id",
     "fake-access-client-secret",
     "fake-cookie-not-a-secret",
+    "fake-sid-not-a-secret",
 )
 for token in banned:
     if token in raw:
-        sys.exit("access log leaked a filtered value")
+        sys.exit("log leaked a filtered value")
 found = False
 paths = set()
+error_uris = []
 for line in raw.splitlines():
     line = line.strip()
     if not line.startswith("{"):
@@ -506,20 +554,27 @@ for line in raw.splitlines():
         item = json.loads(line)
     except json.JSONDecodeError:
         continue
-    logger = item.get("logger") or ""
-    if not str(logger).startswith("http.log.access"):
-        continue
-    found = True
+    logger = str(item.get("logger") or "")
     request = item.get("request") or {}
+    if not isinstance(request, dict):
+        request = {}
     uri = request.get("uri", "")
-    if not uri or "?" in uri or "headers" in request or "resp_headers" in item:
-        sys.exit("access log kept a query string or headers, or dropped the path")
-    paths.add(uri)
+    if isinstance(uri, str) and ("?" in uri or "headers" in request or "resp_headers" in item):
+        sys.exit(f"{logger or 'log'} kept a query string or headers")
+    if logger.startswith("http.log.access"):
+        found = True
+        if not uri:
+            sys.exit("access log dropped the path")
+        paths.add(uri)
+    if logger.startswith("http.log.error"):
+        error_uris.append(uri)
 if not found:
     sys.exit("no JSON access log lines")
 if "/healthz" not in paths:
     sys.exit("access log did not keep the /healthz path")
-print("access log: query string and headers dropped")
+if "/api/stats/summary" not in error_uris:
+    sys.exit("http.log.error did not keep the failing path")
+print("logs: query string and headers dropped, error path kept")
 '
 
 image=$(docker image inspect caddy:2 --format '{{index .RepoDigests 0}} {{.Id}}')

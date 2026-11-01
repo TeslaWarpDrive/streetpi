@@ -27,6 +27,7 @@
 	{"method":"GET","path":"/netdata/api/v2/info","upstream":"netdata"},
 	{"method":"GET","path":"/netdata/api/v1/charts","upstream":"netdata"},
 	{"method":"GET","path":"/netdata/api/v1/data","upstream":"netdata"},
+	{"method":"GET","path":"/netdata/api/v2/data","upstream":"netdata"},
 	{"method":"GET","path":"/netdata/api/v3/data","upstream":"netdata"},
 	{"method":"GET","path":"/netdata/api/v1/alarms","upstream":"netdata"},
 	{"method":"GET","path":"/kuma/api/status-page/house","upstream":"kuma"},

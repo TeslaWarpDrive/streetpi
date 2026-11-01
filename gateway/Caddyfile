@@ -1,11 +1,25 @@
 # StreetPi away gateway for stock caddy:2. No plugins.
-# Listens on the Pi at http://127.0.0.1:8447 only.
+# Socket is bind 127.0.0.1 port 8447. Site address is http://:8447
+# so cloudflared's Host pistats.thestreetfam.com matches a route.
 # Anything that is not a named allowlist matcher returns 404.
 # A missing Cf-Access-Jwt-Assertion header returns 403.
 # Rate limiting is a Cloudflare edge rule. Do not add it here.
 {
 	admin off
 	auto_https off
+	# Runtime HTTP logs, including http.log.error, use this logger.
+	# The site access log has the same filter. Keep the two in step.
+	log default {
+		output stderr
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "[?].*$" ""
+				request>headers delete
+				resp_headers delete
+			}
+		}
+	}
 }
 
 (pihole) {
@@ -81,7 +95,7 @@
 	}
 }
 
-http://127.0.0.1:8447 {
+http://:8447 {
 	bind 127.0.0.1
 	log {
 		output stdout
@@ -306,6 +320,13 @@ http://127.0.0.1:8447 {
 		path /netdata/api/v1/data
 	}
 	handle @allow_get_netdata_api_v1_data {
+		import netdata
+	}
+	@allow_get_netdata_api_v2_data {
+		method GET
+		path /netdata/api/v2/data
+	}
+	handle @allow_get_netdata_api_v2_data {
 		import netdata
 	}
 	@allow_get_netdata_api_v3_data {

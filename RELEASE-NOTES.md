@@ -1,6 +1,6 @@
 # Unreleased
 
-- Away from home can call https://pistats.thestreetfam.com. The Pi's existing tunnel reaches a small gate that allows only the app's paths. Pi Keeper deploys the gate. See `docs/away-tunnel.md`.
+- Away from home can call https://pistats.thestreetfam.com. The Pi's existing tunnel reaches a small gate on the Pi. The gate accepts that public name and allows only the app's paths, including the chart fallback. Pi Keeper deploys the gate. See `docs/away-tunnel.md`.
 
 # Raspberry Pi Stats 1.1.0 (3)
 

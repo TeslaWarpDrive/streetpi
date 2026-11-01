@@ -2,7 +2,7 @@
 
 At home, the phone talks to the Pi on the house network. That address is 192.168.1.78. The ad blocker answers on the secure port, the charts answer on port 19999, and the status page answers on port 3001.
 
-Away from home, the phone uses https://pistats.thestreetfam.com instead. That name was already published through the Pi's Cloudflare Tunnel, the one called pi-grok-stats. Cloudflare Access checks a service token before a request is allowed through. On the Pi, the tunnel hands the request to a small gate. The gate listens only on the Pi itself, at 127.0.0.1 port 8447. It forwards a short list of paths to the ad blocker, the charts, and the status page, and it refuses everything else.
+Away from home, the phone uses https://pistats.thestreetfam.com instead. That name was already published through the Pi's Cloudflare Tunnel, the one called pi-grok-stats. Cloudflare Access checks a service token before a request is allowed through. On the Pi, the tunnel hands the request to a small gate. The gate's socket listens only on the Pi itself, at 127.0.0.1 port 8447, and it accepts the public name as the Host. It forwards a short list of paths to the ad blocker, the charts, and the status page, and it refuses everything else. The status page slug stays house. A later change keeps it at house when the phone is away.
 
 Brandy does not set this up. There is nothing to turn on, no extra app to install, and no VPN profile to add.
 
