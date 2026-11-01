@@ -40,12 +40,8 @@ private final class GatewayStub: URLProtocol, @unchecked Sendable {
         guard let response = HTTPURLResponse(
             url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: fields
         ) else { return }
-        if let target {
-            client?.urlProtocol(self, wasRedirectedTo: URLRequest(url: target), redirectResponse: response)
-        } else {
-            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: Data("{}".utf8))
-        }
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data("{}".utf8))
         client?.urlProtocolDidFinishLoading(self)
     }
 }
@@ -104,12 +100,40 @@ final class AwayLiveTests: XCTestCase {
         XCTAssertTrue(GatewayStub.requests.isEmpty)
     }
 
-    func testARedirectIsNotFollowed() async throws {
-        let elsewhere = try url("https://elsewhere.example.test/steal")
-        GatewayStub.reset(redirectingTo: elsewhere)
+    func testTheSessionRefusesARedirect() throws {
+        let http = try client()
+        let refusal = try XCTUnwrap(http.trustDelegate as? RedirectRefusal)
+        let target = try url("https://elsewhere.example.test/steal")
+        let from = try url("https://gateway.example.test/api/queries")
+        let response = try XCTUnwrap(HTTPURLResponse(
+            url: from, statusCode: 302, httpVersion: "HTTP/1.1", headerFields: ["Location": target.absoluteString]
+        ))
+        let answered = expectation(description: "The redirect is answered")
+        refusal.urlSession(
+            URLSession.shared,
+            task: URLSession.shared.dataTask(with: from),
+            willPerformHTTPRedirection: response,
+            newRequest: URLRequest(url: target)
+        ) { next in
+            XCTAssertNil(next)
+            answered.fulfill()
+        }
+        wait(for: [answered], timeout: 1)
+    }
+
+    func testARedirectStopsAtTheCaller() async throws {
+        GatewayStub.reset(redirectingTo: try url("https://elsewhere.example.test/steal"))
         let reply = try await client().get(try url("https://gateway.example.test/api/queries"), headers: [:])
         XCTAssertEqual(reply.status, 302)
         XCTAssertEqual(GatewayStub.requests.map(\.url?.host), ["gateway.example.test"])
+        let road = try XCTUnwrap(LiveEndpoints.away(try gateway()))
+        let transport = LivePiholeTransport(http: try client(), base: road.pihole)
+        do {
+            _ = try await transport.send(PiholeRequest(method: "GET", path: "/api/queries", headers: [:], body: nil))
+            XCTFail("Expected the redirect to be refused")
+        } catch {
+            XCTAssertEqual(error as? PiholeProblem, .notUnderstood)
+        }
     }
 
     func testTheHomeClientNeverHoldsTheHeaders() async throws {
