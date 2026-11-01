@@ -224,12 +224,15 @@ struct AwayKeyNotice: ViewModifier {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    static let message = "Away key was rejected – replace it in Settings"
+    var text: String? {
+        guard rejected, section == .group(.adBlockerAndDNS) || section == .settings else { return nil }
+        return AwayKeyProblem.rejected.message
+    }
 
     func body(content: Content) -> some View {
         VStack(spacing: 0) {
-            if rejected && (section == .group(.adBlockerAndDNS) || section == .settings) {
-                Label(Self.message, systemImage: "key.slash")
+            if let text {
+                Label(text, systemImage: "key.slash")
                     .font(dynamicTypeSize.isAccessibilitySize ? .caption : .footnote)
                     .foregroundStyle(StreetTheme.house.ink)
                     .fixedSize(horizontal: false, vertical: true)

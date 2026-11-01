@@ -431,6 +431,10 @@ struct RootView: View {
                 return AdBlockerHome.offline(now: now)
             }
             return AdBlockerHome.failed(problem, now: now)
+        } catch AwayKeyProblem.rejected {
+            // Only the away road has a key. At home this stays a service that is not set up.
+            dnsSession.signedIn = false
+            return isAwayLive ? AdBlockerHome.offline(now: now) : AdBlockerHome.notSetUp(now: now)
         } catch {
             dnsSession.signedIn = false
             return AdBlockerHome.offline(now: now)

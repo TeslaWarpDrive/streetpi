@@ -28,8 +28,7 @@ final class RejectedAwayKeyTests: XCTestCase {
                 gatewayReply: { await GatewayProbe().reply($0, http: ProbeReply(status: 403)) }
             )
             XCTAssertEqual(mode, mailbox.map(ConnectionMode.awayMailbox) ?? .offline)
-            XCTAssertTrue(root.awayKeyRejected)
-            XCTAssertEqual(AwayKeyNotice.message, "Away key was rejected – replace it in Settings")
+            assertNoticeShows(root)
         }
     }
 
@@ -43,7 +42,7 @@ final class RejectedAwayKeyTests: XCTestCase {
                 gatewayReply: { await GatewayProbe().reply($0, http: ProbeReply(status: nil)) }
             )
             XCTAssertEqual(mode, mailbox.map(ConnectionMode.awayMailbox) ?? .offline)
-            XCTAssertFalse(root.awayKeyRejected)
+            assertNoticeHidden(root)
         }
     }
 
@@ -59,7 +58,7 @@ final class RejectedAwayKeyTests: XCTestCase {
             }
         )
         XCTAssertEqual(mode, .home)
-        XCTAssertFalse(root.awayKeyRejected)
+        assertNoticeHidden(root)
     }
 
     func testOnlyHealth200AnswersAndOnly403RejectsKey() async throws {
@@ -91,8 +90,7 @@ final class RejectedAwayKeyTests: XCTestCase {
         try KeychainSession(store: secrets).saveAppPassword("FAKE_password")
         let board = await root.refresh(client, now: .streetFixtureNow, secrets: secrets)
         XCTAssertEqual(board.problem, .offline)
-        XCTAssertTrue(root.awayKeyRejected)
-        XCTAssertEqual(root.certificateRecovery.gatewayReply, .rejectedKey)
+        assertNoticeShows(root)
     }
 
     func testHomeRefreshForbiddenDoesNotClaimAwayKeyWasRejected() async {
@@ -101,8 +99,25 @@ final class RejectedAwayKeyTests: XCTestCase {
             transport: ScriptedPiholeTransport(steps: [.json(403, "{}")]),
             password: { "FAKE_password" }
         )
-        _ = await root.refresh(client, now: .streetFixtureNow, secrets: MemorySecretStore())
-        XCTAssertFalse(root.awayKeyRejected)
+        let board = await root.refresh(client, now: .streetFixtureNow, secrets: MemorySecretStore())
+        XCTAssertEqual(board.problem, .notSetUp)
+        assertNoticeHidden(root)
+    }
+
+    private func assertNoticeShows(_ root: RootView, line: UInt = #line) {
+        let message = "Away key was rejected – replace it in Settings"
+        for section in [AppSection.group(.adBlockerAndDNS), .settings] {
+            XCTAssertEqual(
+                AwayKeyNotice(rejected: root.awayKeyRejected, section: section).text, message, line: line
+            )
+        }
+        XCTAssertNil(AwayKeyNotice(rejected: root.awayKeyRejected, section: .group(.piHealth)).text, line: line)
+    }
+
+    private func assertNoticeHidden(_ root: RootView, line: UInt = #line) {
+        for section in [AppSection.group(.adBlockerAndDNS), .settings] {
+            XCTAssertNil(AwayKeyNotice(rejected: root.awayKeyRejected, section: section).text, line: line)
+        }
     }
 }
 
