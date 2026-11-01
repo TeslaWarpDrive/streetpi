@@ -222,8 +222,6 @@ struct AwayKeyNotice: ViewModifier {
     var rejected: Bool
     var section: AppSection
 
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
     var text: String? {
         guard rejected, section == .group(.adBlockerAndDNS) || section == .settings else { return nil }
         return AwayKeyProblem.rejected.message
@@ -233,7 +231,9 @@ struct AwayKeyNotice: ViewModifier {
         VStack(spacing: 0) {
             if let text {
                 Label(text, systemImage: "key.slash")
-                    .font(dynamicTypeSize.isAccessibilitySize ? .caption : .footnote)
+                    .font(.footnote)
+                    // It grows with text size, and stops before it pushes the page's own alert off a small phone.
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
                     .foregroundStyle(StreetTheme.house.ink)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
