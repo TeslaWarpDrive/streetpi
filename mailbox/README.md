@@ -97,3 +97,21 @@ Only run this with Bradley's OK. It needs a Cloudflare login and it changes his 
 On a Mac without `shred`, use `rm -P`.
 
 To replace a token, repeat its line from step 3 and hand the new one over. The old one stops working at once. A phone that already has a mailbox keeps it, so after replacing the read token, update `AWAY_READ_TOKEN` and either replace the token in Settings > Away or remove the app and install the new build.
+
+## Decrypt and sideload the provisioned IPA
+
+Download `streetpi-provisioned-ipa-encrypted` from CI. Set `AWAY_IPA_PASSPHRASE` locally using a private file or password manager. Use the CI value of that secret, or `AWAY_READ_TOKEN` if no separate passphrase was set.
+
+```sh
+set +x
+umask 077
+# Read the passphrase from a private file, without putting its value in shell history.
+export AWAY_IPA_PASSPHRASE="$(cat /path/to/private/passphrase-file)"
+openssl enc -d -aes-256-cbc -md sha256 -pbkdf2 -iter 200000 -pass env:AWAY_IPA_PASSPHRASE \
+  -in StreetPi-provisioned.ipa.enc -out StreetPi-provisioned.ipa
+unset AWAY_IPA_PASSPHRASE
+```
+
+Sideload `StreetPi-provisioned.ipa` with your usual signing tool. The decrypted IPA contains the Access token; keep it private. It can also contain the mailbox read token. Delete the decrypted copy after installing it.
+
+CI accepts the mailbox pair, the gateway trio, or both. A gateway-only build needs `AWAY_IPA_PASSPHRASE`. Partial secret sets fail with the missing secret names. The ordinary unsigned IPA contains no seed.

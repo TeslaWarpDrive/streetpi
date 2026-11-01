@@ -16,8 +16,8 @@ final class MailboxSeedTests: XCTestCase {
 
     func testReadsTheBundledPlist() throws {
         let seed = try makeSeed()
-        XCTAssertEqual(seed.setup.address.text, "https://mailbox.example.test")
-        XCTAssertEqual(seed.setup.token.secret, token)
+        XCTAssertEqual(seed.mailbox?.address.text, "https://mailbox.example.test")
+        XCTAssertEqual(seed.mailbox?.token.secret, token)
     }
 
     func testRefusesAPartOrBadPlist() throws {
@@ -37,7 +37,10 @@ final class MailboxSeedTests: XCTestCase {
 
     func testAnEmptyPhoneSeeds() throws {
         let seed = try makeSeed()
-        XCTAssertEqual(MailboxSeedStep.next(handled: false, configured: false, seed: seed), .seed(seed.setup))
+        XCTAssertEqual(
+            MailboxSeedStep.next(handled: false, configured: false, seed: seed),
+            .seed(try XCTUnwrap(seed.mailbox))
+        )
     }
 
     func testASavedMailboxWinsAndIsRemembered() throws {
@@ -50,5 +53,78 @@ final class MailboxSeedTests: XCTestCase {
 
     func testABuildWithNoSeedDoesNothing() {
         XCTAssertEqual(MailboxSeedStep.next(handled: false, configured: false, seed: nil), .nothing)
+    }
+
+    private func decode(_ text: String) throws -> ProvisionSeed {
+        try ProvisionSeed.decode(Data(text.utf8))
+    }
+
+    func testVersionOneJSONStillDecodes() throws {
+        let seed = try decode("""
+        {"version":1,"mailboxURL":"https://mailbox.example.test","readToken":"test-read-FAKE","future":true}
+        """)
+        XCTAssertEqual(seed.mailbox?.token.secret, "test-read-FAKE")
+        XCTAssertNil(seed.gateway)
+    }
+
+    func testVersionTwoOptionalGroupsAndUnknownFields() throws {
+        let mailbox = #""mailbox":{"url":"https://mailbox.example.test","readToken":"test-read-FAKE","future":1}"#
+        let gateway = #"""
+        "gateway":{"url":"https://gateway.example.test","clientId":"test-client.access",
+        "clientSecret":"cfast_FAKE","future":1}
+        """#
+        for fields in [mailbox, gateway, mailbox + "," + gateway] {
+            let seed = try decode(#"{"version":2,"future":true,"# + fields + "}")
+            XCTAssertEqual(seed.mailbox != nil, fields.contains("mailbox"))
+            XCTAssertEqual(seed.gateway != nil, fields.contains("gateway"))
+            if let gateway = seed.gateway {
+                XCTAssertEqual(gateway.url.absoluteString, "https://gateway.example.test")
+                XCTAssertEqual(gateway.clientID, "test-client.access")
+                XCTAssertEqual(gateway.clientSecret, "cfast_FAKE")
+                var dumped = ""
+                dump(seed, to: &dumped)
+                XCTAssertFalse(dumped.contains("cfast_FAKE"))
+                XCTAssertFalse(dumped.contains("test-client.access"))
+                XCTAssertFalse(String(reflecting: gateway).contains("cfast_FAKE"))
+            }
+        }
+    }
+
+    func testRefusesInvalidVersionTwoWithoutLeakingInput() {
+        let invalid = [
+            #"{"version":3,"mailbox":{"url":"https://mailbox.example.test","readToken":"test-read-FAKE"}}"#,
+            #"{"version":2}"#,
+            #"""
+            {"version":2,"gateway":{"url":"http://gateway.example.test",
+            "clientId":"test-client.access","clientSecret":"cfast_FAKE"}}
+            """#,
+            #"""
+            {"version":2,"gateway":{"url":"https://gateway.example.test","clientId":" ",
+            "clientSecret":"cfast_FAKE"}}
+            """#,
+            #"""
+            {"version":2,"gateway":{"url":"https://gateway.example.test",
+            "clientId":"test-client.access","clientSecret":""}}
+            """#,
+            #"{"version":2,"gateway":{"url":"https://gateway.example.test","clientId":"test-client.access"}}"#,
+            #"{"version":2,"mailbox":{"url":"http://mailbox.example.test","readToken":"test-read-FAKE"}}"#,
+            #"{"version":2,"mailbox":false,"cfast_FAKE":1}"#,
+            "cfast_FAKE"
+        ]
+        for text in invalid {
+            XCTAssertThrowsError(try decode(text)) { error in
+                XCTAssertEqual(String(describing: error), "invalidSeed")
+            }
+        }
+    }
+
+    func testGatewayOnlyDoesNotMarkMailboxHandled() throws {
+        let seed = try decode("""
+        {"version":2,
+        "gateway":{"url":"https://gateway.example.test",
+        "clientId":"test-client.access",
+        "clientSecret":"cfast_FAKE"}}
+        """)
+        XCTAssertEqual(MailboxSeedStep.next(handled: false, configured: false, seed: seed), .nothing)
     }
 }

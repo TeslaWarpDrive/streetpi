@@ -1,26 +1,98 @@
 import Foundation
 
-/// A mailbox the build carries, so nobody has to type it on a phone. Only the provisioned IPA has one.
-/// Its description comes from `MailboxSetup`, and the token inside never prints.
-public struct MailboxSeed: Sendable, Equatable {
-    /// `AwayProvision.plist`, added to the app by `scripts/seal-provisioned-ipa.sh`.
+/// Credentials carried only by the encrypted provisioned IPA.
+public struct GatewaySeed: Sendable, Equatable, CustomStringConvertible, CustomDebugStringConvertible,
+    CustomReflectable {
+    public let url: URL
+    public let clientID: String
+    public let clientSecret: String
+
+    public var description: String { "GatewaySeed(redacted)" }
+    public var debugDescription: String { description }
+    public var customMirror: Mirror { Mirror(self, children: []) }
+}
+
+public struct ProvisionSeed: Sendable, Equatable {
     public static let resourceName = "AwayProvision"
+    public let mailbox: MailboxSetup?
+    public let gateway: GatewaySeed?
+
+    private struct MailboxWire: Decodable {
+        let url: String
+        let readToken: String
+    }
+
+    private struct GatewayWire: Decodable {
+        let url: String
+        let clientId: String
+        let clientSecret: String
+    }
 
     private struct Wire: Decodable {
-        var mailboxURL: String
-        var readToken: String
+        let version: Int
+        let mailbox: MailboxWire?
+        let gateway: GatewayWire?
+        let mailboxURL: String?
+        let readToken: String?
     }
 
-    public let setup: MailboxSetup
+    private struct Legacy: Decodable {
+        let mailboxURL: String
+        let readToken: String
+    }
+
+    public enum DecodeError: Error { case invalidSeed }
+
+    /// Accepts v2 JSON, v1 JSON, and the original unversioned mailbox plist.
+    /// Invalid input produces a value-free error, including malformed JSON containing credentials.
+    public static func decode(_ data: Data) throws -> ProvisionSeed {
+        do {
+            if let legacy = try? PropertyListDecoder().decode(Legacy.self, from: data) {
+                return try ProvisionSeed(mailboxURL: legacy.mailboxURL, token: legacy.readToken)
+            }
+            let wire = try JSONDecoder().decode(Wire.self, from: data)
+            if wire.version == 1, let url = wire.mailboxURL, let token = wire.readToken {
+                return try ProvisionSeed(mailboxURL: url, token: token)
+            }
+            guard wire.version == 2, wire.mailbox != nil || wire.gateway != nil else {
+                throw DecodeError.invalidSeed
+            }
+            var mailbox: MailboxSetup?
+            if let source = wire.mailbox {
+                mailbox = try ProvisionSeed(mailboxURL: source.url, token: source.readToken).mailbox
+            }
+            var gateway: GatewaySeed?
+            if let source = wire.gateway {
+                guard let address = MailboxAddress(text: source.url), let url = URL(string: address.text),
+                      !source.clientId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                      !source.clientSecret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                else { throw DecodeError.invalidSeed }
+                gateway = GatewaySeed(url: url, clientID: source.clientId, clientSecret: source.clientSecret)
+            }
+            return ProvisionSeed(mailbox: mailbox, gateway: gateway)
+        } catch {
+            throw DecodeError.invalidSeed
+        }
+    }
+
+    private init(mailbox: MailboxSetup?, gateway: GatewaySeed?) {
+        self.mailbox = mailbox
+        self.gateway = gateway
+    }
+
+    private init(mailboxURL: String, token: String) throws {
+        guard let address = MailboxAddress(text: mailboxURL), let token = MailboxToken(text: token)
+        else { throw DecodeError.invalidSeed }
+        self.init(mailbox: MailboxSetup(address: address, token: token), gateway: nil)
+    }
 
     public init?(plist: Data) {
-        guard let wire = try? PropertyListDecoder().decode(Wire.self, from: plist),
-              let address = MailboxAddress(text: wire.mailboxURL),
-              let token = MailboxToken(text: wire.readToken)
-        else { return nil }
-        setup = MailboxSetup(address: address, token: token)
+        guard let seed = try? Self.decode(plist) else { return nil }
+        self = seed
     }
 }
+
+public typealias MailboxSeed = ProvisionSeed
 
 /// What to do with a bundled mailbox on launch.
 public enum MailboxSeedStep: Sendable, Equatable {
@@ -30,10 +102,10 @@ public enum MailboxSeedStep: Sendable, Equatable {
     case seed(MailboxSetup)
 
     /// `handled` is true once this install has seeded, or has saved or removed a mailbox itself.
-    public static func next(handled: Bool, configured: Bool, seed: MailboxSeed?) -> MailboxSeedStep {
+    public static func next(handled: Bool, configured: Bool, seed: ProvisionSeed?) -> MailboxSeedStep {
         if handled { return .nothing }
         if configured { return .markHandled }
-        guard let seed else { return .nothing }
-        return .seed(seed.setup)
+        guard let mailbox = seed?.mailbox else { return .nothing }
+        return .seed(mailbox)
     }
 }
