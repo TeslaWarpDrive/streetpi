@@ -58,6 +58,8 @@ public struct AwayGravityFlow: Sendable {
     public static let maximumBackoffSeconds = 60
     public static let capSeconds = 600
     private static let readSeconds: TimeInterval = 5
+    static let couldNotCheckTitle = "Could not check the block lists."
+    static let couldNotCheckDetail = "The Pi did not answer, so the update may not have run. Try again later."
 
     private let client: PiholeClient
     private let now: @Sendable () -> Date
@@ -92,7 +94,8 @@ public struct AwayGravityFlow: Sendable {
             try await start(deadline: deadline)
             return try await checkBack(before: before, deadline: deadline)
         } catch GravityDeadline.reached {
-            return Self.stillUpdating
+            // Only the steps before the first poll get here, so nothing confirmed a run.
+            return Self.couldNotCheck
         }
     }
 
@@ -123,7 +126,8 @@ public struct AwayGravityFlow: Sendable {
                 return
             } catch PiholeProblem.rateLimited {
                 try await backOff(after: &failures, deadline: deadline)
-            } catch PiholeProblem.offline {
+            } catch PiholeProblem.offline, PiholeProblem.untrusted, PiholeProblem.busy {
+                // The Pi may be running, or already was. Only the summary can say.
                 return
             }
         }
@@ -139,6 +143,12 @@ public struct AwayGravityFlow: Sendable {
 
     private func checkBack(before: GravityMark, deadline: Date) async throws -> ActionReceipt {
         var failures = 0
+        var answered = false
+        var sawFinish = false
+        func outOfTime() -> ActionReceipt {
+            if sawFinish { return finished(domains: nil) }
+            return answered ? Self.stillUpdating : Self.couldNotCheck
+        }
         while true {
             try Task.checkCancellation()
             let wait = failures == 0 ? Self.pollSeconds : Self.backoffSeconds(afterFailures: failures)
@@ -148,21 +158,31 @@ public struct AwayGravityFlow: Sendable {
             do {
                 let current = try await mark(deadline: deadline)
                 failures = 0
-                if current.lastUpdate != before.lastUpdate { return finished(current) }
-                await onStep(.updating)
+                answered = true
+                if current.lastUpdate != before.lastUpdate {
+                    // The stamp moves just before the Pi reloads, so the old count can still show.
+                    if let domains = current.domains, domains >= 0, domains != before.domains || sawFinish {
+                        return finished(domains: domains)
+                    }
+                    sawFinish = true
+                } else {
+                    await onStep(.updating)
+                }
             } catch GravityDeadline.reached {
-                return Self.stillUpdating
+                return outOfTime()
             } catch PiholeProblem.rateLimited {
                 failures += 1
                 await onStep(.busyRetrying)
             } catch {
                 try Task.checkCancellation()
             }
-            if finalLook { return Self.stillUpdating }
+            if finalLook { return outOfTime() }
         }
     }
 
     /// Cancellation reaches URLSession through the client. A late reply cannot become success.
+    /// The call runs in its own task, because waiting on a sign-in other readers share does not
+    /// end on cancellation. That sign-in is left to finish for them.
     private func bounded<Value: Sendable>(
         deadline: Date,
         seconds: TimeInterval,
@@ -170,29 +190,37 @@ public struct AwayGravityFlow: Sendable {
     ) async throws -> Value {
         let remaining = deadline.timeIntervalSince(now())
         guard remaining > 0 else { throw GravityDeadline.reached }
-        return try await withThrowingTaskGroup(of: Value.self) { group in
-            group.addTask { try await operation() }
-            group.addTask {
-                try await Task.sleep(for: .seconds(min(seconds, remaining)))
-                await client.cancelPendingAuthentication()
-                if remaining <= seconds { throw GravityDeadline.reached }
-                throw PiholeProblem.offline
-            }
-            defer { group.cancelAll() }
+        let (outcome, finish) = AsyncThrowingStream<Value, any Error>.makeStream()
+        let work = Task {
             do {
-                guard let value = try await group.next(), now() < deadline else { throw GravityDeadline.reached }
-                try Task.checkCancellation()
-                return value
+                finish.yield(try await operation())
+                finish.finish()
             } catch {
-                try Task.checkCancellation()
-                if now() >= deadline { throw GravityDeadline.reached }
-                throw error
+                finish.finish(throwing: error)
             }
+        }
+        let timer = Task {
+            try await Task.sleep(for: .seconds(min(seconds, remaining)))
+            finish.finish(throwing: remaining <= seconds ? GravityDeadline.reached : PiholeProblem.offline)
+        }
+        defer {
+            work.cancel()
+            timer.cancel()
+        }
+        do {
+            var reply = outcome.makeAsyncIterator()
+            guard let value = try await reply.next(), now() < deadline else { throw GravityDeadline.reached }
+            try Task.checkCancellation()
+            return value
+        } catch {
+            try Task.checkCancellation()
+            if now() >= deadline { throw GravityDeadline.reached }
+            throw error
         }
     }
 
-    private func finished(_ mark: GravityMark) -> ActionReceipt {
-        let detail = mark.domains.map { "The Pi is now using \($0) domains on the block lists." }
+    private func finished(domains: Int?) -> ActionReceipt {
+        let detail = domains.map { "The Pi is now using \($0) domains on the block lists." }
         return ActionReceipt(
             title: "Block lists updated.",
             detail: detail ?? "The Pi finished updating the block lists.",
@@ -202,6 +230,10 @@ public struct AwayGravityFlow: Sendable {
 
     private static var stillUpdating: ActionReceipt {
         ActionReceipt(title: AwayCopy.gravityStillTitle, detail: AwayCopy.gravityStillDetail, pending: true)
+    }
+
+    private static var couldNotCheck: ActionReceipt {
+        ActionReceipt(title: couldNotCheckTitle, detail: couldNotCheckDetail, pending: true)
     }
 }
 
