@@ -77,7 +77,8 @@ public struct ConnectionDwell: Sendable, Equatable {
 
     public private(set) var current: ConnectionMode?
     private var since: Date?
-    private var reprobeSpent = false
+    private var reprobePending = false
+    private var lastReprobe: Date?
 
     public init() {}
 
@@ -104,22 +105,28 @@ public struct ConnectionDwell: Sendable, Equatable {
         return max(0, Self.minimumSeconds - now.timeIntervalSince(since))
     }
 
-    /// One look after a failed request, until a request works again. Offline keeps looking at the
-    /// pace of the failing reads, because nothing else would bring the app back.
-    public mutating func wantsReprobe() -> Bool {
-        if current == .offline { return true }
-        guard reprobeSpent == false else { return false }
-        reprobeSpent = true
+    /// Failed reads can look again after the cooldown, with only one probe in flight.
+    public mutating func wantsReprobe(now: Date) -> Bool {
+        guard !reprobePending else { return false }
+        if let lastReprobe, now.timeIntervalSince(lastReprobe) < Self.minimumSeconds {
+            return false
+        }
+        reprobePending = true
         return true
     }
 
+    public mutating func reprobeFinished(now: Date) {
+        reprobePending = false
+        lastReprobe = now
+    }
+
     public mutating func requestSucceeded() {
-        reprobeSpent = false
+        lastReprobe = nil
     }
 
     private mutating func adopt(_ mode: ConnectionMode, now: Date) {
         current = mode
         since = now
-        reprobeSpent = false
+        lastReprobe = nil
     }
 }

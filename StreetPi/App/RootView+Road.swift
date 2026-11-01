@@ -1,17 +1,34 @@
 import StreetPiCore
 import SwiftUI
 
+@Observable
+@MainActor
+final class CertificateRecovery {
+    var reading = PiProbe.Reading(mode: .home)
+    var declinedPin: String?
+    var dnsProblem: PiholeProblem?
+    var trigger = ConnectionTrigger.launch
+    var retry = 0
+    var generation = 0
+}
+
 /// Finding the road to the house, and the parts that only exist away from home.
 extension RootView {
-    func probeMode() async -> ConnectionMode {
-        let prober = ConnectionProber(
-            piAnswers: { await PiProbe().piAnswers() },
-            gatewayAnswers: { await GatewayProbe().answers($0) }
-        )
-        return await prober.mode(
-            gateway: AwayGatewayStore(store: secretStore).active(),
-            mailbox: MailboxSettingsStore(store: secretStore).load()
-        )
+    func probeMode() async -> ConnectionMode? {
+        await probeMode {
+            await PiProbe().connection(
+                gateway: AwayGatewayStore(store: secretStore).active(),
+                mailbox: MailboxSettingsStore(store: secretStore).load()
+            )
+        }
+    }
+
+    func probeMode(using probe: () async -> PiProbe.Reading) async -> ConnectionMode? {
+        let generation = certificateRecovery.generation
+        let reading = await probe()
+        guard !Task.isCancelled, generation == certificateRecovery.generation else { return nil }
+        certificateRecovery.reading = reading
+        return reading.mode
     }
 
     /// A session id belongs to one road, so a new road drops it and signs in again.
@@ -27,20 +44,22 @@ extension RootView {
 
     /// One look after a failed request. The dwell runs out first, then a new answer restarts the watch.
     func reprobe() async {
+        defer { dwell.reprobeFinished(now: Date()) }
         let left = dwell.secondsLeft(now: Date())
         if left > 0 {
             try? await Task.sleep(for: .seconds(left))
         }
-        let probed = await probeMode()
+        guard !Task.isCancelled else { return }
+        guard let probed = await probeMode() else { return }
         guard !Task.isCancelled, probed != mode else { return }
-        modeTrigger = .requestFailed
+        certificateRecovery.trigger = .requestFailed
         modeCheck += 1
     }
 
     func noteRead(worked: Bool) {
         if worked {
             dwell.requestSucceeded()
-        } else if dwell.wantsReprobe() {
+        } else if dwell.wantsReprobe(now: Date()) {
             reprobeAsk += 1
         }
     }
@@ -126,7 +145,7 @@ extension RootView {
 
     func gatewayChanged() {
         loadGatewayForm()
-        modeTrigger = .settingsChanged
+        certificateRecovery.trigger = .settingsChanged
         modeCheck += 1
     }
 

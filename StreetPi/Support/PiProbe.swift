@@ -6,7 +6,7 @@ import StreetPiCore
 struct PiProbe: Sendable {
     private static let timeout: TimeInterval = 1.5
 
-    private let http: any LiveHTTPSending
+    private let http: LiveHTTPClient
     private let hosts: LiveHostStore
 
     init(hosts: LiveHostStore = LiveHostStore()) {
@@ -17,9 +17,60 @@ struct PiProbe: Sendable {
         http = LiveHTTPClient(store: hosts, configuration: configuration)
     }
 
-    func piAnswers() async -> Bool {
-        guard LiveReaderGate.opensSockets else { return false }
-        return await Self.pinnedPiAnswers(http: http, base: hosts.load().pihole)
+    func connection(
+        gateway: AwayGatewaySettings?,
+        mailbox: MailboxSetup?
+    ) async -> Reading {
+        guard LiveReaderGate.opensSockets else { return Reading(mode: .offline) }
+        let presented = PresentedPinBox()
+        let transport = PiholeURLSessionTransport(
+            http: http,
+            endpoint: PiholeBaseAddress.endpoint(from: hosts.piholeText()) ?? .house,
+            sessions: KeychainSession(store: KeychainSecretStore()),
+            presented: presented
+        )
+        return await Self.connection(
+            transport: transport, presented: presented, gateway: gateway, mailbox: mailbox,
+            gatewayAnswers: { await GatewayProbe().answers($0) }
+        )
+    }
+
+    struct Reading: Sendable, Equatable {
+        var mode: ConnectionMode
+        var presentedPin: String?
+
+        func problem(declinedPin: String?) -> PiholeProblem? {
+            guard let presentedPin else { return nil }
+            guard presentedPin == declinedPin else { return .certificateChanged }
+            switch mode {
+            case .awayLive, .awayMailbox: return nil
+            case .home, .offline: return .pinKept
+            }
+        }
+    }
+
+    /// Certificate recovery only captures a fingerprint. It never authenticates a LAN request.
+    static func connection(
+        transport: any PiholeTransport,
+        presented: PresentedPinBox,
+        gateway: AwayGatewaySettings?,
+        mailbox: MailboxSetup?,
+        gatewayAnswers: @escaping @Sendable (AwayGatewaySettings) async -> Bool
+    ) async -> Reading {
+        var changedPin: String?
+        do {
+            _ = try await transport.send(PiholeRequest(
+                method: "GET", path: "/api/info/login", headers: [:], body: nil
+            ))
+            return Reading(mode: .home)
+        } catch PiholeProblem.certificateChanged {
+            changedPin = presented.presented()
+        } catch {
+            // A failed pin never proves home, even when another service answers.
+        }
+        let prober = ConnectionProber(piAnswers: { false }, gatewayAnswers: gatewayAnswers)
+        let mode = await prober.mode(gateway: gateway, mailbox: mailbox)
+        return Reading(mode: mode, presentedPin: changedPin)
     }
 
     /// Only contact through the pinned Pi-hole client proves home. Plaintext charts cannot.

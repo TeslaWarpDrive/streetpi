@@ -100,20 +100,56 @@ final class ConnectionModeTests: XCTestCase {
         XCTAssertEqual(dwell.settle(.home, trigger: .settingsChanged, now: start.addingTimeInterval(2)), .home)
     }
 
-    func testOneReprobeUntilARequestWorks() {
+    func testReprobesWaitForCompletionAndCooldown() {
         var dwell = ConnectionDwell()
         _ = dwell.settle(.home, trigger: .launch, now: start)
-        XCTAssertTrue(dwell.wantsReprobe())
-        XCTAssertFalse(dwell.wantsReprobe())
+        XCTAssertTrue(dwell.wantsReprobe(now: start))
+        XCTAssertFalse(dwell.wantsReprobe(now: start.addingTimeInterval(30)))
         dwell.requestSucceeded()
-        XCTAssertTrue(dwell.wantsReprobe())
+        XCTAssertFalse(dwell.wantsReprobe(now: start.addingTimeInterval(30)))
+        dwell.reprobeFinished(now: start.addingTimeInterval(30))
+        for second in 0..<10 {
+            XCTAssertFalse(dwell.wantsReprobe(now: start.addingTimeInterval(30 + Double(second))))
+        }
+        XCTAssertTrue(dwell.wantsReprobe(now: start.addingTimeInterval(40)))
     }
 
-    func testOfflineKeepsLooking() {
+    func testLaterGatewayOutageFallsBackWithoutASuccessfulRead() async throws {
+        let gateway = try gateway()
+        let mailbox = try mailbox()
+        let live = ConnectionMode.awayLive(gateway)
+        var dwell = ConnectionDwell()
+        _ = dwell.settle(live, trigger: .launch, now: start)
+        XCTAssertTrue(dwell.wantsReprobe(now: start))
+        // The first re-probe still finds the same gateway. No read succeeds afterward.
+        XCTAssertEqual(dwell.settle(live, trigger: .requestFailed, now: start.addingTimeInterval(10)), live)
+        dwell.reprobeFinished(now: start.addingTimeInterval(10))
+        XCTAssertFalse(dwell.wantsReprobe(now: start.addingTimeInterval(19)))
+        XCTAssertTrue(dwell.wantsReprobe(now: start.addingTimeInterval(20)))
+        let outage = ConnectionProber(piAnswers: { false }, gatewayAnswers: { _ in false })
+        let fallback = await outage.mode(gateway: gateway, mailbox: mailbox)
+        XCTAssertEqual(
+            dwell.settle(fallback, trigger: .requestFailed, now: start.addingTimeInterval(20)),
+            .awayMailbox(mailbox)
+        )
+    }
+
+    func testOfflineKeepsLookingWithoutOverlappingProbes() {
         var dwell = ConnectionDwell()
         _ = dwell.settle(.offline, trigger: .launch, now: start)
-        XCTAssertTrue(dwell.wantsReprobe())
-        XCTAssertTrue(dwell.wantsReprobe())
+        XCTAssertTrue(dwell.wantsReprobe(now: start))
+        XCTAssertFalse(dwell.wantsReprobe(now: start))
+        dwell.reprobeFinished(now: start)
+        XCTAssertTrue(dwell.wantsReprobe(now: start.addingTimeInterval(10)))
+    }
+
+    func testASuccessfulReadRearmsTheProbeAfterCompletion() {
+        var dwell = ConnectionDwell()
+        _ = dwell.settle(.home, trigger: .launch, now: start)
+        XCTAssertTrue(dwell.wantsReprobe(now: start))
+        dwell.reprobeFinished(now: start)
+        dwell.requestSucceeded()
+        XCTAssertTrue(dwell.wantsReprobe(now: start.addingTimeInterval(1)))
     }
 
     func testOnlyTheMailboxHoldsActionsBack() throws {

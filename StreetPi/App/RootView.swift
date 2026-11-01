@@ -16,11 +16,9 @@ struct RootView: View {
     @State private var showsSetup = false
     @State var dnsSession = DNSSessionHold()
     @State private var showLaunch: Bool
-    @State private var dnsProblem: PiholeProblem?
     @State private var presentedPin: String?
-    @State private var declinedPin: String?
+    @State var certificateRecovery = CertificateRecovery()
     @State private var signedOut = false
-    @State private var retry = 0
     @State private var piHost: String
     @State private var committedHost: String
     @State private var hostNote: String?
@@ -30,9 +28,8 @@ struct RootView: View {
     @State private var statusAddress: String
     @State private var statusSlug: String
     @State private var statusBoard: HouseStatusBoard?
-    @State var mode = ConnectionMode.home
+    @State var mode: ConnectionMode
     @State var modeCheck = 0
-    @State var modeTrigger = ConnectionTrigger.launch
     @State var dwell = ConnectionDwell()
     @State var reprobeAsk = 0
     @State var awayRoad = AwayRoadHold()
@@ -47,7 +44,8 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.secretStore) var secretStore
 
-    init(now: Date) {
+    init(now: Date, mode: ConnectionMode = .home) {
+        _mode = State(initialValue: mode)
         _clock = State(initialValue: now)
         let fixtures = LiveGate.usesFixtures
         _showLaunch = State(initialValue: !fixtures)
@@ -81,6 +79,44 @@ struct RootView: View {
         }
     }
 
+    var displayedDNSProblem: PiholeProblem? {
+        var reading = certificateRecovery.reading
+        reading.mode = mode
+        return reading.problem(declinedPin: certificateRecovery.declinedPin)
+            ?? (awayBoard == nil ? certificateRecovery.dnsProblem : nil)
+    }
+
+    func trustPresentedPin(hosts: LiveHostStore = LiveHostStore()) {
+        guard let presentedPin = certificateRecovery.reading.presentedPin ?? presentedPin,
+              PiholePin.isSHA256Pin(presentedPin) else { return }
+        do {
+            try hosts.savePin(presentedPin)
+        } catch {
+            return
+        }
+        dnsSession.http?.apply(hosts)
+        liveClient.apply(hosts)
+        certificateRecovery.declinedPin = nil
+        self.presentedPin = nil
+        certificateRecovery.generation += 1
+        certificateRecovery.reading.presentedPin = nil
+        signedOut = false
+        certificateRecovery.trigger = .settingsChanged
+        certificateRecovery.retry += 1
+    }
+
+    func keepSavedPin() {
+        certificateRecovery.declinedPin = certificateRecovery.reading.presentedPin
+            ?? presentedPin ?? certificateRecovery.declinedPin
+        switch mode {
+        case .awayLive, .awayMailbox:
+            if certificateRecovery.dnsProblem == .certificateChanged || certificateRecovery.dnsProblem == .pinKept {
+                certificateRecovery.dnsProblem = nil
+            }
+        case .home, .offline: apply(AdBlockerHome.failed(.pinKept, now: Date()))
+        }
+    }
+
     var body: some View {
         let away = awayBoard
         AppShell(
@@ -104,15 +140,15 @@ struct RootView: View {
             actionNotice: actionNotice,
             passwordSaved: passwordSaved,
             showsSetup: showsSetup,
-            dnsProblem: away == nil ? dnsProblem : nil,
+            dnsProblem: displayedDNSProblem,
             sessionActive: dnsSession.signedIn,
             trustNote: setupTrustNote,
             offersSetup: !passwordSaved,
-            onTrustNewCertificate: trustPresentedPin,
+            onTrustNewCertificate: { trustPresentedPin() },
             onKeepSavedPin: keepSavedPin,
             onSettingsSaved: {
                 signedOut = false
-                retry += 1
+                certificateRecovery.retry += 1
             },
             onDNSPage: { dnsPage = $0 },
             onMachinePage: { machinePage = $0 },
@@ -168,7 +204,7 @@ struct RootView: View {
         .task {
             guard !LiveGate.usesFixtures else { return }
             for await _ in NetworkPathChanges.stream() {
-                modeTrigger = .pathChanged
+                certificateRecovery.trigger = .pathChanged
                 modeCheck += 1
             }
         }
@@ -186,7 +222,7 @@ struct RootView: View {
     }
 
     private var watchToken: String {
-        "\(scenePhase)|\(committedHost)|\(retry)|\(signedOut)|\(statusAddress)|\(statusSlug)|\(modeCheck)"
+        "\(scenePhase)|\(committedHost)|\(certificateRecovery.retry)|\(signedOut)|\(statusAddress)|\(statusSlug)|\(modeCheck)"
     }
 
     /// Nil at home. Away, the screens read this and the home state waits untouched.
@@ -245,10 +281,9 @@ struct RootView: View {
     }
 
     private func watchLive() async {
-        let probed = await probeMode()
-        guard !Task.isCancelled else { return }
-        let trigger = modeTrigger
-        modeTrigger = .foreground
+        guard let probed = await probeMode(), !Task.isCancelled else { return }
+        let trigger = certificateRecovery.trigger
+        certificateRecovery.trigger = .foreground
         adopt(dwell.settle(probed, trigger: trigger, now: Date()))
         if case .awayMailbox(let setup) = mode {
             await watchAway(setup)
@@ -282,9 +317,9 @@ struct RootView: View {
     /// A pull looks for the Pi again. A new answer restarts the watch on the right road.
     private func refreshNow() async {
         guard LiveReaderGate.opensSockets else { return }
-        let next = await probeMode()
+        guard let next = await probeMode() else { return }
         guard next == mode else {
-            modeTrigger = .manual
+            certificateRecovery.trigger = .manual
             modeCheck += 1
             return
         }
@@ -359,7 +394,7 @@ struct RootView: View {
             dnsSession.signedIn = false
             if problem == .certificateChanged {
                 let presented = dnsSession.presented?.presented()
-                if let presented, presented == declinedPin {
+                if let presented, presented == certificateRecovery.declinedPin {
                     return AdBlockerHome.failed(.pinKept, now: now)
                 }
                 presentedPin = presented
@@ -388,7 +423,7 @@ struct RootView: View {
             status.linkLine = AwayCopy.awayChip
         }
         screen = .explained(status, snapshot)
-        dnsProblem = board.problem
+        certificateRecovery.dnsProblem = board.problem
         if board.problem != .certificateChanged {
             presentedPin = nil
         }
@@ -439,27 +474,6 @@ private extension RootView {
         return try await reader.load()
     }
 
-    private func trustPresentedPin() {
-        guard let presentedPin, PiholePin.isSHA256Pin(presentedPin) else { return }
-        let hosts = LiveHostStore()
-        do {
-            try hosts.savePin(presentedPin)
-        } catch {
-            return
-        }
-        dnsSession.http?.apply(hosts)
-        liveClient.apply(hosts)
-        declinedPin = nil
-        self.presentedPin = nil
-        signedOut = false
-        retry += 1
-    }
-
-    private func keepSavedPin() {
-        declinedPin = presentedPin ?? declinedPin
-        apply(AdBlockerHome.failed(.pinKept, now: Date()))
-    }
-
     private func saveSetup(_ raw: String) {
         guard raw.isEmpty == false else { return }
         do {
@@ -467,7 +481,7 @@ private extension RootView {
             passwordSaved = true
             showsSetup = false
             signedOut = false
-            retry += 1
+            certificateRecovery.retry += 1
         } catch {
             showsSetup = true
         }
