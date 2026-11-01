@@ -84,9 +84,10 @@ final class AwayLiveSnapshotTests: XCTestCase {
                     .padding(Rhythm.page)
                 // At the largest text size, capture the full form at each device's width.
                 // A viewport snapshot hides the credential fields below the introduction.
-                let view = Group {
+                let view = VStack(spacing: 0) {
                     if size == .largest {
                         section.frame(width: device.config.size?.width ?? 320)
+                            .fixedSize(horizontal: false, vertical: true)
                     } else {
                         ScrollView { section }
                     }
