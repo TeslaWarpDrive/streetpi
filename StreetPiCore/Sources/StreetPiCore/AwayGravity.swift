@@ -40,10 +40,13 @@ public enum AwayGravityStep: Sendable, Equatable {
         switch self {
         case .updating:
             ActionNotice(
-                title: AwayCopy.gravityUpdatingTitle, detail: AwayCopy.gravityUpdatingDetail, failed: false, pending: true
+                title: AwayCopy.gravityUpdatingTitle, detail: AwayCopy.gravityUpdatingDetail,
+                failed: false, pending: true
             )
         case .busyRetrying:
-            ActionNotice(title: AwayCopy.gravityBusyTitle, detail: AwayCopy.gravityBusyDetail, failed: false, pending: true)
+            ActionNotice(
+                title: AwayCopy.gravityBusyTitle, detail: AwayCopy.gravityBusyDetail, failed: false, pending: true
+            )
         }
     }
 }

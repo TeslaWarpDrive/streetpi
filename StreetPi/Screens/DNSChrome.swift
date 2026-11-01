@@ -1,13 +1,21 @@
 import SwiftUI
 import StreetPiCore
 
+extension EnvironmentValues {
+    @Entry var dnsActionNotice: ActionNotice?
+}
+
 struct DeskScroll<Content: View>: View {
     var wide: Bool
     @ViewBuilder var content: () -> Content
+    @Environment(\.dnsActionNotice) private var actionNotice
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Rhythm.block) {
+                if let actionNotice {
+                    ActionNoticeBanner(notice: actionNotice, theme: .house)
+                }
                 content()
             }
             .padding(.horizontal, Rhythm.page)

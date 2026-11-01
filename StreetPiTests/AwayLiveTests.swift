@@ -180,9 +180,7 @@ final class AwayLiveTests: XCTestCase {
         """.utf8)
         let seed = try ProvisionSeed.decode(data)
         let settings = try XCTUnwrap(AwayGatewaySettings.from(seed: seed.gateway))
-        let secrets = KeychainSecretStore()
-        try secrets.delete(for: AwayGatewaySettings.account)
-        defer { try? secrets.delete(for: AwayGatewaySettings.account) }
+        let secrets = MemorySecretStore()
         let store = AwayGatewayStore(store: secrets, defaults: defaults)
         store.seedIfNeeded(from: nil)
         XCTAssertNil(store.load())
