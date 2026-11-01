@@ -17,9 +17,10 @@ extension DesignSnapshotTests {
     private func assertRejectedKey(section: AppSection, testName: String = #function) {
         for size in SnapshotScale.allCases {
             for device in SnapshotDevice.allCases {
+                let board = AdBlockerHome.offline(now: .streetFixtureNow)
                 let view = AppShell(
-                    section: section, screen: .ready(.healthyFixture), now: .streetFixtureNow,
-                    onSection: { _ in }, awayStatus: .unreachable,
+                    section: section, screen: .explained(board.status, board.snapshot), now: .streetFixtureNow,
+                    onSection: { _ in }, desk: board.desk, dnsProblem: .offline, awayStatus: .unreachable,
                     gatewayForm: AwayGatewayForm(address: "https://gateway.example.test", saved: true)
                 )
                 .modifier(AwayKeyNotice(rejected: true, section: section))

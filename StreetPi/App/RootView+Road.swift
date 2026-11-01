@@ -222,19 +222,22 @@ struct AwayKeyNotice: ViewModifier {
     var rejected: Bool
     var section: AppSection
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     static let message = "Away key was rejected – replace it in Settings"
 
     func body(content: Content) -> some View {
-        content.safeAreaInset(edge: .top, spacing: 0) {
+        VStack(spacing: 0) {
             if rejected && (section == .group(.adBlockerAndDNS) || section == .settings) {
                 Label(Self.message, systemImage: "key.slash")
-                    .font(.subheadline)
+                    .font(dynamicTypeSize.isAccessibilitySize ? .caption : .footnote)
                     .foregroundStyle(StreetTheme.house.ink)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(Rhythm.line)
                     .background(StreetTheme.house.surface)
             }
+            content
         }
     }
 }
