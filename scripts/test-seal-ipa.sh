@@ -4,6 +4,7 @@ set +x
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 python3 - "${ROOT}" <<'PY'
+import base64
 import itertools
 import json
 import os
@@ -18,17 +19,30 @@ names = ["AWAY_MAILBOX_URL", "AWAY_READ_TOKEN", "AWAY_GATEWAY_URL",
          "AWAY_ACCESS_CLIENT_ID", "AWAY_ACCESS_CLIENT_SECRET", "AWAY_IPA_PASSPHRASE"]
 fixtures = dict(zip(names, ["https://mailbox.example.test", "test-read-token-FAKE",
                           "https://gateway.example.test", "test-client.access",
-                          "cfast_FAKE_access_secret", "test-passphrase-FAKE"]))
+                          "cfast_FAKE_access_secret", "test-passphrase-FAKE-at-least-32-characters"]))
 env = {k: v for k, v in os.environ.items() if k not in names}
 env["GITHUB_ACTIONS"] = "false"
 
 def run(args, environment, success=True):
     result = subprocess.run(args, env=environment, capture_output=True)
     # Never print captured output, even on failure.
-    for value in fixtures.values():
+    checked = list(fixtures.values())
+    for name in names:
+        value = environment.get(name, "")
+        if value.strip():
+            checked.extend((value, value.strip()))
+    for value in checked:
         assert value.encode() not in result.stdout + result.stderr, "Credential appeared in output"
-    assert (result.returncode == 0) == success, f"Unexpected command status: {result.returncode}"
+    assert success is None or (result.returncode == 0) == success, f"Unexpected command status: {result.returncode}"
     return result
+
+def matches_seed(path, expected):
+    try:
+        with zipfile.ZipFile(path) as archive:
+            return (archive.testzip() is None
+                    and json.loads(archive.read("Payload/StreetPi.app/AwayProvision.json")) == expected)
+    except (zipfile.BadZipFile, KeyError, ValueError, UnicodeError, OSError):
+        return False
 
 with tempfile.TemporaryDirectory() as work:
     work = Path(work)
@@ -79,20 +93,69 @@ with tempfile.TemporaryDirectory() as work:
         run(["openssl", "enc", "-d", "-aes-256-cbc", "-md", "sha256", "-pbkdf2", "-iter", "200000",
              "-pass", "env:TEST_IPA_PASSWORD", "-in", str(sealed), "-out", str(opened)], decrypt_env)
         with zipfile.ZipFile(opened) as archive:
-            assert json.loads(archive.read("Payload/StreetPi.app/AwayProvision.json")) == expected
+            resource = archive.getinfo("Payload/StreetPi.app/AwayProvision.json")
+            assert (resource.external_attr >> 16) & 0o777 == 0o644, "Seed is not app-readable"
+            assert json.loads(archive.read(resource)) == expected
             assert "Payload/StreetPi.app/AwayProvision.plist" not in archive.namelist()
-        run(["openssl", "enc", "-d", "-aes-256-cbc", "-md", "sha256", "-pbkdf2", "-iter", "200000",
-             "-pass", "env:TEST_IPA_PASSWORD", "-in", str(sealed), "-out", str(opened)],
-            dict(env, TEST_IPA_PASSWORD="wrong-FAKE-password"), success=False)
+        result = run(["openssl", "enc", "-d", "-aes-256-cbc", "-md", "sha256", "-pbkdf2", "-iter", "200000",
+                      "-pass", "env:TEST_IPA_PASSWORD", "-in", str(sealed), "-out", str(opened)],
+                     dict(env, TEST_IPA_PASSWORD="wrong-FAKE-password"), success=None)
+        assert result.returncode != 0 or not matches_seed(opened, expected), "Wrong password opened the IPA"
         round_trips += 1
         with zipfile.ZipFile(blank) as archive:
             clear = b"".join(archive.read(name) for name in archive.namelist())
             assert not any(value.encode() in clear for value in fixtures.values()), "Blank IPA contains credentials"
         assert not any(value.encode() in sealed.read_bytes() for value in fixtures.values())
 
+    # Fixed, fake-only reviewer reproduction: wrong key, valid CBC padding, exit zero, invalid ZIP.
+    # No retries or random-salt search are used by this regression check.
+    regression = work / "wrong-padding.enc"
+    regression.write_bytes(base64.b64decode(
+        "U2FsdGVkX1/SZft1htePotG6pIoZz2LktS1LPdeSwMb57oaFeqQ0JHY//Ub0vOttv+HaBWyxcdQPXNOE"
+        "ufH5JJ4HiUMQ6Idytz2e2P21nur/wv9GRZIWzG7gd4zmrE3cSeibB+BdAUIsWvLWAWKut25Cgant2u6f"
+        "39D1WVLKjSQog4NN2aWsvKVhQrAEM1rVtfT8AhABlH7+kFaj9+BpwoeSgbudSasvvT1ez76RudVwyNpa"
+        "/I0BoNaDpHybA05K0K3fx/Oo72OisAbh+PWlTqyAwVWwBwhIuPppFTcl4Pk="
+    ))
+    result = run(["openssl", "enc", "-d", "-aes-256-cbc", "-md", "sha256", "-pbkdf2", "-iter", "200000",
+                  "-pass", "env:TEST_IPA_PASSWORD", "-in", str(regression), "-out", str(opened)],
+                 dict(env, TEST_IPA_PASSWORD="wrong-FAKE-password"), success=None)
+    assert result.returncode == 0, "Fixed CBC padding reproduction changed"
+    assert not matches_seed(opened, expected), "Wrong password opened the regression IPA"
+    regression.write_bytes(b"not an encrypted IPA")
+    run(["openssl", "enc", "-d", "-aes-256-cbc", "-md", "sha256", "-pbkdf2", "-iter", "200000",
+         "-pass", "env:TEST_IPA_PASSWORD", "-in", str(regression), "-out", str(opened)],
+        dict(env, TEST_IPA_PASSWORD="wrong-FAKE-password"), success=False)
+
+    # Edge whitespace is normalized for headers and for the passphrase used by OpenSSL.
+    padded_env = dict(env, **{name: " \t" + value + "\r\n" for name, value in fixtures.items()})
+    run(["bash", str(root / "scripts/seal-provisioned-ipa.sh"), str(stage), str(sealed)], padded_env)
+    run(["openssl", "enc", "-d", "-aes-256-cbc", "-md", "sha256", "-pbkdf2", "-iter", "200000",
+         "-pass", "env:TEST_IPA_PASSWORD", "-in", str(sealed), "-out", str(opened)],
+        dict(env, TEST_IPA_PASSWORD=fixtures[names[5]]))
+    assert matches_seed(opened, expected), "Normalized credentials did not round-trip"
+
+    # The 32-character minimum is inclusive, and gateway root slashes/valid ports are accepted.
+    run(["bash", str(root / "scripts/seal-provisioned-ipa.sh"), str(stage), str(sealed)],
+        dict(env, **dict(fixtures, AWAY_IPA_PASSPHRASE="test-FAKE-" + "x" * 22,
+                        AWAY_GATEWAY_URL="https://gateway.example.test:8443/")))
+
     # Invalid input and encryption failures leave neither a resource nor an artifact.
-    for change in ({names[0]: "http://mailbox.example.test"}, {names[2]: "http://gateway.example.test"},
-                   {names[3]: " "}, {names[4]: " "}, {names[5]: " "}):
+    invalid_changes = [
+        {names[0]: "http://mailbox.example.test"}, {names[2]: "http://gateway.example.test"},
+        {names[3]: " "}, {names[4]: " "}, {names[5]: " "}, {names[5]: "password1"},
+        {names[5]: "x" * 31},
+    ]
+    for name in (names[0], names[2]):
+        for suffix in (":notaport", ":65536", ":0", "?", "#"):
+            invalid_changes.append({name: "https://gateway.example.test" + suffix})
+        invalid_changes.extend([{name: "https://user@gateway.example.test"},
+                                {name: "https://@gateway.example.test"}])
+    for path in ("/foo", "//", "/%2F"):
+        invalid_changes.append({names[2]: "https://gateway.example.test" + path})
+    for name in (names[1], names[3], names[4], names[5]):
+        for whitespace in (" ", "\t", "\n", "\r"):
+            invalid_changes.append({name: "test-FAKE-padding-32-characters" + whitespace + "inside"})
+    for change in invalid_changes:
         run(["bash", str(root / "scripts/seal-provisioned-ipa.sh"), str(stage), str(sealed)],
             dict(env, **dict(fixtures, **change)), success=False)
         assert not sealed.exists()
@@ -129,17 +192,27 @@ path.mkdir(parents=True)
             assert not any(value.encode() in clear for value in fixtures.values())
         assert (build_root / "StreetPi-provisioned.ipa.enc").exists() == bool(present)
 
-    # Check GitHub mask commands with fake values, including command escaping.
-    mask_env = dict(env, **fixtures, GITHUB_ACTIONS="true")
-    mask_env[names[4]] = "cfast_FAKE%\r\n::error::fake"
-    result = subprocess.run(["bash", str(root / "scripts/seal-provisioned-ipa.sh"), str(stage), str(sealed)],
-                            env=mask_env, capture_output=True)
-    assert result.returncode == 0
-    lines = result.stdout.decode().splitlines()
-    for name in names:
-        escaped = mask_env[name].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-        assert "::add-mask::" + escaped in lines
-    assert not result.stderr
-    assert not any(line.startswith("::error::") for line in lines)
-print(f"IPA sealing passed: 64 secret combinations, {round_trips} v2 round-trips, blank build isolation, cleanup and masks.")
+    # Both entry points use the shared masking path, including raw/normalized values and injection escaping.
+    for script, args in ((root / "scripts/seal-provisioned-ipa.sh", [str(stage), str(sealed)]),
+                         (build_root / "scripts/unsigned-ipa.sh", [])):
+        for invalid in (False, True):
+            mask_env = dict(env, **fixtures, GITHUB_ACTIONS="true",
+                            PATH=str(bin_dir) + os.pathsep + env["PATH"])
+            mask_env[names[4]] = " \tcfast_FAKE_access_secret\r\n"
+            if invalid:
+                mask_env[names[4]] = "cfast_FAKE%\r\n::error::fake"
+            result = subprocess.run(["bash", str(script)] + args, env=mask_env, capture_output=True)
+            assert (result.returncode == 0) != invalid
+            lines = result.stdout.decode().splitlines()
+            for name in names:
+                for value in (mask_env[name], mask_env[name].strip()):
+                    escaped = value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+                    assert "::add-mask::" + escaped in lines
+            # Actual mask commands are consumed by Actions. No other line may contain a credential.
+            ordinary = "\n".join(line for line in lines if not line.startswith("::add-mask::"))
+            for value in fixtures.values():
+                assert value not in ordinary + result.stderr.decode()
+            assert not any(line.startswith("::error::") for line in lines)
+print(f"IPA sealing passed: 64 secret combinations, {round_trips} v2 round-trips, "
+      "CBC exit-zero regression, normalization, URL/password rejection, resource mode, blank builds and shared masks.")
 PY

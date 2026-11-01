@@ -3,17 +3,8 @@
 set +x
 set -euo pipefail
 
-python3 - <<'PYMASK'
-import os
-if os.environ.get("GITHUB_ACTIONS") == "true":
-    for name in ("AWAY_MAILBOX_URL", "AWAY_READ_TOKEN", "AWAY_GATEWAY_URL",
-                 "AWAY_ACCESS_CLIENT_ID", "AWAY_ACCESS_CLIENT_SECRET", "AWAY_IPA_PASSPHRASE"):
-        value = os.environ.get(name, "")
-        if value:
-            print("::add-mask::" + value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))
-PYMASK
-
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+bash "${ROOT}/scripts/seal-provisioned-ipa.sh" --mask-only
 DERIVED="${ROOT}/build/unsigned"
 OUTPUT="${ROOT}/StreetPi-unsigned.ipa"
 

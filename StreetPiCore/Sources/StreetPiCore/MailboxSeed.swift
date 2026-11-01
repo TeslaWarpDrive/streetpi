@@ -1,6 +1,6 @@
 import Foundation
 
-/// Credentials carried only by the encrypted provisioned IPA.
+/// Credentials carried only by the encrypted provisioned IPA. Construct through `ProvisionSeed.decode`.
 public struct GatewaySeed: Sendable, Equatable, CustomStringConvertible, CustomDebugStringConvertible,
     CustomReflectable {
     public let url: URL
@@ -63,11 +63,19 @@ public struct ProvisionSeed: Sendable, Equatable {
             }
             var gateway: GatewaySeed?
             if let source = wire.gateway {
-                guard let address = MailboxAddress(text: source.url), let url = URL(string: address.text),
-                      !source.clientId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                      !source.clientSecret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                let text = source.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.contains(where: \.isWhitespace),
+                      !text.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
+                      let parts = URLComponents(string: text),
+                      parts.percentEncodedPath.isEmpty || parts.percentEncodedPath == "/",
+                      parts.port.map({ (1...65535).contains($0) }) ?? true,
+                      let address = MailboxAddress(text: text), let url = URL(string: address.text),
+                      let clientID = MailboxToken(text: source.clientId),
+                      let clientSecret = MailboxToken(text: source.clientSecret),
+                      !clientID.secret.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
+                      !clientSecret.secret.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
                 else { throw DecodeError.invalidSeed }
-                gateway = GatewaySeed(url: url, clientID: source.clientId, clientSecret: source.clientSecret)
+                gateway = GatewaySeed(url: url, clientID: clientID.secret, clientSecret: clientSecret.secret)
             }
             return ProvisionSeed(mailbox: mailbox, gateway: gateway)
         } catch {
@@ -81,7 +89,12 @@ public struct ProvisionSeed: Sendable, Equatable {
     }
 
     private init(mailboxURL: String, token: String) throws {
-        guard let address = MailboxAddress(text: mailboxURL), let token = MailboxToken(text: token)
+        let text = mailboxURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.contains(where: \.isWhitespace),
+              !text.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
+              let parts = URLComponents(string: text),
+              parts.port.map({ (1...65535).contains($0) }) ?? true,
+              let address = MailboxAddress(text: text), let token = MailboxToken(text: token)
         else { throw DecodeError.invalidSeed }
         self.init(mailbox: MailboxSetup(address: address, token: token), gateway: nil)
     }

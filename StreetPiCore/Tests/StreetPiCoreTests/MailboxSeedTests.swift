@@ -127,4 +127,58 @@ final class MailboxSeedTests: XCTestCase {
         """)
         XCTAssertEqual(MailboxSeedStep.next(handled: false, configured: false, seed: seed), .nothing)
     }
+
+    func testGatewayOriginAndCredentialValidation() throws {
+        for origin in ["https://gateway.example.test", "https://gateway.example.test/",
+                       "https://gateway.example.test:8443"] {
+            let gateway = try XCTUnwrap(decodeGateway(url: origin).gateway)
+            XCTAssertEqual(gateway.clientID, "test-client.access")
+            XCTAssertEqual(gateway.clientSecret, "cfast_FAKE")
+        }
+        let trimmed = try XCTUnwrap(decodeGateway(
+            clientID: " \n test-client.access\t", clientSecret: "\tcfast_FAKE\r\n"
+        ).gateway)
+        XCTAssertEqual(trimmed.clientID, "test-client.access")
+        XCTAssertEqual(trimmed.clientSecret, "cfast_FAKE")
+        for origin in ["https://gateway.example.test/foo", "https://gateway.example.test//",
+                       "https://gateway.example.test/%2F", "https://gateway.example.test:notaport",
+                       "https://gateway.example.test:65536", "https://gateway.example.test:0",
+                       "https://user@gateway.example.test", "https://@gateway.example.test",
+                       "https://gateway.example.test?", "https://gateway.example.test#"] {
+            XCTAssertThrowsError(try decodeGateway(url: origin))
+        }
+        for credential in ["test client", "test\nclient", "test\rclient", "test\tclient"] {
+            XCTAssertThrowsError(try decodeGateway(clientID: credential))
+            XCTAssertThrowsError(try decodeGateway(clientSecret: credential))
+        }
+    }
+
+    func testMailboxPortValidationMatchesSealer() throws {
+        for url in ["https://mailbox.example.test:notaport", "https://mailbox.example.test:65536",
+                    "https://mailbox.example.test:0"] {
+            let fields: [String: Any] = [
+                "version": 2, "mailbox": ["url": url, "readToken": "test-read-FAKE"]
+            ]
+            XCTAssertThrowsError(try ProvisionSeed.decode(JSONSerialization.data(withJSONObject: fields)))
+        }
+        let seed = try decode("""
+        {"version":2,"mailbox":{"url":"https://mailbox.example.test:8443/v1","readToken":"test-read-FAKE"}}
+        """)
+        XCTAssertEqual(seed.mailbox?.address.text, "https://mailbox.example.test:8443/v1")
+    }
+
+    private func decodeGateway(
+        url: String = "https://gateway.example.test",
+        clientID: String = "test-client.access",
+        clientSecret: String = "cfast_FAKE"
+    ) throws -> ProvisionSeed {
+        // Include a valid mailbox: malformed gateway input must fail before CI ships either group.
+        let fields: [String: Any] = [
+            "version": 2,
+            "mailbox": ["url": "https://mailbox.example.test", "readToken": "test-read-FAKE"],
+            "gateway": ["url": url, "clientId": clientID, "clientSecret": clientSecret]
+        ]
+        return try ProvisionSeed.decode(JSONSerialization.data(withJSONObject: fields))
+    }
+
 }
