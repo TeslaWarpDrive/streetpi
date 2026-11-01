@@ -1,8 +1,8 @@
 import Foundation
 import StreetPiCore
 
-struct StatusPageLiveTransport<Sender: LiveHTTPSending>: StatusPageTransport {
-    var sender: Sender
+struct StatusPageLiveTransport: StatusPageTransport {
+    var sender: any LiveHTTPSending
     var base: URL
 
     func get(path: String) async throws -> StatusPageHTTPResponse {

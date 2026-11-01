@@ -4,10 +4,14 @@ import SwiftUI
 struct ControlScreen<Content: View>: View {
     var wide: Bool
     @ViewBuilder var content: () -> Content
+    @Environment(\.dnsActionNotice) private var actionNotice
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Rhythm.line) {
+                if let actionNotice {
+                    ActionNoticeBanner(notice: actionNotice, theme: .house)
+                }
                 content()
             }
             .padding(.horizontal, Rhythm.page)

@@ -50,15 +50,9 @@ struct DNSDeskDetail: View {
                 onTrustNewCertificate: onTrustNewCertificate,
                 onKeepSavedPin: onKeepSavedPin
             )
-        } else if let actionNotice {
-            VStack(alignment: .leading, spacing: 0) {
-                ActionNoticeBanner(notice: actionNotice, theme: theme)
-                    .padding(.horizontal, Rhythm.page)
-                    .padding(.top, Rhythm.line)
-                deskBody
-            }
         } else {
             deskBody
+                .environment(\.dnsActionNotice, actionNotice)
         }
     }
 

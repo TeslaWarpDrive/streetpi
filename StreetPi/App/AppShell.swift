@@ -43,6 +43,8 @@ struct AppShell: View {
     var mailboxTokenSaved: Bool = false
     var onSaveMailbox: (String, String) -> MailboxSaveResult = { _, _ in .failed }
     var onRemoveMailbox: () -> MailboxSaveResult = { .failed }
+    var awayLive = false
+    var gatewayForm = AwayGatewayForm()
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -95,6 +97,8 @@ struct AppShell: View {
         mailboxTokenSaved: Bool = false,
         onSaveMailbox: @escaping (String, String) -> MailboxSaveResult = { _, _ in .failed },
         onRemoveMailbox: @escaping () -> MailboxSaveResult = { .failed },
+        awayLive: Bool = false,
+        gatewayForm: AwayGatewayForm = AwayGatewayForm(),
         initialRoom: HouseGroup? = nil,
         initialHomePath: [HomeDestination] = []
     ) {
@@ -139,6 +143,8 @@ struct AppShell: View {
         self.mailboxTokenSaved = mailboxTokenSaved
         self.onSaveMailbox = onSaveMailbox
         self.onRemoveMailbox = onRemoveMailbox
+        self.awayLive = awayLive
+        self.gatewayForm = gatewayForm
         _showAlerts = State(initialValue: section == .alerts)
         // Snapshot entry: opens House on one room page.
         _roomPath = State(initialValue: initialHomePath.isEmpty
@@ -235,6 +241,9 @@ struct AppShell: View {
         VStack(spacing: 0) {
             if let awayStatus {
                 AwayBadgeBar(status: awayStatus, now: now) { select(.settings) }
+            }
+            if awayLive {
+                AwayChip()
             }
             tabPage(tab)
         }
@@ -494,38 +503,6 @@ struct AppShell: View {
         return next
     }
 
-    private var settings: some View {
-        NavigationStack {
-            settingsBody
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(theme.background.ignoresSafeArea())
-                .toolbar(.hidden, for: .navigationBar)
-        }
-    }
-
-    private var settingsBody: some View {
-        SettingsView(
-            theme: theme,
-            passwordSaved: passwordSaved,
-            onPasswordSetup: {
-                onSection(.group(.adBlockerAndDNS))
-                onSavePassword()
-            },
-            onSignOut: { onPending(.signOutOfAdBlocker) },
-            piHost: piHost,
-            hostNote: hostNote,
-            onCommitHost: onCommitHost,
-            onSaved: onSettingsSaved,
-            statusAddress: statusAddress,
-            statusSlug: statusSlug,
-            onStatusPage: onStatusPage,
-            mailboxAddress: mailboxAddress,
-            mailboxTokenSaved: mailboxTokenSaved,
-            onSaveMailbox: onSaveMailbox,
-            onRemoveMailbox: onRemoveMailbox
-        )
-    }
-
     private var alerts: some View {
         AlertsSheet(alerts: machine.alerts, note: machine.alertNote, theme: theme, wide: false) {
             showAlerts = false
@@ -549,5 +526,40 @@ private struct NestedBack: View {
         }
         .padding(.horizontal, Rhythm.page)
         .padding(.top, Rhythm.tight)
+    }
+}
+
+private extension AppShell {
+    var settings: some View {
+        NavigationStack {
+            settingsBody
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(theme.background.ignoresSafeArea())
+                .toolbar(.hidden, for: .navigationBar)
+        }
+    }
+
+    var settingsBody: some View {
+        SettingsView(
+            theme: theme,
+            passwordSaved: passwordSaved,
+            onPasswordSetup: {
+                onSection(.group(.adBlockerAndDNS))
+                onSavePassword()
+            },
+            onSignOut: { onPending(.signOutOfAdBlocker) },
+            piHost: piHost,
+            hostNote: hostNote,
+            onCommitHost: onCommitHost,
+            onSaved: onSettingsSaved,
+            statusAddress: statusAddress,
+            statusSlug: statusSlug,
+            onStatusPage: onStatusPage,
+            mailboxAddress: mailboxAddress,
+            mailboxTokenSaved: mailboxTokenSaved,
+            onSaveMailbox: onSaveMailbox,
+            onRemoveMailbox: onRemoveMailbox,
+            gatewayForm: gatewayForm
+        )
     }
 }

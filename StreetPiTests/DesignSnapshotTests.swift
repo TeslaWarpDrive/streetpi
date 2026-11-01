@@ -10,7 +10,6 @@ import XCTest
 final class DesignSnapshotTests: XCTestCase {
     private let now = Date.streetFixtureNow
     private let house = HouseholdSnapshot.healthyFixture
-
     func testHomeLiveDestinations() {
         let board = StatusPageFixture.previewBoard()
         for tile in board.tiles {
@@ -427,7 +426,7 @@ final class DesignSnapshotTests: XCTestCase {
         }
     }
 
-    private func assertMatrix(
+    func assertMatrix(
         section: AppSection,
         screen: HouseScreen,
         testName: String,
@@ -437,6 +436,8 @@ final class DesignSnapshotTests: XCTestCase {
         pending: HouseholdAction? = nil,
         showsSetup: Bool = false,
         dnsProblem: PiholeProblem? = nil,
+        actionNotice: ActionNotice? = nil,
+        awayLive: Bool = false,
         piNotice: String? = nil,
         board: HouseStatusBoard? = nil
     ) {
@@ -451,10 +452,12 @@ final class DesignSnapshotTests: XCTestCase {
                     dnsPage: dnsPage,
                     machinePage: machinePage,
                     pendingAction: pending,
+                    actionNotice: actionNotice,
                     showsSetup: showsSetup,
                     dnsProblem: dnsProblem,
                     piNotice: piNotice,
-                    statusBoard: board
+                    statusBoard: board,
+                    awayLive: awayLive
                 )
                 .preferredColorScheme(.dark)
                 .environment(\.colorScheme, .dark)
@@ -794,5 +797,4 @@ extension DesignSnapshotTests {
             }
         }
     }
-
 }

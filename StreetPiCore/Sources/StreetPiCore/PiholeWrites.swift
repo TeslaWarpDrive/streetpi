@@ -21,6 +21,8 @@ public enum PiholeProblem: Error, Sendable, Equatable {
     case busy
     case gravityFailed
     case untrusted
+    /// The edge asked this phone to slow down. Nothing reached the Pi.
+    case rateLimited
 
     public var title: String {
         switch self {
@@ -42,6 +44,8 @@ public enum PiholeProblem: Error, Sendable, Equatable {
             "Block lists did not update."
         case .untrusted:
             "This phone does not trust the Pi yet."
+        case .rateLimited:
+            "The house is busy."
         case .notUnderstood:
             "The Pi sent something this phone could not read."
         case .notSetUp:
@@ -75,6 +79,8 @@ public enum PiholeProblem: Error, Sendable, Equatable {
             "The Pi could not finish updating the lists. Nothing else was changed."
         case .untrusted:
             "Nothing was changed."
+        case .rateLimited:
+            "Too many requests for a moment. Try again shortly."
         case .notUnderstood:
             "Nothing was changed."
         case .notSetUp:

@@ -91,6 +91,10 @@ public actor PiholeClient {
         try PiholeDecode.summaryFacts(from: try await get("/api/stats/summary"))
     }
 
+    public func gravityMark() async throws -> GravityMark {
+        try GravityMark.decode(from: try await get("/api/stats/summary"))
+    }
+
     public func history(ending: Date) async throws -> [DayChartSample] {
         let until = Int(ending.timeIntervalSince1970)
         let from = until - 86_400
@@ -200,6 +204,11 @@ public actor PiholeClient {
             body: nil
         )
         _ = try? await transport.send(request)
+    }
+
+    /// The away gravity deadline also bounds a sign-in that a summary request is awaiting.
+    public func cancelPendingAuthentication() {
+        pendingLogin?.cancel()
     }
 
     public func appDidEnterBackground() async {

@@ -17,6 +17,7 @@ struct AdBlockerOverview<More: View>: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.streetPiStill) private var still
     @Environment(\.streetPiAway) private var away
+    @Environment(\.dnsActionNotice) private var actionNotice
     @State private var explainer: NumberExplainer?
 
     private var share: LookupShare {
@@ -27,6 +28,9 @@ struct AdBlockerOverview<More: View>: View {
         ScrollView {
             FitOfferedWidth(maxWidth: wide ? 880 : nil) {
                 VStack(alignment: .leading, spacing: AfterglowShape.line) {
+                    if let actionNotice {
+                        ActionNoticeBanner(notice: actionNotice, theme: theme)
+                    }
                     header
                     BlockerHeroCard(
                         share: share,

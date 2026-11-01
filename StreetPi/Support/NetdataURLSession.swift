@@ -2,11 +2,12 @@ import Foundation
 import StreetPiCore
 
 struct PiMeterRefresh: Sendable {
-    var client: LiveHTTPClient
+    var client: any LiveHTTPSending
     var base: URL
+    var isAway = false
 
     func load() async -> Result<NetdataMeters, NetdataProblem>? {
-        let reader = NetdataReader(transport: NetdataLiveTransport(client: client, base: base))
+        let reader = NetdataReader(transport: NetdataLiveTransport(client: client, base: base, isAway: isAway))
         do {
             return .success(try await reader.load())
         } catch is CancellationError {
@@ -20,8 +21,9 @@ struct PiMeterRefresh: Sendable {
 }
 
 struct NetdataLiveTransport: NetdataTransport {
-    var client: LiveHTTPClient
+    var client: any LiveHTTPSending
     var base: URL
+    var isAway = false
 
     func get(_ path: String) async throws -> NetdataReply {
         guard let url = LivePaths.url(base: base, path: path), Self.isHouseAgent(url) else {
@@ -33,6 +35,9 @@ struct NetdataLiveTransport: NetdataTransport {
         let response = try await reply(for: url)
         if (300..<400).contains(response.status) {
             throw NetdataProblem.redirected
+        }
+        if isAway, AwayGatewayReply.problem(status: response.status) != nil {
+            throw NetdataProblem.offline
         }
         return NetdataReply(status: response.status, body: response.body)
     }

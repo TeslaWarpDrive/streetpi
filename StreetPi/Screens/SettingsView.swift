@@ -17,6 +17,7 @@ struct SettingsView: View {
     var mailboxTokenSaved: Bool = false
     var onSaveMailbox: (String, String) -> MailboxSaveResult = { _, _ in .failed }
     var onRemoveMailbox: () -> MailboxSaveResult = { .failed }
+    var gatewayForm = AwayGatewayForm()
 
     @State private var address: String
     @State private var pin: String
@@ -39,7 +40,8 @@ struct SettingsView: View {
         mailboxAddress: String = "",
         mailboxTokenSaved: Bool = false,
         onSaveMailbox: @escaping (String, String) -> MailboxSaveResult = { _, _ in .failed },
-        onRemoveMailbox: @escaping () -> MailboxSaveResult = { .failed }
+        onRemoveMailbox: @escaping () -> MailboxSaveResult = { .failed },
+        gatewayForm: AwayGatewayForm = AwayGatewayForm()
     ) {
         self.theme = theme
         self.passwordSaved = passwordSaved
@@ -56,6 +58,7 @@ struct SettingsView: View {
         self.mailboxTokenSaved = mailboxTokenSaved
         self.onSaveMailbox = onSaveMailbox
         self.onRemoveMailbox = onRemoveMailbox
+        self.gatewayForm = gatewayForm
         _address = State(initialValue: LiveHostStore().piholeText())
         _pin = State(initialValue: LiveHostStore().pinText())
         _note = State(initialValue: "")
@@ -111,6 +114,7 @@ struct SettingsView: View {
                 .controlPlate(theme: theme)
             piAddress
             statusPage
+            AwayGatewaySection(theme: theme, form: gatewayForm)
             AwaySettingsSection(
                 theme: theme,
                 savedAddress: mailboxAddress,
