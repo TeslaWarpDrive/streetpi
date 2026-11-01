@@ -1,7 +1,7 @@
 # Unreleased
 
 - Settings can replace a saved away key without removing the gateway. Cancel discards the replacement credentials and keeps the saved key. The saved secret stays hidden.
-- The client maps a rejected-key response (HTTP 403) to a distinct error. Showing that state on screen, including a 403 from the gateway probe, is a follow-up; the app currently still shows offline.
+- The client maps a rejected-key response (HTTP 403) to a distinct error. Showing that state on screen, including a 403 from the gateway probe, is a follow-up; the app can still show offline or mailbox data.
 - Away from home can call https://pistats.thestreetfam.com. The Pi's existing tunnel reaches a small gate at 127.0.0.1 port 8447. The gate accepts that public name and allows only the app's paths, including the chart fallback. Pi Keeper deploys the gate. See `docs/away-tunnel.md`.
 
 # Raspberry Pi Stats 1.1.0 (3)
