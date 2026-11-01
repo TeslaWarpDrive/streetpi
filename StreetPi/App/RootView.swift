@@ -81,12 +81,10 @@ struct RootView: View {
     }
 
     var displayedDNSProblem: PiholeProblem? {
-        if certificateRecovery.reading.presentedPin != nil {
-            var reading = certificateRecovery.reading
-            reading.mode = mode
-            return reading.problem(declinedPin: certificateRecovery.declinedPin)
-        }
-        return awayBoard == nil ? dnsProblem : nil
+        var reading = certificateRecovery.reading
+        reading.mode = mode
+        return reading.problem(declinedPin: certificateRecovery.declinedPin)
+            ?? (awayBoard == nil ? dnsProblem : nil)
     }
 
     func trustPresentedPin(hosts: LiveHostStore = LiveHostStore()) {
@@ -112,7 +110,10 @@ struct RootView: View {
         certificateRecovery.declinedPin = certificateRecovery.reading.presentedPin
             ?? presentedPin ?? certificateRecovery.declinedPin
         switch mode {
-        case .awayLive, .awayMailbox: return
+        case .awayLive, .awayMailbox:
+            if dnsProblem == .certificateChanged || dnsProblem == .pinKept {
+                dnsProblem = nil
+            }
         case .home, .offline: apply(AdBlockerHome.failed(.pinKept, now: Date()))
         }
     }
