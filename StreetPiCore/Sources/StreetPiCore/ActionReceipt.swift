@@ -8,6 +8,7 @@ public struct ActionReceipt: Sendable, Equatable {
     public var domainName: String?
     public var domainDetail: String?
     public var listsUpdatedAt: Date?
+    public var pending: Bool
 
     public init(
         title: String,
@@ -15,7 +16,8 @@ public struct ActionReceipt: Sendable, Equatable {
         blocking: DNSBlocking? = nil,
         domainName: String? = nil,
         domainDetail: String? = nil,
-        listsUpdatedAt: Date? = nil
+        listsUpdatedAt: Date? = nil,
+        pending: Bool = false
     ) {
         self.title = title
         self.detail = detail
@@ -23,6 +25,7 @@ public struct ActionReceipt: Sendable, Equatable {
         self.domainName = domainName
         self.domainDetail = domainDetail
         self.listsUpdatedAt = listsUpdatedAt
+        self.pending = pending
     }
 }
 
@@ -31,11 +34,13 @@ public struct ActionNotice: Sendable, Equatable {
     public var title: String
     public var detail: String
     public var failed: Bool
+    public var pending: Bool
 
-    public init(title: String, detail: String, failed: Bool) {
+    public init(title: String, detail: String, failed: Bool, pending: Bool = false) {
         self.title = title
         self.detail = detail
         self.failed = failed
+        self.pending = pending
     }
 
     public init(problem: PiholeProblem) {
@@ -43,6 +48,6 @@ public struct ActionNotice: Sendable, Equatable {
     }
 
     public init(receipt: ActionReceipt) {
-        self.init(title: receipt.title, detail: receipt.detail, failed: false)
+        self.init(title: receipt.title, detail: receipt.detail, failed: false, pending: receipt.pending)
     }
 }

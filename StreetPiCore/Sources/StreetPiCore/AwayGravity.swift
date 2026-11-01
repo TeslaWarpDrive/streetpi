@@ -39,33 +39,39 @@ public enum AwayGravityStep: Sendable, Equatable {
     public var notice: ActionNotice {
         switch self {
         case .updating:
-            ActionNotice(title: AwayCopy.gravityUpdatingTitle, detail: AwayCopy.gravityUpdatingDetail, failed: false)
+            ActionNotice(
+                title: AwayCopy.gravityUpdatingTitle, detail: AwayCopy.gravityUpdatingDetail, failed: false, pending: true
+            )
         case .busyRetrying:
-            ActionNotice(title: AwayCopy.gravityBusyTitle, detail: AwayCopy.gravityBusyDetail, failed: false)
+            ActionNotice(title: AwayCopy.gravityBusyTitle, detail: AwayCopy.gravityBusyDetail, failed: false, pending: true)
         }
     }
 }
 
-/// Block lists away from home. The edge cuts a long request at about 100 seconds and the Pi keeps
-/// working, so a timeout, a 524, or a dropped connection means "check back", not "failed".
+/// A cut request does not prove whether gravity finished. Confirm through the summary before
+/// reporting success; otherwise leave a check-back notice instead of an edge timeout error.
 public struct AwayGravityFlow: Sendable {
     public static let pollSeconds = 15
     public static let maximumBackoffSeconds = 60
     public static let capSeconds = 600
+    private static let readSeconds: TimeInterval = 5
 
     private let client: PiholeClient
     private let now: @Sendable () -> Date
     private let sleep: @Sendable (Int) async throws -> Void
     private let onStep: @Sendable (AwayGravityStep) async -> Void
+    private let timeLimit: TimeInterval
 
     public init(
         client: PiholeClient,
         now: @escaping @Sendable () -> Date = { Date() },
+        timeLimit: TimeInterval = TimeInterval(Self.capSeconds),
         sleep: @escaping @Sendable (Int) async throws -> Void,
         onStep: @escaping @Sendable (AwayGravityStep) async -> Void
     ) {
         self.client = client
         self.now = now
+        self.timeLimit = timeLimit
         self.sleep = sleep
         self.onStep = onStep
     }
@@ -76,74 +82,104 @@ public struct AwayGravityFlow: Sendable {
 
     /// Only a problem from before the Pi started, or the Pi's own failure, throws.
     public func run() async throws -> ActionReceipt {
-        let started = now()
-        let before = try await startingMark(started: started)
-        await onStep(.updating)
-        if let receipt = try await start(started: started) {
-            return receipt
+        let deadline = now().addingTimeInterval(timeLimit)
+        do {
+            let before = try await startingMark(deadline: deadline)
+            await onStep(.updating)
+            try await start(deadline: deadline)
+            return try await checkBack(before: before, deadline: deadline)
+        } catch GravityDeadline.reached {
+            return Self.stillUpdating
         }
-        return try await checkBack(before: before, started: started)
     }
 
-    private func startingMark(started: Date) async throws -> GravityMark {
+    private func mark(deadline: Date) async throws -> GravityMark {
+        try await bounded(deadline: deadline, seconds: Self.readSeconds) {
+            try await client.gravityMark()
+        }
+    }
+
+    private func startingMark(deadline: Date) async throws -> GravityMark {
         var failures = 0
         while true {
             do {
-                return try await client.gravityMark()
+                return try await mark(deadline: deadline)
             } catch PiholeProblem.rateLimited {
-                try await backOff(after: &failures, started: started)
+                try await backOff(after: &failures, deadline: deadline)
             }
         }
     }
 
-    /// A receipt when the Pi finished inside the request. Nil means it is time to check back.
-    private func start(started: Date) async throws -> ActionReceipt? {
+    private func start(deadline: Date) async throws {
         var failures = 0
         while true {
             do {
-                let report = try await client.updateGravity()
-                return ActionReceipt(title: "Block lists updated.", detail: report.detail, listsUpdatedAt: now())
+                _ = try await bounded(deadline: deadline, seconds: 310) {
+                    try await client.updateGravity()
+                }
+                return
             } catch PiholeProblem.rateLimited {
-                try await backOff(after: &failures, started: started)
+                try await backOff(after: &failures, deadline: deadline)
             } catch PiholeProblem.offline {
-                return nil
+                return
             }
         }
     }
 
-    private func backOff(after failures: inout Int, started: Date) async throws {
+    private func backOff(after failures: inout Int, deadline: Date) async throws {
         let wait = Self.backoffSeconds(afterFailures: failures)
-        guard canWait(wait, started: started) else { throw PiholeProblem.rateLimited }
+        guard deadline.timeIntervalSince(now()) > TimeInterval(wait) else { throw GravityDeadline.reached }
         failures += 1
         await onStep(.busyRetrying)
         try await sleep(wait)
     }
 
-    private func checkBack(before: GravityMark, started: Date) async throws -> ActionReceipt {
+    private func checkBack(before: GravityMark, deadline: Date) async throws -> ActionReceipt {
         var failures = 0
         while true {
+            try Task.checkCancellation()
             let wait = failures == 0 ? Self.pollSeconds : Self.backoffSeconds(afterFailures: failures)
-            guard canWait(wait, started: started) else { return Self.stillUpdating }
-            try await sleep(wait)
+            // Reserve a final short look when another full wait would exhaust the budget.
+            let finalLook = deadline.timeIntervalSince(now()) <= TimeInterval(wait) + Self.readSeconds
+            if !finalLook { try await sleep(wait) }
             do {
-                let mark = try await client.gravityMark()
+                let current = try await mark(deadline: deadline)
                 failures = 0
-                if mark.lastUpdate != before.lastUpdate {
-                    return finished(mark)
-                }
+                if current.lastUpdate != before.lastUpdate { return finished(current) }
                 await onStep(.updating)
+            } catch GravityDeadline.reached {
+                return Self.stillUpdating
             } catch PiholeProblem.rateLimited {
                 failures += 1
                 await onStep(.busyRetrying)
             } catch {
-                // The Pi can drop away while it swaps the lists in. Keep checking.
                 try Task.checkCancellation()
             }
+            if finalLook { return Self.stillUpdating }
         }
     }
 
-    private func canWait(_ seconds: Int, started: Date) -> Bool {
-        now().timeIntervalSince(started) + TimeInterval(seconds) <= TimeInterval(Self.capSeconds)
+    /// Cancellation reaches URLSession through the client. A late reply cannot become success.
+    private func bounded<Value: Sendable>(
+        deadline: Date,
+        seconds: TimeInterval,
+        operation: @escaping @Sendable () async throws -> Value
+    ) async throws -> Value {
+        let remaining = deadline.timeIntervalSince(now())
+        guard remaining > 0 else { throw GravityDeadline.reached }
+        return try await withThrowingTaskGroup(of: Value.self) { group in
+            group.addTask { try await operation() }
+            group.addTask {
+                try await Task.sleep(for: .seconds(min(seconds, remaining)))
+                await client.cancelPendingAuthentication()
+                if remaining <= seconds { throw GravityDeadline.reached }
+                throw PiholeProblem.offline
+            }
+            defer { group.cancelAll() }
+            guard let value = try await group.next(), now() < deadline else { throw GravityDeadline.reached }
+            try Task.checkCancellation()
+            return value
+        }
     }
 
     private func finished(_ mark: GravityMark) -> ActionReceipt {
@@ -156,6 +192,8 @@ public struct AwayGravityFlow: Sendable {
     }
 
     private static var stillUpdating: ActionReceipt {
-        ActionReceipt(title: AwayCopy.gravityStillTitle, detail: AwayCopy.gravityStillDetail)
+        ActionReceipt(title: AwayCopy.gravityStillTitle, detail: AwayCopy.gravityStillDetail, pending: true)
     }
 }
+
+private enum GravityDeadline: Error { case reached }

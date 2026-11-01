@@ -5,7 +5,7 @@ import UIKit
 import XCTest
 @testable import StreetPi
 
-/// The tunnel screens. A local stub is not needed here: each screen is the real shell on fixtures.
+/// Visual regression coverage on fixtures. This does not replace a simulator gateway walkthrough.
 @MainActor
 final class AwayLiveSnapshotTests: XCTestCase {
     private let now = Date.streetFixtureNow

@@ -101,7 +101,7 @@ struct ActionNoticeBanner: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Rhythm.line) {
-            Image(systemName: notice.failed ? "exclamationmark.circle" : "checkmark.circle")
+            Image(systemName: notice.failed ? "exclamationmark.circle" : notice.pending ? "clock" : "checkmark.circle")
                 .font(.title3)
                 .foregroundStyle(notice.failed ? theme.problem : theme.accent)
                 .accessibilityHidden(true)

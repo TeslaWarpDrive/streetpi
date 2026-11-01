@@ -206,6 +206,11 @@ public actor PiholeClient {
         _ = try? await transport.send(request)
     }
 
+    /// The away gravity deadline also bounds a sign-in that a summary request is awaiting.
+    public func cancelPendingAuthentication() {
+        pendingLogin?.cancel()
+    }
+
     public func appDidEnterBackground() async {
         await signOut()
     }

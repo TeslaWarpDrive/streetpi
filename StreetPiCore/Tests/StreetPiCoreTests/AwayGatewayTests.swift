@@ -189,10 +189,12 @@ final class AwayGravityTests: XCTestCase {
         XCTAssertEqual(log.sleeps, [15, 15, 15])
     }
 
-    func testAFastRunFinishesInsideTheRequest() async throws {
-        let (receipt, log) = try await run([summary(100, 5), .json(200, "Gravity domains: 42\n")])
+    func testA200StillWaitsForTheSummary() async throws {
+        let (receipt, log) = try await run([
+            summary(100, 5), .json(200, ""), summary(100, 5), summary(200, 42),
+        ])
         XCTAssertTrue(receipt.detail.contains("42"))
-        XCTAssertEqual(log.sleeps, [])
+        XCTAssertEqual(log.sleeps, [15, 15])
     }
 
     func testAFailedRunIsStillAFailure() async {
@@ -209,7 +211,53 @@ final class AwayGravityTests: XCTestCase {
         let (receipt, log) = try await run([summary(100, 5), .json(524, "")] + quiet)
         XCTAssertEqual(receipt.title, AwayCopy.gravityStillTitle)
         XCTAssertNil(receipt.listsUpdatedAt)
-        XCTAssertEqual(log.sleeps.reduce(0, +), AwayGravityFlow.capSeconds)
+        XCTAssertEqual(log.sleeps.reduce(0, +), AwayGravityFlow.capSeconds - AwayGravityFlow.pollSeconds)
+    }
+
+    func testTheFinalLookCanConfirmCompletionBeforeGivingUp() async throws {
+        let log = GravityLog()
+        let script = ScriptedPiholeTransport(steps: [
+            Self.signedIn, summary(100, 5), .json(524, ""), summary(100, 5), summary(200, 42),
+        ])
+        let transport = GravityTimingTransport(base: script, onStart: { log.slept(570) })
+        let receipt = try await flow(transport, log: log).run()
+        XCTAssertNotNil(receipt.listsUpdatedAt)
+        XCTAssertTrue(receipt.detail.contains("42"))
+        XCTAssertEqual(log.now.timeIntervalSince1970, 1_000_585)
+    }
+
+    func testTimeSpentInARequestCountsAgainstTheDeadline() async throws {
+        let log = GravityLog()
+        let script = ScriptedPiholeTransport(steps: [
+            Self.signedIn, summary(100, 5), .json(200, ""), summary(200, 42),
+        ])
+        let transport = GravityTimingTransport(base: script, onStart: { log.slept(601) })
+        let receipt = try await flow(transport, log: log).run()
+        XCTAssertEqual(receipt.title, AwayCopy.gravityStillTitle)
+        XCTAssertNil(receipt.listsUpdatedAt)
+        XCTAssertEqual(script.sent.filter { $0.path == "/api/stats/summary" }.count, 1)
+    }
+
+    func testAPollAcrossTheDeadlineIsCancelled() async throws {
+        let script = ScriptedPiholeTransport(steps: [
+            Self.signedIn, summary(100, 5), .json(524, ""),
+        ])
+        let transport = HangingGravityPoll(base: script)
+        let client = PiholeClient(transport: transport, password: { "fixture-password" })
+        let receipt = try await AwayGravityFlow(
+            client: client, timeLimit: 0.1, sleep: { _ in }, onStep: { _ in }
+        ).run()
+        XCTAssertEqual(receipt.title, AwayCopy.gravityStillTitle)
+        XCTAssertNil(receipt.listsUpdatedAt)
+        let cancelled = await transport.wasCancelled
+        XCTAssertTrue(cancelled)
+    }
+
+    private func flow(_ transport: any PiholeTransport, log: GravityLog) -> AwayGravityFlow {
+        AwayGravityFlow(
+            client: PiholeClient(transport: AwayPiholeTransport(base: transport), password: { "fixture-password" }),
+            now: { log.now }, sleep: { log.slept($0) }, onStep: { log.stepped($0) }
+        )
     }
 
     func testARateLimitedStartBacksOffAndRetries() async throws {
@@ -281,5 +329,38 @@ private final class GravityLog: @unchecked Sendable {
         lock.lock()
         seenSteps.append(step)
         lock.unlock()
+    }
+}
+
+private struct GravityTimingTransport: PiholeTransport {
+    var base: ScriptedPiholeTransport
+    var onStart: @Sendable () -> Void
+
+    func send(_ request: PiholeRequest) async throws -> PiholeResponse {
+        if request.path == "/api/action/gravity" { onStart() }
+        return try await base.send(request)
+    }
+}
+
+private actor HangingGravityPoll: PiholeTransport {
+    let base: ScriptedPiholeTransport
+    var summaries = 0
+    private(set) var wasCancelled = false
+
+    init(base: ScriptedPiholeTransport) { self.base = base }
+
+    func send(_ request: PiholeRequest) async throws -> PiholeResponse {
+        if request.path == "/api/stats/summary" {
+            summaries += 1
+            if summaries > 1 {
+                do {
+                    try await Task.sleep(for: .seconds(30))
+                } catch {
+                    wasCancelled = true
+                    throw error
+                }
+            }
+        }
+        return try await AwayPiholeTransport(base: base).send(request)
     }
 }

@@ -32,9 +32,14 @@ struct AwayGatewayForm {
 }
 
 extension AwayGatewaySettings {
-    /// Nil until the provisioned seed from the CI track lands. Then this reads `ProvisionSeed.gateway`.
     static func bundled() -> AwayGatewaySettings? {
-        nil
+        from(seed: ProvisionSeed.bundled()?.gateway)
+    }
+
+    static func from(seed: GatewaySeed?) -> AwayGatewaySettings? {
+        seed.flatMap {
+            AwayGatewaySettings(url: $0.url.absoluteString, clientID: $0.clientID, clientSecret: $0.clientSecret)
+        }
     }
 }
 

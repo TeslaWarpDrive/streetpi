@@ -126,7 +126,7 @@ extension RootView {
 
     func gatewayChanged() {
         loadGatewayForm()
-        modeTrigger = .manual
+        modeTrigger = .settingsChanged
         modeCheck += 1
     }
 

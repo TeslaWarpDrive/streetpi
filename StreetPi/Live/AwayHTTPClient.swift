@@ -5,11 +5,9 @@ import StreetPiCore
 /// because the edge certificate rotates. It only talks to the gateway, a redirect is refused, and
 /// the Access headers are added here so no other client can ever hold them.
 final class AwayHTTPClient: LiveHTTPSending, @unchecked Sendable {
-    /// The edge cuts a request at about 100 seconds, so a gravity start never needs longer.
-    private static let longestRequest: TimeInterval = 120
-
     private let settings: AwayGatewaySettings
     private let session: URLSession
+    private let gravitySession: URLSession
 
     var trustDelegate: (any URLSessionDelegate)? { session.delegate }
 
@@ -19,17 +17,24 @@ final class AwayHTTPClient: LiveHTTPSending, @unchecked Sendable {
     ) {
         self.settings = settings
         session = URLSession(configuration: configuration, delegate: RedirectRefusal(), delegateQueue: nil)
+        let gravity = Self.gravityConfiguration(configuration)
+        gravitySession = URLSession(configuration: gravity, delegate: RedirectRefusal(), delegateQueue: nil)
     }
 
     deinit {
         session.finishTasksAndInvalidate()
+        gravitySession.finishTasksAndInvalidate()
     }
 
-    /// Pi-hole calls include the gravity start, which stays open until the edge cuts it.
     static func piholeConfiguration() -> URLSessionConfiguration {
-        let configuration = LiveHTTPClient.sessionConfiguration()
-        configuration.timeoutIntervalForRequest = longestRequest
-        configuration.timeoutIntervalForResource = longestRequest
+        LiveHTTPClient.sessionConfiguration()
+    }
+
+    /// Streaming gravity may outlast the edge's idle timeout. Only that POST gets this budget.
+    static func gravityConfiguration(_ base: URLSessionConfiguration) -> URLSessionConfiguration {
+        let configuration = base.copy() as? URLSessionConfiguration ?? .ephemeral
+        configuration.timeoutIntervalForRequest = 310
+        configuration.timeoutIntervalForResource = 310
         return configuration
     }
 
@@ -59,8 +64,11 @@ final class AwayHTTPClient: LiveHTTPSending, @unchecked Sendable {
         for (field, value) in headers.merging(access, uniquingKeysWith: { _, gateway in gateway }) {
             request.setValue(value, forHTTPHeaderField: field)
         }
+        let isGravity = method == "POST" && url.path == "/api/action/gravity"
+        request.timeoutInterval = isGravity ? 310 : session.configuration.timeoutIntervalForRequest
+        let sender = isGravity ? gravitySession : session
         do {
-            let (data, response) = try await session.data(for: request)
+            let (data, response) = try await sender.data(for: request)
             guard let http = response as? HTTPURLResponse else { throw LiveHTTPProblem.unreachable }
             return LiveHTTPResponse(status: http.statusCode, headers: LiveHTTPClient.headerMap(http), body: data)
         } catch let problem as LiveHTTPProblem {

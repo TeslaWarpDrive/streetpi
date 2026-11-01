@@ -80,7 +80,7 @@ public enum PiholeProblem: Error, Sendable, Equatable {
         case .untrusted:
             "Nothing was changed."
         case .rateLimited:
-            "Too many requests for a moment. Nothing was changed. Raspberry Pi Stats will try again on its own."
+            "Too many requests for a moment. Try again shortly."
         case .notUnderstood:
             "Nothing was changed."
         case .notSetUp:

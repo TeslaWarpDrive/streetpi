@@ -65,8 +65,10 @@ public enum ConnectionTrigger: Sendable, Equatable {
     case requestFailed
     /// The phone moved to a different network.
     case pathChanged
-    /// A pull to refresh, or a change in Settings.
+    /// A pull to refresh.
     case manual
+    /// Saved gateway credentials or its switch changed.
+    case settingsChanged
 }
 
 /// Keeps the app from flapping. A new road waits out the dwell unless the phone really moved.
@@ -90,7 +92,7 @@ public struct ConnectionDwell: Sendable, Equatable {
             return probed
         }
         guard probed != current else { return current }
-        guard trigger == .pathChanged || trigger == .manual || secondsLeft(now: now) == 0 else {
+        guard trigger == .pathChanged || trigger == .settingsChanged || secondsLeft(now: now) == 0 else {
             return current
         }
         adopt(probed, now: now)

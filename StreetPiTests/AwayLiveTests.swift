@@ -174,14 +174,51 @@ final class AwayLiveTests: XCTestCase {
     }
 
     func testTheSeedFillsTheKeychainOnce() throws {
-        let secrets = MemorySecretStore()
+        let data = Data("""
+        {"version":2,"gateway":{"url":"https://gateway.example.test/",
+        "clientId":"test-client.access","clientSecret":"cfast_FAKE_not_a_real_secret"}}
+        """.utf8)
+        let seed = try ProvisionSeed.decode(data)
+        let settings = try XCTUnwrap(AwayGatewaySettings.from(seed: seed.gateway))
+        let secrets = KeychainSecretStore()
+        try secrets.delete(for: AwayGatewaySettings.account)
+        defer { try? secrets.delete(for: AwayGatewaySettings.account) }
         let store = AwayGatewayStore(store: secrets, defaults: defaults)
         store.seedIfNeeded(from: nil)
         XCTAssertNil(store.load())
-        store.seedIfNeeded(from: try gateway())
-        XCTAssertEqual(store.load(), try gateway())
+        store.seedIfNeeded(from: settings)
+        XCTAssertEqual(store.load(), settings)
+        XCTAssertEqual(store.addressText(), "https://gateway.example.test")
         XCTAssertNotNil(try secrets.load(for: AwayGatewaySettings.account))
+        // Another provisioned build must not silently replace the saved token.
+        store.seedIfNeeded(from: AwayGatewaySettings(
+            url: "https://replacement.example.test", clientID: "other.access", clientSecret: "FAKE_rotated"
+        ))
+        XCTAssertEqual(store.load(), settings)
         XCTAssertFalse(defaults.dictionaryRepresentation().description.contains(secret))
+        XCTAssertFalse(defaults.dictionaryRepresentation().description.contains(settings.clientID))
+    }
+
+    func testOnlyGravityGetsTheLongTimeout() async throws {
+        let reads = AwayHTTPClient.piholeConfiguration()
+        XCTAssertEqual(reads.timeoutIntervalForResource, 30)
+        let gravity = AwayHTTPClient.gravityConfiguration(reads)
+        XCTAssertEqual(gravity.timeoutIntervalForResource, 310)
+        let http = try client()
+        _ = try await http.post(try url("https://gateway.example.test/api/action/gravity"), headers: [:], body: nil)
+        _ = try await http.get(try url("https://gateway.example.test/api/stats/summary"), headers: [:])
+        XCTAssertEqual(GatewayStub.requests.map(\.timeoutInterval), [310, 20])
+    }
+
+    func testAnsweringChartsCannotOverrideAFailedPin() async throws {
+        let sender = UnpinnedChartsStub()
+        let answered = await PiProbe.pinnedPiAnswers(http: sender, base: LiveEndpoints.house.pihole)
+        XCTAssertFalse(answered)
+        let gateway = try gateway()
+        let prober = ConnectionProber(piAnswers: { answered }, gatewayAnswers: { _ in true })
+        let mode = await prober.mode(gateway: gateway, mailbox: nil)
+        XCTAssertEqual(mode, .awayLive(gateway))
+        XCTAssertEqual(sender.paths, ["/api/info/login"])
     }
 
     func testATypedGatewayIsKept() throws {
@@ -219,5 +256,32 @@ final class AwayLiveTests: XCTestCase {
         store.setEnabled(false)
         XCTAssertNil(store.active())
         XCTAssertNotNil(store.load())
+    }
+}
+
+/// Charts would answer on a look-alike LAN, but the pinned Pi-hole contact fails.
+private final class UnpinnedChartsStub: LiveHTTPSending, @unchecked Sendable {
+    private let lock = NSLock()
+    private var seen: [String] = []
+    var paths: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return seen
+    }
+    private func record(_ path: String) {
+        lock.lock()
+        seen.append(path)
+        lock.unlock()
+    }
+    func get(_ url: URL, headers: [String: String]) async throws -> LiveHTTPResponse {
+        record(url.path)
+        if url.path == "/api/info/login" { throw LiveHTTPProblem.untrusted }
+        return LiveHTTPResponse(status: 200, headers: [:], body: Data("{\"version\":\"fixture\"}".utf8))
+    }
+    func post(_ url: URL, headers: [String: String], body: Data?) async throws -> LiveHTTPResponse {
+        throw LiveHTTPProblem.unreachable
+    }
+    func delete(_ url: URL, headers: [String: String]) async throws -> LiveHTTPResponse {
+        throw LiveHTTPProblem.unreachable
     }
 }
