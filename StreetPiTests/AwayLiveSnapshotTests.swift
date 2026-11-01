@@ -68,15 +68,92 @@ final class AwayLiveSnapshotTests: XCTestCase {
     }
 
     func testAwaySettingsMasked() {
+        assertSettingsMatrix(testName: "tunnel-settings-away", replacingKey: false)
+    }
+
+    func testAwaySettingsReplacingKey() {
+        assertSettingsMatrix(testName: "tunnel-settings-away-replace", replacingKey: true)
+    }
+
+    private func assertSettingsMatrix(testName: String, replacingKey: Bool) {
         let saved = AwayGatewayForm(address: "https://gateway.example.test", saved: true)
-        assertMatrix(testName: "tunnel-settings-away") { size in
-            ScrollView {
-                AwayGatewaySection(theme: .house, form: saved)
+        for size in SnapshotScale.allCases {
+            for device in SnapshotDevice.allCases {
+                let section = AwayGatewaySection(theme: .house, form: saved, replacingKey: replacingKey)
                     .controlPlate(theme: .house)
                     .padding(Rhythm.page)
+                // At the largest text size, capture the full form at each device's width.
+                // A viewport snapshot hides the credential fields below the introduction.
+                let view = VStack(spacing: 0) {
+                    if size == .largest {
+                        section.frame(width: device.config.size?.width ?? 320)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        ScrollView { section }
+                    }
+                }
+                .styled(size)
+                assertSnapshot(
+                    of: view,
+                    as: .image(
+                        drawHierarchyInKeyWindow: true,
+                        precision: 0.96,
+                        perceptualPrecision: 0.98,
+                        layout: size == .largest ? .sizeThatFits : .device(config: device.config),
+                        traits: UITraitCollection(traitsFrom: [
+                            UITraitCollection(userInterfaceStyle: .dark),
+                            UITraitCollection(preferredContentSizeCategory: size.category),
+                        ])
+                    ).standardRange(),
+                    named: "dark-\(size.rawValue)-\(device.rawValue)",
+                    testName: testName
+                )
             }
-            .styled(size)
         }
+    }
+
+    func testReplaceKeyShowsEmptyFieldsAndWritesOverTheSavedKey() throws {
+        XCTAssertFalse(AwayKeyReplace.showsFields(saved: true, replacing: false))
+        XCTAssertTrue(AwayKeyReplace.showsFields(saved: true, replacing: true))
+        XCTAssertTrue(AwayKeyReplace.showsFields(saved: false, replacing: false))
+        XCTAssertFalse(AwayKeyReplace.canSave(replacing: true, clientID: "", secret: "cfast_FAKE_new"))
+        XCTAssertFalse(AwayKeyReplace.canSave(replacing: true, clientID: "new.access", secret: " "))
+        XCTAssertTrue(AwayKeyReplace.canSave(replacing: true, clientID: "new.access", secret: "cfast_FAKE_new"))
+        XCTAssertTrue(AwayKeyReplace.canSave(replacing: false, clientID: "", secret: ""))
+
+        let suite = "streetpi.tests.replace-key"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defaults.removePersistentDomain(forName: suite)
+        let secrets = MemorySecretStore()
+        let store = AwayGatewayStore(store: secrets, defaults: defaults)
+        let saved = "cfast_FAKE_saved"
+        let replaced = "cfast_FAKE_replaced"
+        XCTAssertEqual(
+            store.save(address: "https://gateway.example.test", clientID: "saved.access", secret: saved),
+            .saved
+        )
+        XCTAssertEqual(
+            store.save(address: "https://gateway.example.test", clientID: "replaced.access", secret: replaced),
+            .saved
+        )
+        let loaded = try XCTUnwrap(store.load())
+        XCTAssertEqual(loaded.clientID, "replaced.access")
+        XCTAssertEqual(loaded.clientSecret, replaced)
+        XCTAssertNotEqual(loaded.clientSecret, saved)
+        let stored = try XCTUnwrap(secrets.load(for: AwayGatewaySettings.account))
+        let payload = try XCTUnwrap(String(bytes: stored, encoding: .utf8))
+        XCTAssertTrue(payload.contains(replaced))
+        XCTAssertFalse(payload.contains(saved))
+        XCTAssertFalse(defaults.dictionaryRepresentation().description.contains(replaced))
+        XCTAssertFalse(defaults.dictionaryRepresentation().description.contains(saved))
+        store.seedIfNeeded(from: AwayGatewaySettings(
+            url: "https://seed.example.test",
+            clientID: "seed.access",
+            clientSecret: "cfast_FAKE_seed"
+        ))
+        XCTAssertEqual(store.load()?.clientSecret, replaced)
+        XCTAssertEqual(store.load()?.clientID, "replaced.access")
+        defaults.removePersistentDomain(forName: suite)
     }
 
     func testAwaySettingsEmpty() {

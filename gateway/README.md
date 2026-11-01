@@ -42,15 +42,17 @@ Then run the 401 check in Checks. Then add the Cloudflare rate limit rule below,
 
 ## Rate limit
 
-The free Cloudflare plan allows one rate limiting rule. The only counting characteristic is IP. The only period is 10 seconds, and the only block duration is 10 seconds. The expression may use the Path field. Do not add a second rule, and do not add a rate limit to the Caddyfile. Availability is listed at <https://developers.cloudflare.com/waf/rate-limiting-rules/#availability>.
+The free Cloudflare plan allows one rate limiting rule. Free allows only Path and Verified Bot in the expression; Host requires a paid plan. The only counting characteristic is IP. The only period is 10 seconds, and the only block duration is 10 seconds. Do not add a second rule, and do not add a rate limit to the Caddyfile. Availability is listed at <https://developers.cloudflare.com/waf/rate-limiting-rules/#availability>.
 
 Use one rule:
 
-- Expression, Path field only: path starts with `/api/`, `/netdata/api/`, or `/kuma/api/`.
+- Expression, Path field only: the path starts with `/api/`, `/netdata/api/`, or `/kuma/api/`.
 
 ```
 (starts_with(http.request.uri.path, "/api/") or starts_with(http.request.uri.path, "/netdata/api/") or starts_with(http.request.uri.path, "/kuma/api/"))
 ```
+
+This Free rule cannot be scoped to `pistats.thestreetfam.com`. Matching paths on other hostnames in the zone share the IP counter and can block each other. Keep the Path-only rule to stay on the free plan.
 
 - Characteristic: IP.
 - Requests: 60 in 10 seconds. More than 60 requests from one IP in that period blocks for 10 seconds.
