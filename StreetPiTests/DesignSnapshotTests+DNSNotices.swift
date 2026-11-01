@@ -1,4 +1,5 @@
 import StreetPiCore
+@testable import StreetPi
 
 @MainActor
 extension DesignSnapshotTests {
