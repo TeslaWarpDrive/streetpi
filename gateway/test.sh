@@ -205,6 +205,28 @@ chmod 600 "$tmp/ca.key" "$tmp/pi.key"
 chmod 644 "$tmp/ca.pem" "$tmp/pi.crt"
 openssl x509 -in "$tmp/pi.crt" -noout -ext subjectAltName | grep -q 'DNS:pi.hole'
 
+# Same name as the trusted cert, signed by a CA the gate does not have.
+# Keys stay in $tmp. If verification were skipped, this cert would be accepted.
+openssl req -x509 -newkey rsa:2048 -nodes \
+	-keyout "$tmp/bad-ca.key" -out "$tmp/bad-ca.pem" -days 1 \
+	-subj "/CN=StreetPi Untrusted Test CA" \
+	-addext "basicConstraints=critical,CA:TRUE" \
+	-addext "keyUsage=critical,keyCertSign,cRLSign" >/dev/null 2>&1
+openssl req -newkey rsa:2048 -nodes \
+	-keyout "$tmp/bad.key" -out "$tmp/bad.csr" \
+	-subj "/CN=pi.hole" >/dev/null 2>&1
+cat >"$tmp/bad.ext" <<'EOF'
+basicConstraints=CA:FALSE
+keyUsage=digitalSignature,keyEncipherment
+extendedKeyUsage=serverAuth
+subjectAltName=DNS:pi.hole
+EOF
+openssl x509 -req -in "$tmp/bad.csr" -CA "$tmp/bad-ca.pem" -CAkey "$tmp/bad-ca.key" \
+	-CAcreateserial -out "$tmp/bad.crt" -days 1 \
+	-extfile "$tmp/bad.ext" >/dev/null 2>&1
+chmod 600 "$tmp/bad-ca.key" "$tmp/bad.key"
+chmod 644 "$tmp/bad-ca.pem" "$tmp/bad.crt"
+
 pihole_port=18443
 netdata_port=19998
 kuma_port=18001
@@ -517,6 +539,37 @@ for i in $(seq 1 50); do
 	fi
 	sleep 0.1
 done
+
+: >"$tmp/bad.jsonl"
+python3 "$root/stubs/upstream.py" --name pihole-untrusted --port "$pihole_port" \
+	--record "$tmp/bad.jsonl" --cert "$tmp/bad.crt" --key "$tmp/bad.key" \
+	>"$tmp/bad.err" 2>&1 &
+bad_pid=$!
+echo "$bad_pid" >>"$tmp/pids"
+wait_code "https://127.0.0.1:${pihole_port}/ready" 200
+: >"$tmp/bad.jsonl"
+code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 8 \
+	-H 'Host: pistats.thestreetfam.com' \
+	-H "Cf-Access-Jwt-Assertion: ${jwt}" \
+	-H "CF-Access-Client-Id: fake-access-client-id" \
+	-H "CF-Access-Client-Secret: fake-access-client-secret" \
+	-H "Cookie: sid=fake-cookie-not-a-secret" \
+	-H "X-FTL-SID: fake-sid-not-a-secret" \
+	"$base/api/dns/blocking" || true)
+[[ "$code" == "502" ]] || die "untrusted upstream certificate returned $code, expected 502"
+if [[ -s "$tmp/bad.jsonl" ]]; then
+	die "untrusted upstream certificate was accepted"
+fi
+say "upstream tls: 502"
+kill "$bad_pid" 2>/dev/null || true
+wait "$bad_pid" 2>/dev/null || true
+for i in $(seq 1 50); do
+	if ! curl -sk --max-time 1 -o /dev/null "https://127.0.0.1:${pihole_port}/ready"; then
+		break
+	fi
+	sleep 0.1
+done
+
 code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 8 \
 	-H 'Host: pistats.thestreetfam.com' \
 	-H "Cf-Access-Jwt-Assertion: ${jwt}" \

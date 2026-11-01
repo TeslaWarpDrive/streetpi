@@ -12,7 +12,7 @@ Pi health is look-only. It shows the processor, temperature, memory, disk, and u
 
 At home the app talks to the Pi at `192.168.1.78`. Away from home it calls `https://pistats.thestreetfam.com`.
 
-That name is published by the Pi's existing Cloudflare Tunnel, `pi-grok-stats`. Cloudflare Access checks a service token. `cloudflared` protects the hostname with Access, checks the Access JWT, and connects to a small Caddy gate. The socket is `127.0.0.1:8447`. The public name is the Host, and the gate accepts it. The gate allows only the paths in `gateway/allowlist.json`. Pi Keeper reviews and deploys the gate. The steps, checks, and undo are in `gateway/README.md`. Plain words for the house are in `docs/away-tunnel.md`.
+That name is published by the Pi's existing Cloudflare Tunnel, `pi-grok-stats`. Cloudflare Access checks a service token. `cloudflared` protects the hostname with Access, checks the Access JWT, and connects to `http://127.0.0.1:8447`. The public name is the Host, and the gate accepts it. The origin uses `127.0.0.1` because the gate binds IPv4 only. The gate allows only the paths in `gateway/allowlist.json`. Pi Keeper reviews and deploys the gate. The steps, checks, and undo are in `gateway/README.md`. Plain words for the house are in `docs/away-tunnel.md`.
 
 Brandy does not set this up. Proton VPN can stay on. The phone is calling a public name, not the house address, so the VPN does not have to be off.
 
