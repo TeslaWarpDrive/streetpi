@@ -121,12 +121,17 @@ public struct AwayMachine: Sendable, Equatable, Codable {
     public var temperatureC: Double
     public var diskUsedPercent: Double
     public var uptimeSeconds: Int
-    /// Five-minute points for the last day. Only a history push carries these.
+    /// Five- or fifteen-minute points for the last day. Only a history push carries these.
     public var cpuHistory: [AwayCPUPoint]?
+    /// Optional hourly averages. Missing or empty means unavailable, never zero.
+    public var temperatureHistory: [AwayTemperaturePoint]?
+    public var memoryHistory: [AwayUsedPoint]?
+    public var diskHistory: [AwayUsedPoint]?
 
     private enum CodingKeys: String, CodingKey, CaseIterable {
         case cpuBusyPercent, memoryUsedPercent, memoryUsedMB, memoryTotalMB
         case temperatureC, diskUsedPercent, uptimeSeconds, cpuHistory
+        case temperatureHistory, memoryHistory, diskHistory
     }
 
     public init(from decoder: Decoder) throws {
@@ -139,6 +144,9 @@ public struct AwayMachine: Sendable, Equatable, Codable {
         diskUsedPercent = try container.decode(Double.self, forKey: .diskUsedPercent)
         uptimeSeconds = try container.decode(Int.self, forKey: .uptimeSeconds)
         cpuHistory = try container.decodeIfPresent([AwayCPUPoint].self, forKey: .cpuHistory)
+        temperatureHistory = try container.decodeIfPresent([AwayTemperaturePoint].self, forKey: .temperatureHistory)
+        memoryHistory = try container.decodeIfPresent([AwayUsedPoint].self, forKey: .memoryHistory)
+        diskHistory = try container.decodeIfPresent([AwayUsedPoint].self, forKey: .diskHistory)
     }
 }
 
@@ -283,7 +291,7 @@ private struct AnyCodingKey: CodingKey {
     }
 }
 
-private extension Decoder {
+extension Decoder {
     /// Same as `container(keyedBy:)`, and refuses a key the type does not list.
     func strictContainer<Key: CodingKey & CaseIterable>(keyedBy type: Key.Type) throws -> KeyedDecodingContainer<Key> {
         let known = Set(Key.allCases.map(\.stringValue))
