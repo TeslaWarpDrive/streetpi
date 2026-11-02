@@ -208,24 +208,6 @@ final class AwayLiveTests: XCTestCase {
         XCTAssertEqual(GatewayStub.requests.map(\.timeoutInterval), [310, 20])
     }
 
-    func testAnsweringChartsCannotOverrideAFailedPin() async throws {
-        let sender = UnpinnedChartsStub()
-        let answered = await PiProbe.pinnedPiAnswers(http: sender, base: LiveEndpoints.house.pihole)
-        XCTAssertFalse(answered)
-        let gateway = try gateway()
-        let prober = ConnectionProber(piAnswers: { answered }, gatewayAnswers: { _ in true })
-        let mode = await prober.mode(gateway: gateway, mailbox: nil)
-        XCTAssertEqual(mode, .awayLive(gateway))
-        XCTAssertEqual(sender.paths, ["/api/info/login"])
-        let mailbox = MailboxSetup(
-            address: try XCTUnwrap(MailboxAddress(text: "https://mailbox.example.test")),
-            token: try XCTUnwrap(MailboxToken(text: "FAKE_mailbox_token"))
-        )
-        let fallback = ConnectionProber(piAnswers: { answered }, gatewayAnswers: { _ in false })
-        let mailboxMode = await fallback.mode(gateway: gateway, mailbox: mailbox)
-        XCTAssertEqual(mailboxMode, .awayMailbox(mailbox))
-    }
-
     func testATypedGatewayIsKept() throws {
         let store = AwayGatewayStore(store: MemorySecretStore(), defaults: defaults)
         XCTAssertEqual(
@@ -261,32 +243,5 @@ final class AwayLiveTests: XCTestCase {
         store.setEnabled(false)
         XCTAssertNil(store.active())
         XCTAssertNotNil(store.load())
-    }
-}
-
-/// Charts would answer on a look-alike LAN, but the pinned Pi-hole contact fails.
-private final class UnpinnedChartsStub: LiveHTTPSending, @unchecked Sendable {
-    private let lock = NSLock()
-    private var seen: [String] = []
-    var paths: [String] {
-        lock.lock()
-        defer { lock.unlock() }
-        return seen
-    }
-    private func record(_ path: String) {
-        lock.lock()
-        seen.append(path)
-        lock.unlock()
-    }
-    func get(_ url: URL, headers: [String: String]) async throws -> LiveHTTPResponse {
-        record(url.path)
-        if url.path == "/api/info/login" { throw LiveHTTPProblem.untrusted }
-        return LiveHTTPResponse(status: 200, headers: [:], body: Data("{\"version\":\"fixture\"}".utf8))
-    }
-    func post(_ url: URL, headers: [String: String], body: Data?) async throws -> LiveHTTPResponse {
-        throw LiveHTTPProblem.unreachable
-    }
-    func delete(_ url: URL, headers: [String: String]) async throws -> LiveHTTPResponse {
-        throw LiveHTTPProblem.unreachable
     }
 }

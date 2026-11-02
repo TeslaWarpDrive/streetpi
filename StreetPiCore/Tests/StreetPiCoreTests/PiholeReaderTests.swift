@@ -13,7 +13,7 @@ final class PiholeReaderTests: XCTestCase {
         XCTAssertNil(PiholeBaseAddress.endpoint(from: "http://192.168.1.78/api"))
         XCTAssertNil(PiholeBaseAddress.endpoint(from: "https://192.168.1.78:80/api"))
         XCTAssertNil(PiholeBaseAddress.endpoint(from: "https://192.168.1.78/admin"))
-        XCTAssertTrue(PiholePin.question.contains("security certificate changed, trust the new one?"))
+        XCTAssertEqual(PiholePin.question, "Only trust this at home.")
         XCTAssertFalse(PiholePin.question.localizedCaseInsensitiveContains("not live"))
     }
 

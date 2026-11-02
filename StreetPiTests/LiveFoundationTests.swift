@@ -21,10 +21,8 @@ final class LiveFoundationTests: XCTestCase {
         XCTAssertEqual(store.load(), .house)
         let digest = try XCTUnwrap(Data(base64Encoded: LiveHouse.spkiSHA256))
         XCTAssertEqual(digest.count, 32)
-        XCTAssertEqual(
-            CertificatePinner.changedCertificatePrompt,
-            "The ad blocker's security certificate changed, trust the new one?"
-        )
+        XCTAssertEqual(CertificatePinner.changedCertificatePrompt, PiholePin.question)
+        XCTAssertEqual(PiholePin.question, "Only trust this at home.")
     }
 
     func testSettingsCanReplaceHostsAndPin() throws {
