@@ -426,6 +426,82 @@ final class TabClearanceTests: ClearanceCase {
         }
     }
 
+    /// Waits until the phone page has lifted clear of the floating tab bar.
+    private func settleAboveTabBar(_ window: UIWindow, _ context: String) {
+        for _ in 0..<10 {
+            pump()
+            guard let scroll = mainScroll(in: window), let bar = tabBarFrame(in: window) else { continue }
+            let frame = scroll.convert(scroll.bounds, to: window)
+            if frame.maxY <= bar.minY + 1 {
+                return
+            }
+        }
+        guard let scroll = mainScroll(in: window), let bar = tabBarFrame(in: window) else {
+            XCTFail("\(context): no scroll view or tab bar")
+            return
+        }
+        let frame = scroll.convert(scroll.bounds, to: window)
+        XCTAssertLessThanOrEqual(
+            frame.maxY,
+            bar.minY + 1,
+            "\(context): the page still runs under the tab bar. page=\(frame) bar=\(bar)"
+        )
+    }
+
+    /// Scrolls one card until its whole frame sits in the open page above the bar.
+    private func assertCardAboveTabBar(_ name: String, in window: UIWindow, _ context: String) {
+        guard let bar = tabBarFrame(in: window), let scroll = mainScroll(in: window) else {
+            XCTFail("\(context): no tab bar")
+            return
+        }
+        guard var frame = layoutFrames[name], frame.width > 1, frame.height > 1 else {
+            XCTFail("\(context): \(name) did not report its layout")
+            return
+        }
+        let clearTop = scroll.convert(scroll.bounds, to: window).minY
+        let clearBottom = bar.minY
+        let open = clearBottom - clearTop
+        guard frame.height <= open + 0.5 else {
+            XCTFail("\(context): \(name) is taller than the page above the tab bar. card=\(frame.height) open=\(open)")
+            return
+        }
+        let overflow = frame.maxY - clearBottom
+        let hiddenTop = clearTop - frame.minY
+        if overflow > 0.5 || hiddenTop > 0.5 {
+            let delta = overflow > 0.5 ? overflow : -hiddenTop
+            let minOffset = -scroll.adjustedContentInset.top
+            let maxOffset = scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom
+            let target = min(max(scroll.contentOffset.y + delta, minOffset), maxOffset)
+            scroll.setContentOffset(CGPoint(x: 0, y: target), animated: false)
+            scroll.layoutIfNeeded()
+            pump()
+            frame = layoutFrames[name] ?? frame
+        }
+        XCTAssertGreaterThanOrEqual(
+            frame.minY,
+            clearTop - 0.5,
+            "\(context): \(name) starts off the page. card=\(frame)"
+        )
+        XCTAssertLessThanOrEqual(
+            frame.maxY,
+            clearBottom + 0.5,
+            "\(context): \(name) ends under the tab bar. card=\(frame) bar=\(bar)"
+        )
+    }
+
+    /// Leaves monitors and backups on screen together when the phone is tall enough.
+    private func parkDegradedCards(in window: UIWindow, _ context: String) {
+        assertCardAboveTabBar("home-backup-card", in: window, context)
+        guard let monitor = layoutFrames["home-monitor-card"],
+              let bar = tabBarFrame(in: window),
+              let scroll = mainScroll(in: window) else { return }
+        let clearTop = scroll.convert(scroll.bounds, to: window).minY
+        let onPage = monitor.minY >= clearTop - 0.5 && monitor.maxY <= bar.minY + 0.5
+        if onPage == false {
+            assertCardAboveTabBar("home-monitor-card", in: window, context)
+        }
+    }
+
     private func splitControllers(in controller: UIViewController) -> [UISplitViewController] {
         let own = (controller as? UISplitViewController).map { [$0] } ?? []
         return own + controller.children.flatMap { splitControllers(in: $0) }
@@ -519,6 +595,46 @@ final class TabClearanceTests: ClearanceCase {
             }
         }
     }
+    /// The degraded house keeps every card fully above the tab bar, including
+    /// monitors and backups on the small phone at the largest text size.
+    func testDegradedHomeCardsClearTheTabBar() {
+        let board = StatusPageFixture.previewBoard(now: now)
+        let reading = StatusPageFixture.previewSnapshot(now: now)
+        let cards = [
+            "home-blocker-card", "home-pi-card", "home-monitor-card", "home-backup-card",
+            "home-running-card", "home-devices-card",
+        ]
+        for phone in ClearancePhone.allCases {
+            for scale in SnapshotScale.allCases {
+                let context = "degraded \(phone.rawValue) \(scale.rawValue)"
+                let window = host(
+                    page: .home,
+                    scale: scale,
+                    config: phone.config,
+                    status: board,
+                    snapshot: reading
+                )
+                settleAboveTabBar(window, context)
+                for name in cards {
+                    assertCardAboveTabBar(name, in: window, context)
+                }
+                let squares = layoutFrames.keys.filter { $0.hasPrefix("home-square-") }.sorted()
+                XCTAssertGreaterThanOrEqual(squares.count, 4, "\(context): the service tiles did not report")
+                for name in squares {
+                    assertCardAboveTabBar(name, in: window, context)
+                }
+                parkDegradedCards(in: window, context)
+                assertSnapshot(
+                    of: image(of: window),
+                    as: .image(precision: 0.99, perceptualPrecision: 0.98).standardRange(),
+                    named: "dark-\(scale.rawValue)-\(phone.rawValue)",
+                    testName: "degradedCards"
+                )
+                window.isHidden = true
+            }
+        }
+    }
+
     /// The installed Home paints the status page, not the 8-service sample.
     func testStatusPageReplacesTheSample() {
         let board = StatusPageFixture.previewBoard(now: now)
