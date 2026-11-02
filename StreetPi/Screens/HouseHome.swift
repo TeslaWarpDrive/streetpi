@@ -80,12 +80,18 @@ struct HouseHome: View {
     }
 
     private var scrolling: some View {
-        PhoneTabScroll(wide: wide) {
+        ScrollView {
             FitOfferedWidth(maxWidth: wide ? 880 : nil) {
                 column
                     .padding(.horizontal, wide ? AfterglowShape.page : edge)
                     .padding(.top, AfterglowShape.tight)
                     .padding(.bottom, AfterglowShape.block)
+            }
+        }
+        .scrollIndicators(.hidden)
+        .background {
+            if wide == false {
+                Color.clear.endsAboveTabBar()
             }
         }
     }

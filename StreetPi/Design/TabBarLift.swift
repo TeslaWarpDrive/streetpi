@@ -1,53 +1,21 @@
 import SwiftUI
 import UIKit
 
-extension Notification.Name {
-    /// Posted with a `LiftToken` and a `lift` number after the phone page is measured.
-    static let streetPiTabBarLift = Notification.Name("streetpi.tabBarLift")
-}
-
-/// One house page. Keeps a measurement from another page from moving this one.
-final class LiftToken: NSObject, @unchecked Sendable {}
-
-/// Phone scrolling page. Its frame ends at the floating tab bar, so a card
-/// cannot rest in the strip the bar covers. The inner inset keeps the scrolled
-/// end where it already was, instead of leaving a second empty band.
-struct PhoneTabScroll<Content: View>: View {
-    var wide: Bool
-    @ViewBuilder var content: () -> Content
-
-    @State private var lift: CGFloat = 0
-    @State private var token = LiftToken()
-
-    var body: some View {
-        ScrollView {
-            content()
-                .padding(.bottom, wide ? 0 : -lift)
-        }
-        .scrollIndicators(.hidden)
-        .padding(.bottom, wide ? 0 : lift)
-        .background {
-            if wide == false {
-                TabBarLiftProbe(applied: lift, token: token)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .streetPiTabBarLift)) { note in
-            guard wide == false, let source = note.object as? LiftToken, source === token else { return }
-            guard let raw = note.userInfo?["lift"] as? Double else { return }
-            let next = CGFloat(raw)
-            if abs(next - lift) > 0.5 {
-                lift = next
-            }
+/// Asks the page to stay above the floating tab bar.
+/// The phone scroll view was drawing through the bar, so the lower half of a card
+/// counted as visible while it sat under the bar. One extra bottom inset, measured
+/// from the bar, ends the page at the top of the bar.
+struct TabBarLift: ViewModifier {
+    func body(content: Content) -> some View {
+        content.background {
+            TabBarLiftProbe()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
         }
     }
 }
 
 private struct TabBarLiftProbe: UIViewRepresentable {
-    var applied: CGFloat
-    var token: LiftToken
-
     func makeUIView(context: Context) -> Probe {
         let view = Probe()
         view.isUserInteractionEnabled = false
@@ -57,15 +25,11 @@ private struct TabBarLiftProbe: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: Probe, context: Context) {
-        uiView.applied = applied
-        uiView.token = token
         uiView.resolve()
     }
 
     final class Probe: UIView {
-        var applied: CGFloat = 0
-        var token: LiftToken?
-        private var reported: CGFloat = -1
+        private var didInset = false
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
@@ -77,29 +41,32 @@ private struct TabBarLiftProbe: UIViewRepresentable {
             resolve()
         }
 
-        /// Padding already applied, plus whatever of the scroll view still
-        /// runs under the bar. Once the page ends at the bar, the sum stays put.
         func resolve() {
-            guard let window, let bar = Self.tabBar(in: window), let token else { return }
-            guard let scroll = Self.mainScroll(in: window) else { return }
-            let scrollFrame = scroll.convert(scroll.bounds, to: window)
+            guard didInset == false, let window, let bar = Self.tabBar(in: window) else { return }
+            guard let controller = hostController() else { return }
             let barFrame = bar.convert(bar.bounds, to: window)
-            let overlap = max(0, scrollFrame.maxY - barFrame.minY)
-            let needed = min(overlap + applied, Self.cap)
-            guard abs(needed - applied) > 0.5, abs(needed - reported) > 0.5 else { return }
-            reported = needed
-            let value = Double(needed)
-            DispatchQueue.main.async {
-                NotificationCenter.default.post(
-                    name: .streetPiTabBarLift,
-                    object: token,
-                    userInfo: ["lift": value]
-                )
+            guard barFrame.minY > window.bounds.midY, barFrame.height > 20 else { return }
+            let cover = window.bounds.maxY - barFrame.minY
+            let safe = controller.view.safeAreaInsets.bottom
+            let short = cover - safe
+            guard short > 1 else {
+                didInset = true
+                return
             }
+            controller.additionalSafeAreaInsets.bottom += short
+            didInset = true
         }
 
-        /// Taller than any phone tab bar, so a layout fight cannot grow the gap forever.
-        private static let cap: CGFloat = 140
+        private func hostController() -> UIViewController? {
+            var responder: UIResponder? = self
+            while let next = responder?.next {
+                if let controller = next as? UIViewController {
+                    return controller
+                }
+                responder = next
+            }
+            return nil
+        }
 
         private static func tabBar(in view: UIView) -> UITabBar? {
             if let bar = view as? UITabBar, bar.isHidden == false, bar.alpha > 0.01, bar.bounds.height > 1 {
@@ -112,16 +79,12 @@ private struct TabBarLiftProbe: UIViewRepresentable {
             }
             return nil
         }
+    }
+}
 
-        private static func mainScroll(in window: UIWindow) -> UIScrollView? {
-            scrolls(in: window)
-                .filter { $0.isHidden == false && $0.bounds.height > window.bounds.height * 0.4 }
-                .max { $0.bounds.width * $0.bounds.height < $1.bounds.width * $1.bounds.height }
-        }
-
-        private static func scrolls(in view: UIView) -> [UIScrollView] {
-            let own = (view as? UIScrollView).map { [$0] } ?? []
-            return own + view.subviews.flatMap { scrolls(in: $0) }
-        }
+extension View {
+    /// Phone pages only. The iPad uses a sidebar and has no bottom bar.
+    func endsAboveTabBar() -> some View {
+        modifier(TabBarLift())
     }
 }

@@ -476,8 +476,15 @@ final class TabClearanceTests: ClearanceCase {
         )
     }
 
-    /// After the page is scrolled to the end, the card is still fully above the bar.
-    private func assertRestsAboveTabBar(_ name: String, in window: UIWindow, _ context: String) {
+    /// After the page is scrolled to the end, the card is not under the bar.
+    /// Default text also keeps it on screen. The largest text is taller than the
+    /// open page once the rows below it are in view, so those cards scroll up.
+    private func assertRestsAboveTabBar(
+        _ name: String,
+        in window: UIWindow,
+        _ context: String,
+        requireOnScreen: Bool
+    ) {
         guard let bar = tabBarFrame(in: window), let scroll = mainScroll(in: window) else {
             XCTFail("\(context): no tab bar")
             return
@@ -487,16 +494,18 @@ final class TabClearanceTests: ClearanceCase {
             return
         }
         let clearTop = scroll.convert(scroll.bounds, to: window).minY
-        let open = bar.minY - clearTop
-        guard frame.height <= open + 0.5 else {
-            XCTFail("\(context): \(name) is taller than the page above the tab bar")
-            return
+        if requireOnScreen {
+            let open = bar.minY - clearTop
+            guard frame.height <= open + 0.5 else {
+                XCTFail("\(context): \(name) is taller than the page above the tab bar")
+                return
+            }
+            XCTAssertGreaterThanOrEqual(
+                frame.minY,
+                clearTop - 0.5,
+                "\(context): \(name) scrolls off the top at the end. card=\(frame)"
+            )
         }
-        XCTAssertGreaterThanOrEqual(
-            frame.minY,
-            clearTop - 0.5,
-            "\(context): \(name) scrolls off the top at the end. card=\(frame)"
-        )
         XCTAssertLessThanOrEqual(
             frame.maxY,
             bar.minY + 0.5,
@@ -626,8 +635,18 @@ final class TabClearanceTests: ClearanceCase {
                     assertCardAboveTabBar(name, in: window, context)
                 }
                 scrollToEnd(window)
-                assertRestsAboveTabBar("home-monitor-card", in: window, context)
-                assertRestsAboveTabBar("home-backup-card", in: window, context)
+                assertRestsAboveTabBar(
+                    "home-monitor-card",
+                    in: window,
+                    context,
+                    requireOnScreen: scale == .default
+                )
+                assertRestsAboveTabBar(
+                    "home-backup-card",
+                    in: window,
+                    context,
+                    requireOnScreen: scale == .default
+                )
                 assertSnapshot(
                     of: image(of: window),
                     as: .image(precision: 0.99, perceptualPrecision: 0.98).standardRange(),
