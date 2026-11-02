@@ -69,6 +69,9 @@ jobs:
       - name: Test StreetPiCore
         run: swift test --package-path StreetPiCore
 
+      - name: Repeat gravity deadline cancellation test 200 times
+        run: bash scripts/test-gravity-deadline.sh
+
       - name: Test IPA sealing
         run: bash scripts/test-seal-ipa.sh
 
