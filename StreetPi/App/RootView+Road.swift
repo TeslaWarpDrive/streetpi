@@ -5,6 +5,8 @@ import SwiftUI
 @MainActor
 final class CertificateRecovery {
     var reading = PiProbe.Reading(mode: .home)
+    var gatewayReply = GatewayProbe.Reply.noAnswer
+    var awayHTTP: AwayHTTPClient?
     var declinedPin: String?
     var dnsProblem: PiholeProblem?
     var trigger = ConnectionTrigger.launch
@@ -15,12 +17,34 @@ final class CertificateRecovery {
 /// Finding the road to the house, and the parts that only exist away from home.
 extension RootView {
     func probeMode() async -> ConnectionMode? {
-        await probeMode {
-            await PiProbe().connection(
-                gateway: AwayGatewayStore(store: secretStore).active(),
-                mailbox: MailboxSettingsStore(store: secretStore).load()
+        await probeRoad(
+            gateway: AwayGatewayStore(store: secretStore).active(),
+            mailbox: MailboxSettingsStore(store: secretStore).load(),
+            home: { await PiProbe().connection(gateway: nil, mailbox: nil) },
+            gatewayReply: { await GatewayProbe().reply($0) }
+        )
+    }
+
+    func probeRoad(
+        gateway: AwayGatewaySettings?,
+        mailbox: MailboxSetup?,
+        home: () async -> PiProbe.Reading,
+        gatewayReply: (AwayGatewaySettings) async -> GatewayProbe.Reply
+    ) async -> ConnectionMode? {
+        let generation = certificateRecovery.generation
+        var reading = await home()
+        var reply = GatewayProbe.Reply.noAnswer
+        if reading.mode != .home {
+            if let gateway { reply = await gatewayReply(gateway) }
+            reading.mode = ConnectionMode.choose(
+                piAnswered: false, gateway: gateway,
+                gatewayAnswered: reply == .answered, mailbox: mailbox
             )
         }
+        guard !Task.isCancelled, generation == certificateRecovery.generation else { return nil }
+        certificateRecovery.gatewayReply = reply
+        certificateRecovery.reading = reading
+        return reading.mode
     }
 
     func probeMode(using probe: () async -> PiProbe.Reading) async -> ConnectionMode? {
@@ -97,12 +121,13 @@ extension RootView {
 
     /// No Keychain session here. The id stays in memory and dies with this road.
     func awayClient(_ gateway: AwayGatewaySettings) -> PiholeClient {
-        if let existing = dnsSession.client, dnsSession.gateway == gateway {
+        if let existing = dnsSession.client, dnsSession.gateway == gateway, certificateRecovery.awayHTTP != nil {
             return existing
         }
         let store = secretStore
         let base = gateway.piholeBase ?? LiveEndpoints.house.pihole
         let http = AwayHTTPClient(settings: gateway, configuration: AwayHTTPClient.piholeConfiguration())
+        certificateRecovery.awayHTTP = http
         let client = PiholeClient(
             transport: AwayPiholeTransport(base: LivePiholeTransport(http: http, base: base)),
             password: { AdBlockerSecrets.password(in: store) }
@@ -145,6 +170,9 @@ extension RootView {
 
     func gatewayChanged() {
         loadGatewayForm()
+        certificateRecovery.generation += 1
+        certificateRecovery.gatewayReply = .noAnswer
+        certificateRecovery.awayHTTP = nil
         certificateRecovery.trigger = .settingsChanged
         modeCheck += 1
     }
@@ -187,5 +215,42 @@ extension RootView {
         guard LiveReaderGate.opensSockets else { return nil }
         guard AdBlockerSecrets.password(in: secretStore).isEmpty == false else { return nil }
         return await clientForCurrentSettings()
+    }
+}
+
+/// Shared by the Ad blocker board and Settings, including the mailbox fallback.
+struct AwayKeyNotice: ViewModifier {
+    var rejected: Bool
+    var section: AppSection
+    /// The away card says it instead, so a rejected key never stacks two cards above the page.
+    var hasAwayCard = false
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var text: String? {
+        guard rejected, section == .group(.adBlockerAndDNS) || section == .settings else { return nil }
+        return AwayKeyProblem.rejected.message
+    }
+
+    /// Settings says it in the page, above the fields, so nothing fixed holds the way out off screen.
+    var onPage: Bool {
+        text != nil && section == .settings
+    }
+
+    func body(content: Content) -> some View {
+        VStack(spacing: 0) {
+            if let text, !hasAwayCard, !onPage {
+                Label(text, systemImage: "key.slash")
+                    .font(dynamicTypeSize.isAccessibilitySize ? .caption : .footnote)
+                    .foregroundStyle(StreetTheme.house.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(Rhythm.line)
+                    .background(StreetTheme.house.surface)
+            }
+            content
+        }
+        .environment(\.awayKeyNotice, text)
+        .environment(\.awayKeyOnPage, onPage)
     }
 }

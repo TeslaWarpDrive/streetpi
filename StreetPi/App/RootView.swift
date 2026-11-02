@@ -177,6 +177,7 @@ struct RootView: View {
             awayLive: isAwayLive,
             gatewayForm: gatewayForm
         )
+        .modifier(AwayKeyNotice(rejected: awayKeyRejected, section: section, hasAwayCard: awayStatus != nil))
         .launchOverlay(isPresented: $showLaunch)
         .preferredColorScheme(.dark)
         .environment(\.secretStore, KeychainSecretStore())
@@ -381,8 +382,31 @@ struct RootView: View {
         return client
     }
 
-    private func refresh(_ client: PiholeClient, now: Date) async -> AdBlockerBoard {
-        let saved = AdBlockerSecrets.password(in: secretStore).isEmpty == false
+    var awayKeyRejected: Bool {
+        certificateRecovery.gatewayReply == .rejectedKey
+    }
+
+    func refresh(
+        _ client: PiholeClient, now: Date, secrets: (any SecretStoring)? = nil
+    ) async -> AdBlockerBoard {
+        let generation = certificateRecovery.generation
+        let http = isAwayLive ? certificateRecovery.awayHTTP : nil
+        _ = http?.takeKeyRejection()
+        let saved = AdBlockerSecrets.password(in: secrets ?? secretStore).isEmpty == false
+        let board = await readBoard(client, now: now, saved: saved)
+        if !Task.isCancelled, generation == certificateRecovery.generation,
+           let http, http === certificateRecovery.awayHTTP {
+            if http.takeKeyRejection() {
+                certificateRecovery.gatewayReply = .rejectedKey
+                return AdBlockerHome.offline(now: now)
+            } else if board.problem == nil {
+                certificateRecovery.gatewayReply = .answered
+            }
+        }
+        return board
+    }
+
+    private func readBoard(_ client: PiholeClient, now: Date, saved: Bool) async -> AdBlockerBoard {
         do {
             let state = try await client.reachability()
             guard saved else { return AdBlockerHome.notSetUp(now: now) }
@@ -407,6 +431,10 @@ struct RootView: View {
                 return AdBlockerHome.offline(now: now)
             }
             return AdBlockerHome.failed(problem, now: now)
+        } catch AwayKeyProblem.rejected {
+            // Only the away road has a key. At home this stays a service that is not set up.
+            dnsSession.signedIn = false
+            return isAwayLive ? AdBlockerHome.offline(now: now) : AdBlockerHome.notSetUp(now: now)
         } catch {
             dnsSession.signedIn = false
             return AdBlockerHome.offline(now: now)

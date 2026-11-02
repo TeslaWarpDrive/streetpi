@@ -8,6 +8,24 @@ final class AwayHTTPClient: LiveHTTPSending, @unchecked Sendable {
     private let settings: AwayGatewaySettings
     private let session: URLSession
     private let gravitySession: URLSession
+    private let rejectionLock = NSLock()
+    private var rejected = false
+
+    /// A refresh consumes this separately from Pi-hole's own error mapping.
+    func takeKeyRejection() -> Bool {
+        rejectionLock.lock()
+        defer { rejectionLock.unlock() }
+        let result = rejected
+        rejected = false
+        return result
+    }
+
+    private func noteRejection(status: Int) {
+        guard status == 403 else { return }
+        rejectionLock.lock()
+        rejected = true
+        rejectionLock.unlock()
+    }
 
     var trustDelegate: (any URLSessionDelegate)? { session.delegate }
 
@@ -70,6 +88,7 @@ final class AwayHTTPClient: LiveHTTPSending, @unchecked Sendable {
         do {
             let (data, response) = try await sender.data(for: request)
             guard let http = response as? HTTPURLResponse else { throw LiveHTTPProblem.unreachable }
+            noteRejection(status: http.statusCode)
             return LiveHTTPResponse(status: http.statusCode, headers: LiveHTTPClient.headerMap(http), body: data)
         } catch let problem as LiveHTTPProblem {
             throw problem
@@ -96,15 +115,35 @@ extension LiveEndpoints {
 
 /// One quick look for the gateway. Only a 200 counts, and a redirect is never followed.
 struct GatewayProbe: Sendable {
+    enum Reply: Equatable, Sendable {
+        case answered
+        case rejectedKey
+        case noAnswer
+    }
+
     private static let timeout: TimeInterval = 5
 
     func answers(_ gateway: AwayGatewaySettings) async -> Bool {
-        guard LiveReaderGate.opensSockets, let url = gateway.healthURL else { return false }
+        await reply(gateway) == .answered
+    }
+
+    func reply(_ gateway: AwayGatewaySettings) async -> Reply {
+        guard LiveReaderGate.opensSockets else { return .noAnswer }
         let configuration = LiveHTTPClient.sessionConfiguration()
         configuration.timeoutIntervalForRequest = Self.timeout
         configuration.timeoutIntervalForResource = Self.timeout
         let http = AwayHTTPClient(settings: gateway, configuration: configuration)
-        return (try? await http.get(url, headers: [:]))?.status == 200
+        return await reply(gateway, http: http)
+    }
+
+    /// Injectable sender keeps probe tests on fixtures, without opening a socket.
+    func reply(_ gateway: AwayGatewaySettings, http: any LiveHTTPSending) async -> Reply {
+        guard let url = gateway.healthURL else { return .noAnswer }
+        switch (try? await http.get(url, headers: [:]))?.status {
+        case 200: return .answered
+        case 403: return .rejectedKey
+        default: return .noAnswer
+        }
     }
 }
 
