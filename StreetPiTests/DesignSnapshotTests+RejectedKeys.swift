@@ -23,6 +23,10 @@ extension DesignSnapshotTests {
         try assertRejectedMailbox(section: .settings)
     }
 
+    func testRejectedAwayKeyMailboxProblemSettings() throws {
+        try assertRejectedMailbox(section: .settings, problem: .wrongAddress)
+    }
+
     func testAwayKeySavedConfirmation() {
         assertKeyDraft(AwayKeyDraft(saved: true))
     }
@@ -43,7 +47,9 @@ extension DesignSnapshotTests {
         }
     }
 
-    private func assertRejectedMailbox(section: AppSection, testName: String = #function) throws {
+    private func assertRejectedMailbox(
+        section: AppSection, problem: MailboxProblem? = nil, testName: String = #function
+    ) throws {
         let board = try FixtureBook.awayBoard()
         let report = try XCTUnwrap(board.snapshot)
         let briefing = try XCTUnwrap(board.status?.briefing)
@@ -52,7 +58,7 @@ extension DesignSnapshotTests {
                 section: section, screen: .explained(briefing, report), now: report.capturedAt.addingTimeInterval(12),
                 onSection: { _ in }, desk: board.desk, machine: board.machine, piNotice: board.piNotice,
                 machineReading: report.machine, statusBoard: board.status,
-                awayStatus: .reading(generatedAt: report.capturedAt, problem: nil, note: nil),
+                awayStatus: .reading(generatedAt: report.capturedAt, problem: problem, note: nil),
                 gatewayForm: AwayGatewayForm(address: "https://gateway.example.test", saved: true)
             )
             .modifier(AwayKeyNotice(rejected: true, section: section, hasAwayCard: true))

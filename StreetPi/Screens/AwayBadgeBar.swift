@@ -6,6 +6,8 @@ extension EnvironmentValues {
     @Entry var awayKeyNotice: String? = nil
     /// The page says it instead, so the bar leaves it out and keeps only a mailbox report's age.
     @Entry var awayKeyOnPage = false
+    /// Already on Settings, so a button that opens it would do nothing.
+    @Entry var awayOnSettings = false
 }
 
 /// The small line above every tab while the Pi is out of reach. It counts up on its own.
@@ -18,6 +20,7 @@ struct AwayBadgeBar: View {
     @Environment(\.streetPiStill) private var still
     @Environment(\.awayKeyNotice) private var keyNotice
     @Environment(\.awayKeyOnPage) private var keyOnPage
+    @Environment(\.awayOnSettings) private var onSettings
 
     var body: some View {
         if status.showsBar(keyOnPage: keyOnPage) == false {
@@ -31,29 +34,38 @@ struct AwayBadgeBar: View {
         }
     }
 
-    /// A report's age and the key message together can fill a small phone at the largest text.
     private var capped: Bool {
-        status.isAway && keyNotice != nil && keyOnPage == false
+        status.capsBar(keyNotice: keyNotice, keyOnPage: keyOnPage)
     }
 
     private func badge(at date: Date) -> AwayBadge {
-        status.badge(now: date).carrying(keyNotice: keyNotice, status: status, keyOnPage: keyOnPage)
+        status.badge(now: date).carrying(
+            keyNotice: keyNotice, status: status, keyOnPage: keyOnPage, onSettings: onSettings
+        )
     }
 }
 
 extension AwayStatus {
-    /// The numbers on every tab came from the report, so its age stays up on every tab.
-    /// With no report the page's message is all there is to say.
+    /// The mailbox's state stays up on every tab, so a report's age does too.
+    /// With no mailbox in use the page's message is all there is to say.
     func showsBar(keyOnPage: Bool) -> Bool {
         keyOnPage == false || isAway
+    }
+
+    /// The age, a mailbox problem, and the key message can fill a small phone at the largest text.
+    func capsBar(keyNotice: String?, keyOnPage: Bool) -> Bool {
+        isAway && (keyNotice != nil || keyOnPage)
     }
 }
 
 extension AwayBadge {
     /// One card while the key is rejected. A mailbox report keeps its age. "Can't reach the Pi" adds nothing.
-    func carrying(keyNotice: String?, status: AwayStatus, keyOnPage: Bool = false) -> AwayBadge {
-        guard let keyNotice, keyOnPage == false else { return self }
+    func carrying(
+        keyNotice: String?, status: AwayStatus, keyOnPage: Bool = false, onSettings: Bool = false
+    ) -> AwayBadge {
         var next = self
+        next.offersSetup = offersSetup && onSettings == false
+        guard let keyNotice, keyOnPage == false else { return next }
         if status.isAway {
             next.detail = [detail, keyNotice].compactMap { $0 }.joined(separator: " ")
             next.spoken = "\(spoken) \(keyNotice)"
@@ -69,8 +81,8 @@ extension AwayBadge {
 }
 
 private struct AwayBadgeLine: View {
-    /// Tall enough for the age line at the largest text, and it leaves the page room below.
-    private static let cappedHeight: CGFloat = 260
+    /// The most the card may take. It takes less when the text is short or the screen is.
+    private static let heightLimit: CGFloat = 260
 
     var badge: AwayBadge
     var capped: Bool
@@ -102,15 +114,18 @@ private struct AwayBadgeLine: View {
         .padding(.top, AfterglowShape.tight)
     }
 
-    /// Past the cap the card scrolls on its own, so the page behind it stays reachable.
+    /// Short text keeps its own height. Past the limit the card scrolls, so the page stays reachable.
     @ViewBuilder
     private var fittedSummary: some View {
         if capped {
-            ViewThatFits(in: .vertical) {
-                summary
-                ScrollView { summary }
+            CappedHeight(limit: Self.heightLimit) {
+                ScrollView {
+                    summary.frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .scrollIndicators(.visible)
+                .scrollIndicatorsFlash(onAppear: true)
             }
-            .frame(maxHeight: Self.cappedHeight)
         } else {
             summary
         }
@@ -137,6 +152,21 @@ private struct AwayBadgeLine: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(badge.spoken)
+    }
+}
+
+/// A scroll view takes all the height it is offered, so this offers only what its content wants.
+private struct CappedHeight: Layout {
+    var limit: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let content = subviews.first else { return .zero }
+        let natural = content.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil))
+        return CGSize(width: natural.width, height: min(natural.height, limit, proposal.height ?? limit))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
     }
 }
 

@@ -168,10 +168,35 @@ final class RejectedAwayKeyTests: XCTestCase {
         XCTAssertEqual(age.carrying(keyNotice: message, status: reading, keyOnPage: true), age)
     }
 
-    func testPageMessageHidesTheBarWhenThereIsNoReport() {
+    func testPageMessageHidesTheBarWhenNoMailboxIsInUse() {
         XCTAssertFalse(AwayStatus.unreachable.showsBar(keyOnPage: true))
         XCTAssertFalse(AwayStatus.notSetUp.showsBar(keyOnPage: true))
         XCTAssertTrue(AwayStatus.unreachable.showsBar(keyOnPage: false))
+        XCTAssertTrue(AwayStatus.reading(generatedAt: nil, problem: nil, note: nil).showsBar(keyOnPage: true))
+    }
+
+    func testBarIsCappedWheneverAMailboxBarShowsWithARejectedKey() {
+        let reading = AwayStatus.reading(generatedAt: .streetFixtureNow, problem: .wrongAddress, note: nil)
+        XCTAssertTrue(reading.capsBar(keyNotice: "Rejected", keyOnPage: false))
+        XCTAssertTrue(reading.capsBar(keyNotice: "Rejected", keyOnPage: true))
+        XCTAssertFalse(reading.capsBar(keyNotice: nil, keyOnPage: false))
+        XCTAssertFalse(AwayStatus.unreachable.capsBar(keyNotice: "Rejected", keyOnPage: false))
+    }
+
+    func testSettingsDoesNotOfferToOpenSettings() {
+        for rejected in [true, false] {
+            let status = AwayStatus.reading(generatedAt: nil, problem: .wrongAddress, note: nil)
+            let badge = status.badge(now: .streetFixtureNow)
+            XCTAssertTrue(badge.offersSetup)
+            let notice = AwayKeyNotice(rejected: rejected, section: .settings, hasAwayCard: true)
+            let onPage = badge.carrying(
+                keyNotice: notice.text, status: status, keyOnPage: notice.onPage, onSettings: true
+            )
+            XCTAssertFalse(onPage.offersSetup)
+            XCTAssertEqual(onPage.line, badge.line)
+        }
+        let elsewhere = AwayStatus.notSetUp.badge(now: .streetFixtureNow)
+        XCTAssertTrue(elsewhere.carrying(keyNotice: nil, status: .notSetUp).offersSetup)
     }
 
     func testDraftWithoutBothValuesNeverReachesTheForm() {
@@ -253,7 +278,7 @@ final class RejectedAwayKeyTests: XCTestCase {
         )
         let notice = AwayKeyNotice(rejected: root.awayKeyRejected, section: .settings).text
         XCTAssertNil(notice)
-        draft.noticeChanged(to: notice)
+        draft.settle(notice: notice)
         XCTAssertTrue(draft.showsForm(notice: notice))
         XCTAssertEqual(draft.clientID, "new.access")
         XCTAssertEqual(draft.secret, "cfast_FAKE_new")
@@ -264,9 +289,22 @@ final class RejectedAwayKeyTests: XCTestCase {
         var draft = AwayKeyDraft(saved: true)
         XCTAssertTrue(draft.showsConfirmation(notice: nil))
         XCTAssertFalse(draft.showsConfirmation(notice: "Rejected"))
-        draft.noticeChanged(to: "Rejected")
-        draft.noticeChanged(to: nil)
+        draft.settle(notice: "Rejected")
+        draft.settle(notice: nil)
         XCTAssertFalse(draft.showsConfirmation(notice: nil))
+    }
+
+    func testNoteGoesWithTheFormAndStaysWithHeldText() {
+        var empty = AwayKeyDraft(note: AwayGatewaySaveResult.missingCredentials.note)
+        empty.settle(notice: "Rejected")
+        XCTAssertFalse(empty.note.isEmpty)
+        empty.settle(notice: nil)
+        XCTAssertEqual(empty.note, "")
+
+        let note = AwayGatewaySaveResult.failed.note
+        var typed = AwayKeyDraft(clientID: "new.access", note: note)
+        typed.settle(notice: nil)
+        XCTAssertEqual(typed.note, note)
     }
 
     private func oldKeyStore() throws -> AwayGatewayStore {

@@ -255,5 +255,6 @@ struct AwayKeyNotice: ViewModifier {
         }
         .environment(\.awayKeyNotice, text)
         .environment(\.awayKeyOnPage, onPage)
+        .environment(\.awayOnSettings, section == .settings)
     }
 }

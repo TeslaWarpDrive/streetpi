@@ -141,7 +141,10 @@ struct SettingsView: View {
         }
         .onDisappear { keyDraft.saved = false }
         .onChange(of: awayKeyNotice) { _, notice in
-            keyDraft.noticeChanged(to: notice)
+            keyDraft.settle(notice: notice)
+        }
+        .onChange(of: keyDraft.showsForm(notice: awayKeyNotice)) {
+            keyDraft.settle(notice: awayKeyNotice)
         }
     }
 
@@ -367,8 +370,10 @@ struct AwayKeyDraft: Equatable {
     }
 
     /// A rejection after a save means the new key did not work, so "saved" must not come back later.
-    mutating func noticeChanged(to notice: String?) {
+    /// A note about a form that has gone must not come back with the next one either.
+    mutating func settle(notice: String?) {
         if notice != nil { saved = false }
+        if showsForm(notice: notice) == false { note = "" }
     }
 
     mutating func save(with form: AwayGatewayForm) {
@@ -433,7 +438,7 @@ private struct RejectedKeyCard: View {
                     .font(.body.weight(.semibold))
                     .foregroundStyle(theme.ink)
                     .frame(minHeight: 44, alignment: .leading)
-                    .accessibilityLabel("Cancel replacing the gateway key")
+                    .accessibilityLabel("Cancel replacing the away key")
             }
             if draft.note.isEmpty == false {
                 Text(draft.note)
