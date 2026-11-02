@@ -165,8 +165,8 @@ describe("storage", () => {
     await push(historySnapshot());
     expect((await get("/v1/latest", READ)).status).toBe(204);
     await push(liveSnapshot());
-    const body = await (await get("/v1/history", READ)).json<{ snapshots: unknown[] }>();
-    expect(body.snapshots).toHaveLength(1);
+    const body = await (await get("/v1/history?limit=3", READ)).json<{ snapshots: { kind: string }[] }>();
+    expect(body.snapshots.map((snapshot) => snapshot.kind)).toEqual(["history"]);
   });
 
   it("trims history to the newest 288 rows and reads newest first", async () => {
