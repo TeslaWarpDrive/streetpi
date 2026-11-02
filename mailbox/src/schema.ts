@@ -24,11 +24,11 @@ function reject(path: string, problem: string): never {
   throw new Rejection(`${path}: ${problem}`);
 }
 
-function object(value: unknown, path: string, keys: readonly string[]): Record<string, unknown> {
+function object(value: unknown, path: string, keys: readonly string[], optional: readonly string[] = []): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) reject(path, "expected an object");
   const fields = value as Record<string, unknown>;
   for (const key of Object.keys(fields)) {
-    if (!keys.includes(key)) reject(path, "unknown key");
+    if (!keys.includes(key) && !optional.includes(key)) reject(path, "unknown key");
   }
   for (const key of keys) {
     if (!Object.hasOwn(fields, key)) reject(`${path}.${key}`, "missing");
@@ -97,6 +97,27 @@ function cpuPoint(value: unknown, path: string): void {
   percent(point.busy, `${path}.busy`);
 }
 
+function boundedHistory(
+  value: unknown, path: string, max: number, item: (entry: unknown, path: string) => void,
+): void {
+  if (!Array.isArray(value)) reject(path, "expected an array");
+  if (value.length > max) reject(path, `expected at most ${max} points`);
+  list(value, path, item);
+}
+
+function temperaturePoint(value: unknown, path: string): void {
+  const point = object(value, path, ["t", "c"]);
+  count(point.t, `${path}.t`);
+  if (typeof point.c !== "number" || !Number.isFinite(point.c)) reject(`${path}.c`, "expected a finite number");
+}
+
+function usedPoint(value: unknown, path: string): void {
+  const point = object(value, path, ["t", "used"]);
+  count(point.t, `${path}.t`);
+  count(point.used, `${path}.used`);
+  percent(point.used, `${path}.used`);
+}
+
 function machine(value: unknown, path: string, kind: SnapshotKind): void {
   const base = [
     "cpuBusyPercent",
@@ -107,7 +128,8 @@ function machine(value: unknown, path: string, kind: SnapshotKind): void {
     "diskUsedPercent",
     "uptimeSeconds",
   ];
-  const part = object(value, path, kind === "history" ? [...base, "cpuHistory"] : base);
+  const optional = kind === "history" ? ["temperatureHistory", "memoryHistory", "diskHistory"] : [];
+  const part = object(value, path, kind === "history" ? [...base, "cpuHistory"] : base, optional);
   percent(part.cpuBusyPercent, `${path}.cpuBusyPercent`);
   percent(part.memoryUsedPercent, `${path}.memoryUsedPercent`);
   count(part.memoryUsedMB, `${path}.memoryUsedMB`);
@@ -115,7 +137,14 @@ function machine(value: unknown, path: string, kind: SnapshotKind): void {
   number(part.temperatureC, `${path}.temperatureC`, -40, 150);
   percent(part.diskUsedPercent, `${path}.diskUsedPercent`);
   count(part.uptimeSeconds, `${path}.uptimeSeconds`);
-  if (kind === "history") list(part.cpuHistory, `${path}.cpuHistory`, cpuPoint);
+  if (kind === "history") {
+    boundedHistory(part.cpuHistory, `${path}.cpuHistory`, 288, cpuPoint);
+    for (const key of optional) {
+      if (Object.hasOwn(part, key)) {
+        boundedHistory(part[key], `${path}.${key}`, 24, key === "temperatureHistory" ? temperaturePoint : usedPoint);
+      }
+    }
+  }
 }
 
 function monitorItem(value: unknown, path: string): void {

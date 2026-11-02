@@ -86,19 +86,31 @@ public struct AwayBoard: Sendable, Equatable {
 
     /// Hour averages for the last day, oldest first. The screen's chart reads one point an hour.
     private static func series(_ history: AwaySnapshot?) -> [MetricSeries] {
-        guard let history, let points = history.machine?.cpuHistory, !points.isEmpty else { return [] }
-        let end = history.generatedAt.timeIntervalSince1970
-        let start = end - 24 * 3_600
-        let recent = points.filter { TimeInterval($0.time) >= start && TimeInterval($0.time) < end }
-        let hours = Dictionary(grouping: recent) { min(23, Int((TimeInterval($0.time) - start) / 3_600)) }
-        let averaged = hours.keys.sorted().compactMap { hour -> MetricPoint? in
-            guard let members = hours[hour] else { return nil }
-            let mean = members.reduce(0) { $0 + $1.busy } / Double(members.count)
-            return MetricPoint(hour: hour, value: mean / 100)
-        }
-        return [
-            MetricSeries(id: "cpu", title: "Processor", caption: "Share of the processor.", points: averaged),
+        guard let history, let machine = history.machine else { return [] }
+        let candidates: [(HistoryKind, [(Int, Double)])] = [
+            (.processor, (machine.cpuHistory ?? []).map { ($0.time, $0.busy / 100) }),
+            (.memory, (machine.memoryHistory ?? []).map { ($0.time, Double($0.used) / 100) }),
+            (.disk, (machine.diskHistory ?? []).map { ($0.time, Double($0.used) / 100) }),
+            (.temperature, (machine.temperatureHistory ?? []).map { ($0.time, $0.celsius) }),
         ]
+        return candidates.compactMap { kind, samples in
+            let points = hourPoints(samples, ending: history.generatedAt)
+            guard !points.isEmpty else { return nil }
+            let id = kind == .processor ? "cpu" : kind.rawValue
+            return MetricSeries(id: id, title: kind.title, caption: kind.caption, points: points)
+        }
+    }
+
+    private static func hourPoints(_ samples: [(Int, Double)], ending: Date) -> [MetricPoint] {
+        let end = ending.timeIntervalSince1970
+        let start = end - 24 * 3_600
+        let recent = samples.filter { TimeInterval($0.0) >= start && TimeInterval($0.0) < end }
+        let hours = Dictionary(grouping: recent) { Int((TimeInterval($0.0) - start) / 3_600) }
+        return hours.keys.sorted().compactMap { hour in
+            guard let members = hours[hour] else { return nil }
+            let mean = members.reduce(0) { $0 + $1.1 } / Double(members.count)
+            return MetricPoint(hour: hour, value: mean)
+        }
     }
 }
 
