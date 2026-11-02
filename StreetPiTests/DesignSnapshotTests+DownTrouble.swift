@@ -1,5 +1,6 @@
 import StreetPiCore
 import XCTest
+@testable import StreetPi
 
 extension DesignSnapshotTests {
     /// Streaming reads Down and Remote reads Trouble. The status page never uses those words.
@@ -22,7 +23,7 @@ extension DesignSnapshotTests {
             share: nil,
             deviceCount: nil,
             headline: "MediaFlow is down.",
-            now: now
+            now: .streetFixtureNow
         )
         XCTAssertTrue(board.squares.contains { $0.title == "Streaming" && $0.word == "Down" })
         XCTAssertTrue(board.squares.contains { $0.title == "Remote" && $0.word == "Trouble" })
