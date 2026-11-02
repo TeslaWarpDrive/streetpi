@@ -1,11 +1,16 @@
 import { presentsToken } from "./auth";
 import type { Env } from "./env";
-import { HISTORY_ROWS, type Mailbox } from "./mailbox";
+import type { Mailbox } from "./mailbox";
 import { checkSnapshot } from "./schema";
 
 export { Mailbox } from "./mailbox";
 
 const MAX_BODY_BYTES = 16 * 1024;
+
+/** One row already holds a full day, and the rows before it hold nearly the same day. */
+const DEFAULT_HISTORY_READ = 1;
+/** Holds an answer to about 48 KB. A full table is 4.6 MB, which may not fit the 10 ms CPU limit. */
+const MAX_HISTORY_READ = 3;
 
 const BASE_HEADERS = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
 
@@ -67,15 +72,15 @@ async function latest(request: Request, env: Env): Promise<Response> {
 
 function historyLimit(url: URL): number | null {
   const raw = url.searchParams.get("limit");
-  if (raw === null) return HISTORY_ROWS;
+  if (raw === null) return DEFAULT_HISTORY_READ;
   const limit = /^\d{1,3}$/.test(raw) ? Number(raw) : 0;
-  return limit >= 1 && limit <= HISTORY_ROWS ? limit : null;
+  return limit >= 1 && limit <= MAX_HISTORY_READ ? limit : null;
 }
 
 async function history(request: Request, url: URL, env: Env): Promise<Response> {
   if (!(await presentsToken(request, env.READ_TOKEN))) return refused();
   const limit = historyLimit(url);
-  if (limit === null) return rejected(`limit: expected 1 to ${HISTORY_ROWS}`);
+  if (limit === null) return rejected(`limit: expected 1 to ${MAX_HISTORY_READ}`);
   const rows = await mailbox(env).history(limit);
   return json(`{"snapshots":[${rows.join(",")}]}`);
 }

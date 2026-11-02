@@ -1,4 +1,5 @@
 import { SELF, reset } from "cloudflare:test";
+import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { READ, WRITE, historySnapshot, liveSnapshot } from "./fixtures";
 
@@ -164,8 +165,8 @@ describe("storage", () => {
     await push(historySnapshot());
     expect((await get("/v1/latest", READ)).status).toBe(204);
     await push(liveSnapshot());
-    const body = await (await get("/v1/history", READ)).json<{ snapshots: unknown[] }>();
-    expect(body.snapshots).toHaveLength(1);
+    const body = await (await get("/v1/history?limit=3", READ)).json<{ snapshots: { kind: string }[] }>();
+    expect(body.snapshots.map((snapshot) => snapshot.kind)).toEqual(["history"]);
   });
 
   it("trims history to the newest 288 rows and reads newest first", async () => {
@@ -175,20 +176,49 @@ describe("storage", () => {
       (snapshot.machine as Record<string, unknown>).uptimeSeconds = run;
       expect((await push(snapshot)).status).toBe(204);
     }
-    const all = await (await get("/v1/history", READ)).json<{ snapshots: { machine: { uptimeSeconds: number } }[] }>();
-    expect(all.snapshots).toHaveLength(288);
-    expect(all.snapshots[0]?.machine.uptimeSeconds).toBe(289);
-    expect(all.snapshots.at(-1)?.machine.uptimeSeconds).toBe(2);
+    const rows = await env.MAILBOX.get(env.MAILBOX.idFromName("house")).history(289);
+    const uptimes = rows.map((row) => (JSON.parse(row) as { machine: { uptimeSeconds: number } }).machine.uptimeSeconds);
+    expect(uptimes).toHaveLength(288);
+    expect(uptimes[0]).toBe(289);
+    expect(uptimes.at(-1)).toBe(2);
   });
 
-  it("limits a history read to the newest rows", async () => {
-    await push(historySnapshot());
-    await push(historySnapshot());
-    const one = await (await get("/v1/history?limit=1", READ)).json<{ snapshots: unknown[] }>();
-    expect(one.snapshots).toHaveLength(1);
-    expect((await get("/v1/history?limit=0", READ)).status).toBe(400);
-    expect((await get("/v1/history?limit=289", READ)).status).toBe(400);
-    expect((await get("/v1/history?limit=abc", READ)).status).toBe(400);
+  it("reads the newest row by default and up to three on request", async () => {
+    const tiny = { adBlocker: 1, cpu: 1, monitors: 1 };
+    for (let run = 0; run < 5; run += 1) {
+      const snapshot = historySnapshot(tiny);
+      (snapshot.machine as Record<string, unknown>).uptimeSeconds = run;
+      await push(snapshot);
+    }
+    const uptimes = async (path: string): Promise<number[]> => {
+      const body = await (await get(path, READ)).json<{ snapshots: { machine: { uptimeSeconds: number } }[] }>();
+      return body.snapshots.map((snapshot) => snapshot.machine.uptimeSeconds);
+    };
+    expect(await uptimes("/v1/history")).toEqual([4]);
+    expect(await uptimes("/v1/history?limit=1")).toEqual([4]);
+    expect(await uptimes("/v1/history?limit=3")).toEqual([4, 3, 2]);
+  });
+
+  it("rejects a history limit outside 1 to 3 and names only the field", async () => {
+    for (const limit of ["0", "4", "288", "289", "1000", "abc", "-1", "1.5", "1e0", ""]) {
+      const response = await get(`/v1/history?limit=${limit}`, READ);
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: "limit: expected 1 to 3" });
+    }
+  });
+
+  it("checks the token before it reads the limit", async () => {
+    expect((await get("/v1/history?limit=abc", WRITE)).status).toBe(401);
+  });
+
+  it("keeps the largest history read to three full pushes", async () => {
+    for (let run = 0; run < 4; run += 1) {
+      expect((await push(historySnapshot())).status).toBe(204);
+    }
+    const response = await get("/v1/history?limit=3", READ);
+    const text = await response.text();
+    expect((JSON.parse(text) as { snapshots: unknown[] }).snapshots).toHaveLength(3);
+    expect(new TextEncoder().encode(text).length).toBeLessThanOrEqual(3 * 16 * 1024 + 32);
   });
 });
 

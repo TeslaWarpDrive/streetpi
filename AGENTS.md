@@ -35,23 +35,23 @@ For every screen: dark, Dynamic Type `.large`, Dynamic Type `.accessibility5`, s
 
 - The app is dark only. There is no light palette and no appearance switch.
 - The look is Aurora. Home follows `home-v2.png`: compact status, a lavender ad blocker card beside Pi temperature and meters, service tiles, monitor squares, and quiet household facts. The ad blocker follows `ad-blocker-v2.png`, shared between the Home sheet and the first Ad blocker tab page. Briefing and ring gauges remain the design language for detailed Pi pages. The Porch card and Lampblack direction are retired. Do not bring back a direction picker.
-- Keep Home compact and good-looking. A vertical stack is fine when the content fits. When a screen has a lot of data, many stat cards, graphs, or other dense information, do not make it a long one-card column. Choose the arrangement that looks best for that amount of content. There is no fixed column count. Large text must wrap or scroll, and nothing truncates or overlaps. The Home screen follows this when it is built.
+- Keep Home compact and good-looking. A vertical stack is fine when the content fits. When a screen has a lot of data, many stat cards, graphs, or other dense information, do not make it a long one-card column. Choose the arrangement that looks best for that amount of content. There is no fixed column count. Large text must wrap or scroll, and nothing truncates or overlaps. The Home screen follows this.
 - Tabs are House, Ad blocker, Pi, and Settings. The iPad uses a sidebar.
 - The launch film is one file, `StreetPi/Resources/launch-film.mp4`. Replace that file to change the film. Do not add a second video. It is silent and full-screen on the Aurora ground. Tap to skip. It fades into the Home aura. Reduce Motion shows `launch-poster.png`, then fades, and does not play the video. `LaunchOverlay` is that seam.
 - The product name is Raspberry Pi Stats. Under the icon it is Pi Stats, because the full name truncates. Code modules stay `StreetPi` and `StreetPiCore`.
 - Copy is original plain English. Alerts never name a person. No text, icons, or screenshots from Open Pi or Pi-hole Remote.
 - Reduce Motion, VoiceOver labels, and Dynamic Type were considered.
 - No analytics, ads, crash reporting, or tracking SDK.
-- No secret in the repo, in logs, in `gateway/`, or in a fixture that pretends to be real. Never commit or print a private key, a certificate key, or a token.
+- The secrets rule under Product constraints holds.
 
 ## Product constraints
 
 - One app for everyone in the house. No per-person screens, modes, or areas. Face ID protects a destructive action, not a person.
-- iOS 18 minimum. Swift 6. iPhone and iPad. Tabs are House, Ad blocker, Pi, and Settings. Sidebar on iPad.
+- iOS 18 minimum. Swift 6. iPhone and iPad.
 - `StreetPiCore` is pure Swift and must pass `swift test` on Linux. The app is a thin SwiftUI layer.
-- Tests, previews, and snapshots use fixtures and never call a real host. Away from home, the app calls `https://pistats.thestreetfam.com`. That hostname is the Pi's existing Cloudflare Tunnel `pi-grok-stats`, locked by Cloudflare Access. cloudflared "Protect with Access" checks the Access JWT and forwards to `http://127.0.0.1:8447` (`gateway/`). The origin is that IPv4 address. The gateway binds IPv4 only. The site address is `http://:8447`, so the public Host matches. Pi Keeper reviews and deploys the gateway. Do not deploy it from here, and do not change the Pi, the router, DNS, or port forwards. No Tailscale.
+- Tests, previews, and snapshots use fixtures only and never call a real host. The running app shows live data. At home it reads the house Pi over the local network. Away from home it calls `https://pistats.thestreetfam.com`. If that does not answer, it reads the view-only mailbox Worker (`mailbox/`) over HTTPS. Do not deploy the mailbox without Bradley's OK. The `pistats.thestreetfam.com` hostname is the Pi's existing Cloudflare Tunnel `pi-grok-stats`, locked by Cloudflare Access. cloudflared "Protect with Access" checks the Access JWT and forwards to `http://127.0.0.1:8447` (`gateway/`). The origin is that IPv4 address. The gateway binds IPv4 only. The site address is `http://:8447`, so the public Host matches. Pi Keeper reviews and deploys the gateway. Do not deploy it from here, and do not change the Pi, the router, DNS, or port forwards. No Tailscale.
 - No secret in the repo, in logs, in `gateway/`, or in a fixture. Tests use obvious fakes. Never commit or print a private key, a certificate key, or a token.
-- Secrets live in the iOS Keychain. ATS allows local networking for the house Pi and ordinary HTTPS for the away hostname. Never set `NSAllowsArbitraryLoads`.
+- Secrets live in the iOS Keychain. ATS allows local networking for the house Pi and ordinary HTTPS for the away hostname and the mailbox. Never set `NSAllowsArbitraryLoads`.
 - Free sideload. CI produces an unsigned `.ipa` on a standard macOS runner. No paid runner size. No Apple Developer Program. No paid SDK.
 - No widgets, Live Activities, Watch app, or TV app in v1.
 - No new dependency without asking. No Chinese-owned SDK or vendor. No unlicensed or GPL-3.0 code copied into the app.

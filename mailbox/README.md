@@ -10,7 +10,7 @@ One Worker and one SQLite-backed Durable Object. No KV. Everything fits the free
 | --- | --- | --- |
 | `POST /v1/push` | `WRITE_TOKEN` | `204`. `400` names the bad field and never echoes a value. `413` over 16 KB. |
 | `GET /v1/latest` | `READ_TOKEN` | `200` with the newest live snapshot. `204` before the first push. |
-| `GET /v1/history` | `READ_TOKEN` | `200` with `{"snapshots":[…]}`, newest first. `?limit=N` (1 to 288) returns only the newest rows. |
+| `GET /v1/history` | `READ_TOKEN` | `200` with `{"snapshots":[…]}`, newest first. Returns the newest row. `?limit=N` (1 to 3) returns that many. Any other `limit` gets `400`. |
 | `GET /healthz` | none | `{"ok":true,"ageSeconds":12}`. `ageSeconds` is `null` before the first push. |
 
 A missing or wrong token gets `401`. The read token cannot write and the write token cannot read. Everything else gets `404`. Every answer carries `Cache-Control: no-store`, and none carries a CORS header. The Worker logs nothing, and observability is off in `wrangler.jsonc`.
@@ -21,14 +21,14 @@ A `live` push replaces the one `latest` row. A `history` push adds a row, and th
 
 The contract is snapshot v1 in `remote-access-webhook-plan.md`. `src/schema.ts` is the strict check: an unknown key fails at any depth, and every contract key must be present. `generatedAt` must be UTC, at most 2 minutes ahead and at most 1 hour behind.
 
-The check adds these rules to the plan:
+The check holds to these rules, which go beyond the plan's example payload:
 
-- `adBlocker`, `machine`, and `monitors` may each be `null` when that part failed and there is no last good value. `sources` for that part then cannot be `ok`. The contract's "still push" rule needs this, and a made-up zero would read as a real number.
+- `adBlocker`, `machine`, and `monitors` may each be `null` when that part failed and there is no last good value. `sources` for that part then cannot be `ok`, and every key must still be present. The contract's "still push" rule needs this. Never send zeros instead, because a made-up zero would read as a real number.
 - `adBlocker.history` and `machine.cpuHistory` are required on a `history` push and rejected on a `live` push.
 - A monitor `status` is `up`, `down`, `pending`, or `maintenance`, the four Uptime Kuma states.
 - A monitor `name` is 1 to 64 characters and cannot contain an IPv4 address. The Pi must rename or leave out a monitor whose name holds one.
 
-Each `history` push already carries a full day of points, so the app asks for `GET /v1/history?limit=1` and pays for about 16 KB. Without the limit the answer can reach 4.6 MB.
+Each `history` push already carries a full day of points, so the app asks for `GET /v1/history?limit=1` and pays for about 16 KB. All 288 rows can reach 4.6 MB, and that read was never measured against the 10 ms CPU limit, so a read stops at 3 rows, about 48 KB. Rows beyond the newest are only a few minutes older, so 3 leaves room to step back past a bad push and no more. The 288 rows stay in storage, but no route reads past the newest 3.
 
 A full history push sits close to the 16 KB cap: about 16,020 bytes on a typical day, and about 16,450 on a busy one, which is over and gets `413`. The Pi should send `busy` as a whole number and JSON with no spaces. That brings a busy day to about 15,880 bytes. `historySnapshot()` in `test/fixtures.ts` is a realistic full day, and a test proves that it fits.
 
