@@ -104,6 +104,74 @@ final class RejectedAwayKeyTests: XCTestCase {
         assertNoticeHidden(root)
     }
 
+    func testCleanAwayRefreshClearsTheNotice() async throws {
+        let gateway = try gateway()
+        let root = RootView(now: .streetFixtureNow, mode: .awayLive(gateway))
+        root.certificateRecovery.awayHTTP = AwayHTTPClient(settings: gateway, configuration: .ephemeral)
+        root.certificateRecovery.gatewayReply = .rejectedKey
+        let client = PiholeClient(
+            transport: ScriptedPiholeTransport(steps: Self.cleanDeskSteps),
+            password: { "FAKE_password" },
+            now: { .streetFixtureNow }
+        )
+        let secrets = MemorySecretStore()
+        try KeychainSession(store: secrets).saveAppPassword("FAKE_password")
+        let board = await root.refresh(client, now: .streetFixtureNow, secrets: secrets)
+        XCTAssertNil(board.problem)
+        assertNoticeHidden(root)
+    }
+
+    func testChangingTheGatewayClearsTheNoticeAndItsClient() throws {
+        let gateway = try gateway()
+        let root = RootView(now: .streetFixtureNow, mode: .awayLive(gateway))
+        root.certificateRecovery.awayHTTP = AwayHTTPClient(settings: gateway, configuration: .ephemeral)
+        root.certificateRecovery.gatewayReply = .rejectedKey
+        root.gatewayChanged()
+        assertNoticeHidden(root)
+        XCTAssertNil(root.certificateRecovery.awayHTTP)
+    }
+
+    func testRejectedKeyShowsOneCard() throws {
+        let message = try XCTUnwrap(AwayKeyNotice(rejected: true, section: .settings).text)
+        let unreachable = AwayStatus.unreachable.badge(now: .streetFixtureNow)
+            .carrying(keyNotice: message, status: .unreachable)
+        XCTAssertEqual(unreachable.line, message)
+        XCTAssertNil(unreachable.detail)
+        XCTAssertEqual(unreachable.spoken, message)
+
+        let reading = AwayStatus.reading(generatedAt: .streetFixtureNow, problem: nil, note: nil)
+        let report = reading.badge(now: .streetFixtureNow).carrying(keyNotice: message, status: reading)
+        XCTAssertEqual(report.line, reading.badge(now: .streetFixtureNow).line)
+        XCTAssertEqual(report.detail, message)
+        XCTAssertTrue(report.spoken.hasSuffix(message))
+
+        let plain = AwayStatus.unreachable.badge(now: .streetFixtureNow)
+        XCTAssertEqual(plain.carrying(keyNotice: nil, status: .unreachable), plain)
+    }
+
+    private static var cleanDeskSteps: [ScriptedPiholeTransport.Step] {
+        let stamp = Int(Date.streetFixtureNow.timeIntervalSince1970) - 3_600
+        return [
+            .json(200, #"{"dns":true,"https_port":443}"#),
+            .json(200, #"{"session":{"sid":"FAKE_session","validity":1800}}"#),
+            .json(200, #"{"queries":{"total":12,"blocked":3},"clients":{"active":4}}"#),
+            .json(200, #"{"blocking":"enabled","timer":null}"#),
+            .json(200, #"{"history":[{"timestamp":\#(stamp),"total":10,"blocked":4}]}"#),
+            .json(200, #"{"domains":[{"domain":"news.example.test","count":9}]}"#),
+            .json(200, #"{"domains":[{"domain":"ads.example.test","count":3}]}"#),
+            .json(200, #"{"clients":[{"name":"Living room","count":9}]}"#),
+            .json(200, #"{"queries":[]}"#),
+            .json(200, #"{"clients":[{"ip":"192.0.2.20","name":"Living room","count":9}]}"#),
+            .json(200, #"{"groups":[{"name":"Default","comment":"The house"}]}"#),
+            .json(200, #"{"domains":[]}"#),
+            .json(200, #"{"domains":[]}"#),
+            .json(200, #"{"lists":[]}"#),
+            .json(200, #"{"hosts":[]}"#),
+            .json(200, #"{"cnameRecords":[]}"#),
+            .json(200, #"{"config":{"dns":{"queryLogging":false}}}"#),
+        ]
+    }
+
     private func assertNoticeShows(_ root: RootView, line: UInt = #line) {
         let message = "Away key was rejected – replace it in Settings"
         for section in [AppSection.group(.adBlockerAndDNS), .settings] {

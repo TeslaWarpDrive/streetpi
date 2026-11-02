@@ -23,7 +23,7 @@ extension DesignSnapshotTests {
                     onSection: { _ in }, desk: board.desk, dnsProblem: .offline, awayStatus: .unreachable,
                     gatewayForm: AwayGatewayForm(address: "https://gateway.example.test", saved: true)
                 )
-                .modifier(AwayKeyNotice(rejected: true, section: section))
+                .modifier(AwayKeyNotice(rejected: true, section: section, hasAwayCard: true))
                 .preferredColorScheme(.dark)
                 .environment(\.colorScheme, .dark)
                 .environment(\.dynamicTypeSize, size.dynamicType)

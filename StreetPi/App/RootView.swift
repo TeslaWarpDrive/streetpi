@@ -177,7 +177,7 @@ struct RootView: View {
             awayLive: isAwayLive,
             gatewayForm: gatewayForm
         )
-        .modifier(AwayKeyNotice(rejected: awayKeyRejected, section: section))
+        .modifier(AwayKeyNotice(rejected: awayKeyRejected, section: section, hasAwayCard: awayStatus != nil))
         .launchOverlay(isPresented: $showLaunch)
         .preferredColorScheme(.dark)
         .environment(\.secretStore, KeychainSecretStore())

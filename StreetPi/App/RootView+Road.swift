@@ -121,7 +121,7 @@ extension RootView {
 
     /// No Keychain session here. The id stays in memory and dies with this road.
     func awayClient(_ gateway: AwayGatewaySettings) -> PiholeClient {
-        if let existing = dnsSession.client, dnsSession.gateway == gateway {
+        if let existing = dnsSession.client, dnsSession.gateway == gateway, certificateRecovery.awayHTTP != nil {
             return existing
         }
         let store = secretStore
@@ -172,6 +172,7 @@ extension RootView {
         loadGatewayForm()
         certificateRecovery.generation += 1
         certificateRecovery.gatewayReply = .noAnswer
+        certificateRecovery.awayHTTP = nil
         certificateRecovery.trigger = .settingsChanged
         modeCheck += 1
     }
@@ -221,6 +222,10 @@ extension RootView {
 struct AwayKeyNotice: ViewModifier {
     var rejected: Bool
     var section: AppSection
+    /// The away card says it instead, so a rejected key never stacks two cards above the page.
+    var hasAwayCard = false
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var text: String? {
         guard rejected, section == .group(.adBlockerAndDNS) || section == .settings else { return nil }
@@ -229,11 +234,9 @@ struct AwayKeyNotice: ViewModifier {
 
     func body(content: Content) -> some View {
         VStack(spacing: 0) {
-            if let text {
+            if let text, !hasAwayCard {
                 Label(text, systemImage: "key.slash")
-                    .font(.footnote)
-                    // It grows with text size, and stops before it pushes the page's own alert off a small phone.
-                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                    .font(dynamicTypeSize.isAccessibilitySize ? .caption : .footnote)
                     .foregroundStyle(StreetTheme.house.ink)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -242,5 +245,6 @@ struct AwayKeyNotice: ViewModifier {
             }
             content
         }
+        .environment(\.awayKeyNotice, text)
     }
 }

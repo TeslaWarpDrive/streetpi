@@ -1,6 +1,11 @@
 import StreetPiCore
 import SwiftUI
 
+extension EnvironmentValues {
+    /// Set on the tabs that name a rejected away key, so the bar can say it in its one card.
+    @Entry var awayKeyNotice: String? = nil
+}
+
 /// The small line above every tab while the Pi is out of reach. It counts up on its own.
 /// Snapshots draw the frozen clock they were given.
 struct AwayBadgeBar: View {
@@ -9,15 +14,39 @@ struct AwayBadgeBar: View {
     var onSetUp: () -> Void
 
     @Environment(\.streetPiStill) private var still
+    @Environment(\.awayKeyNotice) private var keyNotice
 
     var body: some View {
         if still {
-            AwayBadgeLine(badge: status.badge(now: now), onSetUp: onSetUp)
+            AwayBadgeLine(badge: badge(at: now), onSetUp: onSetUp)
         } else {
             TimelineView(.periodic(from: .now, by: 1)) { context in
-                AwayBadgeLine(badge: status.badge(now: context.date), onSetUp: onSetUp)
+                AwayBadgeLine(badge: badge(at: context.date), onSetUp: onSetUp)
             }
         }
+    }
+
+    private func badge(at date: Date) -> AwayBadge {
+        status.badge(now: date).carrying(keyNotice: keyNotice, status: status)
+    }
+}
+
+extension AwayBadge {
+    /// One card while the key is rejected. A mailbox report keeps its age. "Can't reach the Pi" adds nothing.
+    func carrying(keyNotice: String?, status: AwayStatus) -> AwayBadge {
+        guard let keyNotice else { return self }
+        var next = self
+        if status.isAway {
+            next.detail = [detail, keyNotice].compactMap { $0 }.joined(separator: " ")
+            next.spoken = "\(spoken) \(keyNotice)"
+        } else {
+            next.line = keyNotice
+            next.detail = nil
+            next.symbol = "key.slash"
+            next.spoken = keyNotice
+            next.offersSetup = false
+        }
+        return next
     }
 }
 
