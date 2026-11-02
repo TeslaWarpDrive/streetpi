@@ -476,17 +476,10 @@ final class TabClearanceTests: ClearanceCase {
         )
     }
 
-    /// Leaves monitors and backups on screen together when the phone is tall enough.
+    /// The picture stays on the backup card. Scrolling back to monitors would
+    /// tuck backups under the bar again on a short phone at large text.
     private func parkDegradedCards(in window: UIWindow, _ context: String) {
         assertCardAboveTabBar("home-backup-card", in: window, context)
-        guard let monitor = layoutFrames["home-monitor-card"],
-              let bar = tabBarFrame(in: window),
-              let scroll = mainScroll(in: window) else { return }
-        let clearTop = scroll.convert(scroll.bounds, to: window).minY
-        let onPage = monitor.minY >= clearTop - 0.5 && monitor.maxY <= bar.minY + 0.5
-        if onPage == false {
-            assertCardAboveTabBar("home-monitor-card", in: window, context)
-        }
     }
 
     private func splitControllers(in controller: UIViewController) -> [UISplitViewController] {
