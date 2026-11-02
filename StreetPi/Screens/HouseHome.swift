@@ -79,23 +79,17 @@ struct HouseHome: View {
         }
     }
 
-    /// The phone page ends at the tab bar, so a card can scroll fully above it.
-    @ViewBuilder
     private var scrolling: some View {
-        let page = ScrollView {
+        ScrollView {
             FitOfferedWidth(maxWidth: wide ? 880 : nil) {
                 column
                     .padding(.horizontal, wide ? AfterglowShape.page : edge)
                     .padding(.top, AfterglowShape.tight)
                     .padding(.bottom, AfterglowShape.block)
+                    .endsAboveTabBar()
             }
         }
         .scrollIndicators(.hidden)
-        if wide {
-            page
-        } else {
-            page.endsAboveTabBar()
-        }
     }
 
     /// The phone page edge from the mock. The iPad keeps the wider page margin.

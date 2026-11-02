@@ -9,28 +9,34 @@ extension Notification.Name {
 /// One house page. Keeps a measurement from another page from moving this one.
 final class LiftToken: NSObject, @unchecked Sendable {}
 
-/// Pulls a phone page up so its scroll view ends where the floating tab bar starts.
-/// The bar covers the bottom of the phone. A card in that strip is not fully on screen.
+/// Adds bottom space inside a phone scroll view when the floating tab bar
+/// covers more than the scroll view already insets. Cards can then rest fully
+/// above the bar. Space the system already provides is left alone.
 struct TabBarLift: ViewModifier {
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var lift: CGFloat = 0
     @State private var token = LiftToken()
 
     func body(content: Content) -> some View {
-        content
-            .padding(.bottom, lift)
-            .background {
-                TabBarLiftProbe(applied: lift, token: token)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .streetPiTabBarLift)) { note in
-                guard let source = note.object as? LiftToken, source === token else { return }
-                guard let raw = note.userInfo?["lift"] as? Double else { return }
-                let next = CGFloat(raw)
-                if abs(next - lift) > 0.5 {
-                    lift = next
+        if sizeClass == .regular {
+            content
+        } else {
+            content
+                .padding(.bottom, lift)
+                .background {
+                    TabBarLiftProbe(applied: lift, token: token)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
                 }
-            }
+                .onReceive(NotificationCenter.default.publisher(for: .streetPiTabBarLift)) { note in
+                    guard let source = note.object as? LiftToken, source === token else { return }
+                    guard let raw = note.userInfo?["lift"] as? Double else { return }
+                    let next = CGFloat(raw)
+                    if abs(next - lift) > 0.5 {
+                        lift = next
+                    }
+                }
+        }
     }
 }
 
@@ -67,15 +73,15 @@ private struct TabBarLiftProbe: UIViewRepresentable {
             resolve()
         }
 
-        /// Padding already applied, plus any of the scroll view still under the bar.
-        /// Once the page ends at the bar, that sum stays put.
+        /// Only the part of the bar that the scroll view does not already clear.
         func resolve() {
             guard let window, let bar = Self.tabBar(in: window), let token else { return }
             guard let scroll = Self.mainScroll(in: window) else { return }
             let scrollFrame = scroll.convert(scroll.bounds, to: window)
             let barFrame = bar.convert(bar.bounds, to: window)
             let overlap = max(0, scrollFrame.maxY - barFrame.minY)
-            let needed = min(overlap + applied, Self.cap)
+            let shortfall = max(0, overlap - scroll.adjustedContentInset.bottom)
+            let needed = min(shortfall, Self.cap)
             guard abs(needed - applied) > 0.5, abs(needed - reported) > 0.5 else { return }
             reported = needed
             let value = Double(needed)
