@@ -4,8 +4,10 @@ import SwiftUI
 extension EnvironmentValues {
     /// Set on the tabs that name a rejected away key, so the bar can say it in its one card.
     @Entry var awayKeyNotice: String? = nil
-    /// The page says it instead, so the bar stays out of the way of the fields that fix it.
+    /// The page says it instead, so the bar leaves it out and keeps only a mailbox report's age.
     @Entry var awayKeyOnPage = false
+    /// Already on Settings, so a button that opens it would do nothing.
+    @Entry var awayOnSettings = false
 }
 
 /// The small line above every tab while the Pi is out of reach. It counts up on its own.
@@ -18,29 +20,52 @@ struct AwayBadgeBar: View {
     @Environment(\.streetPiStill) private var still
     @Environment(\.awayKeyNotice) private var keyNotice
     @Environment(\.awayKeyOnPage) private var keyOnPage
+    @Environment(\.awayOnSettings) private var onSettings
 
     var body: some View {
-        if keyOnPage {
+        if status.showsBar(keyOnPage: keyOnPage) == false {
             EmptyView()
         } else if still {
-            AwayBadgeLine(badge: badge(at: now), onSetUp: onSetUp)
+            AwayBadgeLine(badge: badge(at: now), capped: capped, onSetUp: onSetUp)
         } else {
             TimelineView(.periodic(from: .now, by: 1)) { context in
-                AwayBadgeLine(badge: badge(at: context.date), onSetUp: onSetUp)
+                AwayBadgeLine(badge: badge(at: context.date), capped: capped, onSetUp: onSetUp)
             }
         }
     }
 
+    private var capped: Bool {
+        status.capsBar(keyNotice: keyNotice, keyOnPage: keyOnPage)
+    }
+
     private func badge(at date: Date) -> AwayBadge {
-        status.badge(now: date).carrying(keyNotice: keyNotice, status: status)
+        status.badge(now: date).carrying(
+            keyNotice: keyNotice, status: status, keyOnPage: keyOnPage, onSettings: onSettings
+        )
+    }
+}
+
+extension AwayStatus {
+    /// The mailbox's state stays up on every tab, so a report's age does too.
+    /// With no mailbox in use the page's message is all there is to say.
+    func showsBar(keyOnPage: Bool) -> Bool {
+        keyOnPage == false || isAway
+    }
+
+    /// The age, a mailbox problem, and the key message can fill a small phone at the largest text.
+    func capsBar(keyNotice: String?, keyOnPage: Bool) -> Bool {
+        isAway && (keyNotice != nil || keyOnPage)
     }
 }
 
 extension AwayBadge {
     /// One card while the key is rejected. A mailbox report keeps its age. "Can't reach the Pi" adds nothing.
-    func carrying(keyNotice: String?, status: AwayStatus) -> AwayBadge {
-        guard let keyNotice else { return self }
+    func carrying(
+        keyNotice: String?, status: AwayStatus, keyOnPage: Bool = false, onSettings: Bool = false
+    ) -> AwayBadge {
         var next = self
+        next.offersSetup = offersSetup && onSettings == false
+        guard let keyNotice, keyOnPage == false else { return next }
         if status.isAway {
             next.detail = [detail, keyNotice].compactMap { $0 }.joined(separator: " ")
             next.spoken = "\(spoken) \(keyNotice)"
@@ -56,7 +81,11 @@ extension AwayBadge {
 }
 
 private struct AwayBadgeLine: View {
+    /// The most the card may take. It takes less when the text is short or the screen is.
+    private static let heightLimit: CGFloat = 260
+
     var badge: AwayBadge
+    var capped: Bool
     var onSetUp: () -> Void
 
     @Environment(\.afterglowPalette) private var palette
@@ -69,7 +98,7 @@ private struct AwayBadgeLine: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: AfterglowShape.tight) {
-            summary
+            fittedSummary
             if badge.offersSetup {
                 Button("Open Settings", action: onSetUp)
                     .font(.subheadline.weight(.semibold))
@@ -83,6 +112,23 @@ private struct AwayBadgeLine: View {
         .modifier(AwayBadgeGlass(tone: palette.tone(badge.tone)))
         .padding(.horizontal, AfterglowShape.line)
         .padding(.top, AfterglowShape.tight)
+    }
+
+    /// Short text keeps its own height. Past the limit the card scrolls, so the page stays reachable.
+    @ViewBuilder
+    private var fittedSummary: some View {
+        if capped {
+            CappedHeight(limit: Self.heightLimit) {
+                ScrollView {
+                    summary.frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .scrollIndicators(.visible)
+                .scrollIndicatorsFlash(onAppear: true)
+            }
+        } else {
+            summary
+        }
     }
 
     private var summary: some View {
@@ -106,6 +152,21 @@ private struct AwayBadgeLine: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(badge.spoken)
+    }
+}
+
+/// A scroll view takes all the height it is offered, so this offers only what its content wants.
+private struct CappedHeight: Layout {
+    var limit: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let content = subviews.first else { return .zero }
+        let natural = content.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil))
+        return CGSize(width: natural.width, height: min(natural.height, limit, proposal.height ?? limit))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
     }
 }
 

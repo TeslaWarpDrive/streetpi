@@ -146,23 +146,26 @@ extension RootView {
     }
 
     var gatewayForm: AwayGatewayForm {
+        makeGatewayForm(store: AwayGatewayStore(store: secretStore))
+    }
+
+    func makeGatewayForm(store: AwayGatewayStore) -> AwayGatewayForm {
         AwayGatewayForm(
             address: gatewayAddress,
             saved: gatewaySaved,
             enabled: gatewayEnabled,
             onSave: { address, clientID, secret in
-                let result = AwayGatewayStore(store: secretStore)
-                    .save(address: address, clientID: clientID, secret: secret)
+                let result = store.save(address: address, clientID: clientID, secret: secret)
                 if result == .saved { gatewayChanged() }
                 return result
             },
             onRemove: {
-                let result = AwayGatewayStore(store: secretStore).remove()
+                let result = store.remove()
                 if result == .saved { gatewayChanged() }
                 return result
             },
             onEnabled: { enabled in
-                AwayGatewayStore(store: secretStore).setEnabled(enabled)
+                store.setEnabled(enabled)
                 gatewayChanged()
             }
         )
@@ -252,5 +255,6 @@ struct AwayKeyNotice: ViewModifier {
         }
         .environment(\.awayKeyNotice, text)
         .environment(\.awayKeyOnPage, onPage)
+        .environment(\.awayOnSettings, section == .settings)
     }
 }

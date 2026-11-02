@@ -24,6 +24,7 @@ struct SettingsView: View {
     @State private var note: String
     @State private var pageAddress: String
     @State private var slug: String
+    @State private var keyDraft: AwayKeyDraft
 
     init(
         theme: StreetTheme,
@@ -41,7 +42,8 @@ struct SettingsView: View {
         mailboxTokenSaved: Bool = false,
         onSaveMailbox: @escaping (String, String) -> MailboxSaveResult = { _, _ in .failed },
         onRemoveMailbox: @escaping () -> MailboxSaveResult = { .failed },
-        gatewayForm: AwayGatewayForm = AwayGatewayForm()
+        gatewayForm: AwayGatewayForm = AwayGatewayForm(),
+        keyDraft: AwayKeyDraft = AwayKeyDraft()
     ) {
         self.theme = theme
         self.passwordSaved = passwordSaved
@@ -64,6 +66,7 @@ struct SettingsView: View {
         _note = State(initialValue: "")
         _pageAddress = State(initialValue: statusAddress)
         _slug = State(initialValue: statusSlug)
+        _keyDraft = State(initialValue: keyDraft)
     }
 
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -71,8 +74,10 @@ struct SettingsView: View {
 
     var body: some View {
         ControlScreen(wide: sizeClass == .regular) {
-            if let awayKeyNotice {
-                RejectedKeyCard(message: awayKeyNotice, theme: theme, form: gatewayForm)
+            if keyDraft.showsForm(notice: awayKeyNotice) {
+                RejectedKeyCard(message: awayKeyNotice, theme: theme, form: gatewayForm, draft: $keyDraft)
+            } else if keyDraft.showsConfirmation(notice: awayKeyNotice) {
+                keySavedLine
             }
             ControlTitle(
                 title: "Settings",
@@ -134,6 +139,21 @@ struct SettingsView: View {
             pageAddress = statusAddress
             slug = statusSlug
         }
+        .onDisappear { keyDraft.saved = false }
+        .onChange(of: awayKeyNotice) { _, notice in
+            keyDraft.settle(notice: notice)
+        }
+        .onChange(of: keyDraft.showsForm(notice: awayKeyNotice)) {
+            keyDraft.settle(notice: awayKeyNotice)
+        }
+    }
+
+    private var keySavedLine: some View {
+        Label(AwayKeyDraft.savedLine, systemImage: "checkmark.circle")
+            .font(.body)
+            .foregroundStyle(theme.ink)
+            .fixedSize(horizontal: false, vertical: true)
+            .controlPlate(theme: theme)
     }
 
     private var adBlocker: some View {
@@ -327,27 +347,69 @@ struct SettingsView: View {
     }
 }
 
+/// What the rejected-key card has typed so far. Settings holds it, so a probe that clears the message
+/// takes the message away and leaves the text. It stays in memory and goes when the save does.
+struct AwayKeyDraft: Equatable {
+    static let savedLine = "New key saved."
+
+    var clientID = ""
+    var secret = ""
+    var note = ""
+    var saved = false
+
+    private var hasText: Bool {
+        clientID.isEmpty == false || secret.isEmpty == false
+    }
+
+    func showsForm(notice: String?) -> Bool {
+        notice != nil || hasText
+    }
+
+    func showsConfirmation(notice: String?) -> Bool {
+        saved && showsForm(notice: notice) == false
+    }
+
+    /// A rejection after a save means the new key did not work, so "saved" must not come back later.
+    /// A note about a form that has gone must not come back with the next one either.
+    mutating func settle(notice: String?) {
+        if notice != nil { saved = false }
+        if showsForm(notice: notice) == false { note = "" }
+    }
+
+    mutating func save(with form: AwayGatewayForm) {
+        guard AwayKeyReplace.canSave(replacing: true, clientID: clientID, secret: secret) else {
+            note = AwayGatewaySaveResult.missingCredentials.note
+            return
+        }
+        let result = form.onSave(form.address, clientID, secret)
+        guard result == .saved else {
+            note = result.note
+            return
+        }
+        self = AwayKeyDraft(saved: true)
+    }
+}
+
 /// Puts the way out first while the key is rejected. It scrolls with the page, so large text still reaches
 /// every field. The away section below keeps the address, the switch, and Remove.
+/// With no message, a probe cleared the rejection mid-typing, and the card waits for that text.
 private struct RejectedKeyCard: View {
-    var message: String
+    var message: String?
     var theme: StreetTheme
     var form: AwayGatewayForm
+    @Binding var draft: AwayKeyDraft
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @State private var clientID = ""
-    @State private var secret = ""
-    @State private var note = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: Rhythm.tight) {
-            Label(message, systemImage: "key.slash")
+            Label(message ?? "Replace away key", systemImage: message == nil ? "key" : "key.slash")
                 .font((dynamicTypeSize.isAccessibilitySize ? Font.caption : .footnote).weight(.semibold))
                 .foregroundStyle(theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
             TextField(
                 "Client id",
-                text: $clientID,
+                text: $draft.clientID,
                 prompt: Text("Client id").foregroundStyle(theme.tertiary),
                 axis: .vertical
             )
@@ -362,7 +424,7 @@ private struct RejectedKeyCard: View {
             }
             SecureField(
                 "Client secret",
-                text: $secret,
+                text: $draft.secret,
                 prompt: Text(dynamicTypeSize.isAccessibilitySize ? "" : "Client secret").foregroundStyle(theme.tertiary)
             )
             .modifier(RejectedKeyField(theme: theme))
@@ -371,8 +433,15 @@ private struct RejectedKeyCard: View {
                 .font(.body.weight(.semibold))
                 .foregroundStyle(theme.accent)
                 .frame(minHeight: 44, alignment: .leading)
-            if note.isEmpty == false {
-                Text(note)
+            if message == nil {
+                Button("Cancel") { draft = AwayKeyDraft() }
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(theme.ink)
+                    .frame(minHeight: 44, alignment: .leading)
+                    .accessibilityLabel("Cancel replacing the away key")
+            }
+            if draft.note.isEmpty == false {
+                Text(draft.note)
                     .font(.subheadline)
                     .foregroundStyle(theme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -382,15 +451,9 @@ private struct RejectedKeyCard: View {
     }
 
     private func save() {
-        guard AwayKeyReplace.canSave(replacing: true, clientID: clientID, secret: secret) else {
-            note = AwayGatewaySaveResult.missingCredentials.note
-            return
-        }
-        let result = form.onSave(form.address, clientID, secret)
-        note = result.note
-        if result == .saved {
-            clientID = ""
-            secret = ""
+        draft.save(with: form)
+        if draft.saved {
+            AccessibilityNotification.Announcement(AwayKeyDraft.savedLine).post()
         }
     }
 }
