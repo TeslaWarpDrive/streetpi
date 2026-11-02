@@ -131,6 +131,12 @@ final class RejectedAwayKeyTests: XCTestCase {
         XCTAssertNil(root.certificateRecovery.awayHTTP)
     }
 
+    func testSettingsCarriesTheMessageInThePage() {
+        XCTAssertTrue(AwayKeyNotice(rejected: true, section: .settings).onPage)
+        XCTAssertFalse(AwayKeyNotice(rejected: true, section: .group(.adBlockerAndDNS)).onPage)
+        XCTAssertFalse(AwayKeyNotice(rejected: false, section: .settings).onPage)
+    }
+
     func testRejectedKeyShowsOneCard() throws {
         let message = try XCTUnwrap(AwayKeyNotice(rejected: true, section: .settings).text)
         let unreachable = AwayStatus.unreachable.badge(now: .streetFixtureNow)

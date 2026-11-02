@@ -4,6 +4,8 @@ import SwiftUI
 extension EnvironmentValues {
     /// Set on the tabs that name a rejected away key, so the bar can say it in its one card.
     @Entry var awayKeyNotice: String? = nil
+    /// The page says it instead, so the bar stays out of the way of the fields that fix it.
+    @Entry var awayKeyOnPage = false
 }
 
 /// The small line above every tab while the Pi is out of reach. It counts up on its own.
@@ -15,9 +17,12 @@ struct AwayBadgeBar: View {
 
     @Environment(\.streetPiStill) private var still
     @Environment(\.awayKeyNotice) private var keyNotice
+    @Environment(\.awayKeyOnPage) private var keyOnPage
 
     var body: some View {
-        if still {
+        if keyOnPage {
+            EmptyView()
+        } else if still {
             AwayBadgeLine(badge: badge(at: now), onSetUp: onSetUp)
         } else {
             TimelineView(.periodic(from: .now, by: 1)) { context in

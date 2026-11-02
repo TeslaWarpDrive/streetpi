@@ -232,9 +232,14 @@ struct AwayKeyNotice: ViewModifier {
         return AwayKeyProblem.rejected.message
     }
 
+    /// Settings says it in the page, above the fields, so nothing fixed holds the way out off screen.
+    var onPage: Bool {
+        text != nil && section == .settings
+    }
+
     func body(content: Content) -> some View {
         VStack(spacing: 0) {
-            if let text, !hasAwayCard {
+            if let text, !hasAwayCard, !onPage {
                 Label(text, systemImage: "key.slash")
                     .font(dynamicTypeSize.isAccessibilitySize ? .caption : .footnote)
                     .foregroundStyle(StreetTheme.house.ink)
@@ -246,5 +251,6 @@ struct AwayKeyNotice: ViewModifier {
             content
         }
         .environment(\.awayKeyNotice, text)
+        .environment(\.awayKeyOnPage, onPage)
     }
 }

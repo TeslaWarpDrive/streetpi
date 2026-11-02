@@ -67,9 +67,13 @@ struct SettingsView: View {
     }
 
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.awayKeyNotice) private var awayKeyNotice
 
     var body: some View {
         ControlScreen(wide: sizeClass == .regular) {
+            if let awayKeyNotice {
+                RejectedKeyCard(message: awayKeyNotice, theme: theme, form: gatewayForm)
+            }
             ControlTitle(
                 title: "Settings",
                 line: "Raspberry Pi Stats is the same app for everyone in the house.",
@@ -320,5 +324,95 @@ struct SettingsView: View {
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
         guard short.isEmpty == false, build.isEmpty == false else { return "Raspberry Pi Stats" }
         return "Version \(short) (\(build))"
+    }
+}
+
+/// Puts the way out first while the key is rejected. It scrolls with the page, so large text still reaches
+/// every field. The away section below keeps the address, the switch, and Remove.
+private struct RejectedKeyCard: View {
+    var message: String
+    var theme: StreetTheme
+    var form: AwayGatewayForm
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var clientID = ""
+    @State private var secret = ""
+    @State private var note = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Rhythm.tight) {
+            Label(message, systemImage: "key.slash")
+                .font((dynamicTypeSize.isAccessibilitySize ? Font.caption : .footnote).weight(.semibold))
+                .foregroundStyle(theme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            TextField(
+                "Client id",
+                text: $clientID,
+                prompt: Text("Client id").foregroundStyle(theme.tertiary),
+                axis: .vertical
+            )
+            .modifier(RejectedKeyField(theme: theme))
+            .accessibilityLabel("Client id")
+            if dynamicTypeSize.isAccessibilitySize {
+                Text("Client secret")
+                    .font(.body)
+                    .foregroundStyle(theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityHidden(true)
+            }
+            SecureField(
+                "Client secret",
+                text: $secret,
+                prompt: Text(dynamicTypeSize.isAccessibilitySize ? "" : "Client secret").foregroundStyle(theme.tertiary)
+            )
+            .modifier(RejectedKeyField(theme: theme))
+            .accessibilityLabel("Client secret")
+            Button("Save new key", action: save)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(theme.accent)
+                .frame(minHeight: 44, alignment: .leading)
+            if note.isEmpty == false {
+                Text(note)
+                    .font(.subheadline)
+                    .foregroundStyle(theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .controlPlate(theme: theme)
+    }
+
+    private func save() {
+        guard AwayKeyReplace.canSave(replacing: true, clientID: clientID, secret: secret) else {
+            note = AwayGatewaySaveResult.missingCredentials.note
+            return
+        }
+        let result = form.onSave(form.address, clientID, secret)
+        note = result.note
+        if result == .saved {
+            clientID = ""
+            secret = ""
+        }
+    }
+}
+
+private struct RejectedKeyField: ViewModifier {
+    var theme: StreetTheme
+
+    func body(content: Content) -> some View {
+        content
+            .textFieldStyle(.plain)
+            .font(.body)
+            .foregroundStyle(theme.ink)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled(true)
+            .padding(Rhythm.line)
+            .background {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(theme.background)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(theme.hairline, lineWidth: 1)
+                    }
+            }
     }
 }
