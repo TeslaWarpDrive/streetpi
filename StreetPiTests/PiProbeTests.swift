@@ -135,10 +135,14 @@ private final class ChartsWouldAnswer: PiholeTransport, @unchecked Sendable {
     }
 
     func send(_ request: PiholeRequest) async throws -> PiholeResponse {
-        lock.lock()
-        seen.append(request.path)
-        lock.unlock()
+        record(request.path)
         if request.path == "/api/info/login" { throw PiholeProblem.untrusted }
         return PiholeResponse(status: 200, body: Data("{\"version\":\"fixture\"}".utf8))
+    }
+
+    private func record(_ path: String) {
+        lock.lock()
+        seen.append(path)
+        lock.unlock()
     }
 }
