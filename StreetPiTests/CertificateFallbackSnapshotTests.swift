@@ -50,6 +50,7 @@ final class CertificateFallbackSnapshotTests: XCTestCase {
                         ])
                     ).standardRange(),
                     named: "dark-\(size.rawValue)-\(device.rawValue)",
+                    record: true,
                     testName: testName
                 )
             }
