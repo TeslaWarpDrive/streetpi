@@ -1,7 +1,19 @@
 import Foundation
 import StreetPiCore
+import SwiftUI
 import XCTest
 @testable import StreetPi
+
+/// Gives the card a real binding, so a test sees what its save leaves behind.
+@MainActor
+@Observable
+private final class DraftBox {
+    var draft: AwayKeyDraft
+
+    init(_ draft: AwayKeyDraft) {
+        self.draft = draft
+    }
+}
 
 @MainActor
 final class RejectedAwayKeyTests: XCTestCase {
@@ -150,9 +162,74 @@ final class RejectedAwayKeyTests: XCTestCase {
         XCTAssertEqual(report.line, reading.badge(now: .streetFixtureNow).line)
         XCTAssertEqual(report.detail, message)
         XCTAssertTrue(report.spoken.hasSuffix(message))
+        XCTAssertEqual(reading.badge(now: .streetFixtureNow).tone, .calm)
+        XCTAssertEqual(report.tone, .attention)
+        XCTAssertEqual(report.symbol, "key.slash")
 
         let plain = AwayStatus.unreachable.badge(now: .streetFixtureNow)
         XCTAssertEqual(plain.carrying(keyNotice: nil, status: .unreachable), plain)
+    }
+
+    func testRejectedKeyNeverSoftensASilentReport() throws {
+        let message = try XCTUnwrap(AwayKeyNotice(rejected: true, section: .settings).text)
+        let now = Date.streetFixtureNow
+        let silent = AwayStatus.reading(generatedAt: now.addingTimeInterval(-86_400), problem: nil, note: nil)
+        XCTAssertEqual(silent.badge(now: now).tone, .problem)
+        let badge = silent.badge(now: now).carrying(keyNotice: message, status: silent)
+        XCTAssertEqual(badge.tone, .problem)
+        XCTAssertEqual(badge.symbol, "key.slash")
+    }
+
+    func testShortenedCardLeadsWithTheMessageAndSpeaksTheAge() throws {
+        let message = try XCTUnwrap(AwayKeyNotice(rejected: true, section: .settings).text)
+        let now = Date.streetFixtureNow
+        let reading = AwayStatus.reading(generatedAt: now, problem: nil, note: nil)
+        let age = reading.badge(now: now)
+        let short = age.carrying(keyNotice: message, status: reading, shortened: true)
+        XCTAssertEqual(short.line, message)
+        XCTAssertNil(short.detail)
+        XCTAssertEqual(short.spoken, "\(age.spoken) \(message)")
+        XCTAssertFalse(reading.capsBar(keyNotice: message, keyOnPage: false, messageOnly: true))
+
+        let problem = AwayStatus.reading(generatedAt: now, problem: .wrongAddress, note: nil)
+        let reported = problem.badge(now: now)
+        let shortProblem = reported.carrying(keyNotice: message, status: problem, shortened: true)
+        XCTAssertEqual(shortProblem.line, message)
+        XCTAssertEqual(shortProblem.detail, reported.detail)
+
+        let noReport = AwayStatus.reading(generatedAt: nil, problem: .wrongAddress, note: nil)
+        let first = noReport.badge(now: now)
+        let shortFirst = first.carrying(keyNotice: message, status: noReport, shortened: true)
+        XCTAssertEqual(shortFirst.line, message)
+        XCTAssertEqual(shortFirst.detail, first.line)
+    }
+
+    func testShortenedCardKeepsTheWordsThatThePiWentQuiet() throws {
+        let message = try XCTUnwrap(AwayKeyNotice(rejected: true, section: .settings).text)
+        let now = Date.streetFixtureNow
+        let generatedAt = now.addingTimeInterval(-86_400)
+        let silent = AwayStatus.reading(generatedAt: generatedAt, problem: nil, note: nil)
+        let quiet = silent.badge(now: now)
+        XCTAssertTrue(quiet.line.hasPrefix("Pi hasn't reported"))
+        let short = quiet.carrying(keyNotice: message, status: silent, shortened: true)
+        XCTAssertEqual(short.line, message)
+        XCTAssertEqual(short.detail, quiet.line)
+        XCTAssertEqual(short.tone, .problem)
+        XCTAssertTrue(silent.capsBar(
+            keyNotice: message, keyOnPage: false, messageOnly: short.line == message && short.detail == nil
+        ))
+
+        let both = AwayStatus.reading(generatedAt: generatedAt, problem: .wrongAddress, note: nil)
+        let reported = both.badge(now: now)
+        let shortBoth = reported.carrying(keyNotice: message, status: both, shortened: true)
+        XCTAssertEqual(shortBoth.detail, "\(reported.line) \(try XCTUnwrap(reported.detail))")
+    }
+
+    func testShortenedCardLeavesThePageMessageAlone() throws {
+        let message = try XCTUnwrap(AwayKeyNotice(rejected: true, section: .settings).text)
+        let reading = AwayStatus.reading(generatedAt: .streetFixtureNow, problem: nil, note: nil)
+        let age = reading.badge(now: .streetFixtureNow)
+        XCTAssertEqual(age.carrying(keyNotice: message, status: reading, keyOnPage: true, shortened: true), age)
     }
 
     func testMailboxAgeLineIsTheSameOnEveryTab() throws {
@@ -197,6 +274,32 @@ final class RejectedAwayKeyTests: XCTestCase {
         }
         let elsewhere = AwayStatus.notSetUp.badge(now: .streetFixtureNow)
         XCTAssertTrue(elsewhere.carrying(keyNotice: nil, status: .notSetUp).offersSetup)
+    }
+
+    func testCardSaveNeedsBothFieldsBeforeItReachesTheForm() {
+        for (clientID, secret) in [("", "cfast_FAKE_new"), ("new.access", " "), ("", "")] {
+            let box = DraftBox(AwayKeyDraft(clientID: clientID, secret: secret))
+            let form = AwayGatewayForm(address: "https://gateway.example.test", onSave: { _, _, _ in
+                XCTFail("An empty value must not be saved")
+                return .saved
+            })
+            RejectedKeyCard(message: "Rejected", theme: .house, form: form, draft: Bindable(box).draft).save()
+            XCTAssertEqual(box.draft.note, AwayGatewaySaveResult.missingCredentials.note)
+            XCTAssertEqual(box.draft.clientID, clientID)
+            XCTAssertEqual(box.draft.secret, secret)
+        }
+    }
+
+    func testCardSaveSendsTheAddressAndTypedKeyToTheForm() {
+        var received: [String] = []
+        let form = AwayGatewayForm(address: "https://gateway.example.test", onSave: { address, clientID, secret in
+            received = [address, clientID, secret]
+            return .saved
+        })
+        let box = DraftBox(AwayKeyDraft(clientID: "new.access", secret: "cfast_FAKE_new"))
+        RejectedKeyCard(message: "Rejected", theme: .house, form: form, draft: Bindable(box).draft).save()
+        XCTAssertEqual(received, ["https://gateway.example.test", "new.access", "cfast_FAKE_new"])
+        XCTAssertEqual(box.draft, AwayKeyDraft(saved: true))
     }
 
     func testDraftWithoutBothValuesNeverReachesTheForm() {

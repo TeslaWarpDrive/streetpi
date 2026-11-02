@@ -393,7 +393,7 @@ struct AwayKeyDraft: Equatable {
 /// Puts the way out first while the key is rejected. It scrolls with the page, so large text still reaches
 /// every field. The away section below keeps the address, the switch, and Remove.
 /// With no message, a probe cleared the rejection mid-typing, and the card waits for that text.
-private struct RejectedKeyCard: View {
+struct RejectedKeyCard: View {
     var message: String?
     var theme: StreetTheme
     var form: AwayGatewayForm
@@ -450,7 +450,7 @@ private struct RejectedKeyCard: View {
         .controlPlate(theme: theme)
     }
 
-    private func save() {
+    func save() {
         draft.save(with: form)
         if draft.saved {
             AccessibilityNotification.Announcement(AwayKeyDraft.savedLine).post()

@@ -19,6 +19,10 @@ extension DesignSnapshotTests {
         try assertRejectedMailbox(section: .group(.adBlockerAndDNS))
     }
 
+    func testRejectedAwayKeyMailboxProblemBoard() throws {
+        try assertRejectedMailbox(section: .group(.adBlockerAndDNS), problem: .wrongAddress)
+    }
+
     func testRejectedAwayKeyMailboxSettings() throws {
         try assertRejectedMailbox(section: .settings)
     }
