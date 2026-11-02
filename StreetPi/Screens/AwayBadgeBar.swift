@@ -23,12 +23,17 @@ struct AwayBadgeBar: View {
         if status.showsBar(keyOnPage: keyOnPage) == false {
             EmptyView()
         } else if still {
-            AwayBadgeLine(badge: badge(at: now), onSetUp: onSetUp)
+            AwayBadgeLine(badge: badge(at: now), capped: capped, onSetUp: onSetUp)
         } else {
             TimelineView(.periodic(from: .now, by: 1)) { context in
-                AwayBadgeLine(badge: badge(at: context.date), onSetUp: onSetUp)
+                AwayBadgeLine(badge: badge(at: context.date), capped: capped, onSetUp: onSetUp)
             }
         }
+    }
+
+    /// A report's age and the key message together can fill a small phone at the largest text.
+    private var capped: Bool {
+        status.isAway && keyNotice != nil && keyOnPage == false
     }
 
     private func badge(at date: Date) -> AwayBadge {
@@ -64,7 +69,11 @@ extension AwayBadge {
 }
 
 private struct AwayBadgeLine: View {
+    /// Tall enough for the age line at the largest text, and it leaves the page room below.
+    private static let cappedHeight: CGFloat = 260
+
     var badge: AwayBadge
+    var capped: Bool
     var onSetUp: () -> Void
 
     @Environment(\.afterglowPalette) private var palette
@@ -77,7 +86,7 @@ private struct AwayBadgeLine: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: AfterglowShape.tight) {
-            summary
+            fittedSummary
             if badge.offersSetup {
                 Button("Open Settings", action: onSetUp)
                     .font(.subheadline.weight(.semibold))
@@ -91,6 +100,20 @@ private struct AwayBadgeLine: View {
         .modifier(AwayBadgeGlass(tone: palette.tone(badge.tone)))
         .padding(.horizontal, AfterglowShape.line)
         .padding(.top, AfterglowShape.tight)
+    }
+
+    /// Past the cap the card scrolls on its own, so the page behind it stays reachable.
+    @ViewBuilder
+    private var fittedSummary: some View {
+        if capped {
+            ViewThatFits(in: .vertical) {
+                summary
+                ScrollView { summary }
+            }
+            .frame(maxHeight: Self.cappedHeight)
+        } else {
+            summary
+        }
     }
 
     private var summary: some View {

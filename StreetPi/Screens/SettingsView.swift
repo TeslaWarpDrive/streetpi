@@ -347,7 +347,7 @@ struct SettingsView: View {
 /// What the rejected-key card has typed so far. Settings holds it, so a probe that clears the message
 /// takes the message away and leaves the text. It stays in memory and goes when the save does.
 struct AwayKeyDraft: Equatable {
-    static let savedLine = "New key saved. The app will use it from now on."
+    static let savedLine = "New key saved."
 
     var clientID = ""
     var secret = ""
