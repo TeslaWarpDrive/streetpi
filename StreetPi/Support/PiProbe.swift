@@ -21,7 +21,9 @@ struct PiProbe: Sendable {
         gateway: AwayGatewaySettings?,
         mailbox: MailboxSetup?
     ) async -> Reading {
-        guard LiveReaderGate.opensSockets else { return Reading(mode: .offline) }
+        guard LiveReaderGate.opensSockets else {
+            return Self.closedReader(gateway: gateway, mailbox: mailbox)
+        }
         let presented = PresentedPinBox()
         let transport = PiholeURLSessionTransport(
             http: http,
@@ -73,9 +75,14 @@ struct PiProbe: Sendable {
         return Reading(mode: mode, presentedPin: changedPin)
     }
 
-    /// Only contact through the pinned Pi-hole client proves home. Plaintext charts cannot.
-    static func pinnedPiAnswers(http: any LiveHTTPSending, base: URL) async -> Bool {
-        guard let url = LivePaths.url(base: base, path: "/info/login") else { return false }
-        return (try? await http.get(url, headers: ["Accept": "application/json"])) != nil
+    /// Sockets stay closed, so the Pi was not checked. A saved mailbox can still be the road.
+    /// A gateway is not treated as answered, because nothing was asked.
+    static func closedReader(gateway: AwayGatewaySettings?, mailbox: MailboxSetup?) -> Reading {
+        Reading(mode: ConnectionMode.choose(
+            piAnswered: false,
+            gateway: gateway,
+            gatewayAnswered: false,
+            mailbox: mailbox
+        ))
     }
 }

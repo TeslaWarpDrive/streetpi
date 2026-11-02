@@ -28,17 +28,24 @@ final class RootCertificateRecoveryTests: XCTestCase {
             let root = RootView(now: .streetFixtureNow, mode: mode)
             root.certificateRecovery.reading = PiProbe.Reading(mode: mode, presentedPin: fakePin)
             root.certificateRecovery.dnsProblem = .pinKept
-            let desk = root.desk
             XCTAssertEqual(root.displayedDNSProblem, .certificateChanged)
 
             root.keepSavedPin()
 
             XCTAssertNil(root.displayedDNSProblem)
             XCTAssertNil(root.certificateRecovery.dnsProblem)
-            XCTAssertEqual(root.mode, mode)
-            XCTAssertEqual(root.desk, desk)
-            // A later probe sees the same certificate. It must not cover the desk again.
-            root.certificateRecovery.reading = PiProbe.Reading(mode: mode, presentedPin: fakePin)
+            XCTAssertEqual(root.certificateRecovery.declinedPin, fakePin)
+            // Mode and desk are @State. Outside a view tree those reads stay at the
+            // initial value, so comparing them cannot fail. The desk stays up when
+            // this road's reading has no problem. The same pin at home still covers it.
+            let later = PiProbe.Reading(mode: mode, presentedPin: fakePin)
+            XCTAssertNil(later.problem(declinedPin: root.certificateRecovery.declinedPin))
+            XCTAssertEqual(
+                PiProbe.Reading(mode: .home, presentedPin: fakePin)
+                    .problem(declinedPin: root.certificateRecovery.declinedPin),
+                .pinKept
+            )
+            root.certificateRecovery.reading = later
             XCTAssertNil(root.displayedDNSProblem)
         }
     }

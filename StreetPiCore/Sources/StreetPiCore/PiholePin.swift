@@ -3,7 +3,7 @@ import Foundation
 /// The house pin is the SPKI SHA-256 from the live audit. Settings can replace it.
 public enum PiholePin {
     public static let houseSPKI = "lDT1PbNsR197fgVM+1rlXJMbTjMNg7forqemXVQX/7Y="
-    public static let question = "The ad blocker's security certificate changed, trust the new one?"
+    public static let question = "Only trust this at home."
 
     public static func sha256Base64(_ data: Data) -> String {
         SHA256Digest.hash(data).base64EncodedString()

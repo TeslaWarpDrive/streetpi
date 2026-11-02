@@ -6,7 +6,7 @@ import Security
 final class CertificatePinner: NSObject, URLSessionDelegate, @unchecked Sendable {
     static let defaultSPKISha256 = LiveHouse.spkiSHA256
     static let defaultHost = LiveHouse.host
-    static let changedCertificatePrompt = "The ad blocker's security certificate changed, trust the new one?"
+    static let changedCertificatePrompt = "Only trust this at home."
 
     private let lock = NSLock()
     private var pin: String
