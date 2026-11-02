@@ -80,16 +80,14 @@ struct HouseHome: View {
     }
 
     private var scrolling: some View {
-        ScrollView {
+        PhoneTabScroll(wide: wide) {
             FitOfferedWidth(maxWidth: wide ? 880 : nil) {
                 column
                     .padding(.horizontal, wide ? AfterglowShape.page : edge)
                     .padding(.top, AfterglowShape.tight)
                     .padding(.bottom, AfterglowShape.block)
-                    .endsAboveTabBar()
             }
         }
-        .scrollIndicators(.hidden)
     }
 
     /// The phone page edge from the mock. The iPad keeps the wider page margin.

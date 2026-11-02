@@ -476,10 +476,32 @@ final class TabClearanceTests: ClearanceCase {
         )
     }
 
-    /// The picture stays on the backup card. Scrolling back to monitors would
-    /// tuck backups under the bar again on a short phone at large text.
-    private func parkDegradedCards(in window: UIWindow, _ context: String) {
-        assertCardAboveTabBar("home-backup-card", in: window, context)
+    /// After the page is scrolled to the end, the card is still fully above the bar.
+    private func assertRestsAboveTabBar(_ name: String, in window: UIWindow, _ context: String) {
+        guard let bar = tabBarFrame(in: window), let scroll = mainScroll(in: window) else {
+            XCTFail("\(context): no tab bar")
+            return
+        }
+        guard let frame = layoutFrames[name], frame.width > 1, frame.height > 1 else {
+            XCTFail("\(context): \(name) did not report its layout")
+            return
+        }
+        let clearTop = scroll.convert(scroll.bounds, to: window).minY
+        let open = bar.minY - clearTop
+        guard frame.height <= open + 0.5 else {
+            XCTFail("\(context): \(name) is taller than the page above the tab bar")
+            return
+        }
+        XCTAssertGreaterThanOrEqual(
+            frame.minY,
+            clearTop - 0.5,
+            "\(context): \(name) scrolls off the top at the end. card=\(frame)"
+        )
+        XCTAssertLessThanOrEqual(
+            frame.maxY,
+            bar.minY + 0.5,
+            "\(context): \(name) ends under the tab bar. card=\(frame) bar=\(bar)"
+        )
     }
 
     private func splitControllers(in controller: UIViewController) -> [UISplitViewController] {
@@ -603,7 +625,9 @@ final class TabClearanceTests: ClearanceCase {
                 for name in squares {
                     assertCardAboveTabBar(name, in: window, context)
                 }
-                parkDegradedCards(in: window, context)
+                scrollToEnd(window)
+                assertRestsAboveTabBar("home-monitor-card", in: window, context)
+                assertRestsAboveTabBar("home-backup-card", in: window, context)
                 assertSnapshot(
                     of: image(of: window),
                     as: .image(precision: 0.99, perceptualPrecision: 0.98).standardRange(),
