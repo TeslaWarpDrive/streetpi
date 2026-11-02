@@ -4,7 +4,7 @@ import SwiftUI
 extension EnvironmentValues {
     /// Set on the tabs that name a rejected away key, so the bar can say it in its one card.
     @Entry var awayKeyNotice: String? = nil
-    /// The page says it instead, so the bar stays out of the way of the fields that fix it.
+    /// The page says it instead, so the bar leaves it out and keeps only a mailbox report's age.
     @Entry var awayKeyOnPage = false
 }
 
@@ -20,7 +20,7 @@ struct AwayBadgeBar: View {
     @Environment(\.awayKeyOnPage) private var keyOnPage
 
     var body: some View {
-        if keyOnPage {
+        if status.showsBar(keyOnPage: keyOnPage) == false {
             EmptyView()
         } else if still {
             AwayBadgeLine(badge: badge(at: now), onSetUp: onSetUp)
@@ -32,14 +32,22 @@ struct AwayBadgeBar: View {
     }
 
     private func badge(at date: Date) -> AwayBadge {
-        status.badge(now: date).carrying(keyNotice: keyNotice, status: status)
+        status.badge(now: date).carrying(keyNotice: keyNotice, status: status, keyOnPage: keyOnPage)
+    }
+}
+
+extension AwayStatus {
+    /// The numbers on every tab came from the report, so its age stays up on every tab.
+    /// With no report the page's message is all there is to say.
+    func showsBar(keyOnPage: Bool) -> Bool {
+        keyOnPage == false || isAway
     }
 }
 
 extension AwayBadge {
     /// One card while the key is rejected. A mailbox report keeps its age. "Can't reach the Pi" adds nothing.
-    func carrying(keyNotice: String?, status: AwayStatus) -> AwayBadge {
-        guard let keyNotice else { return self }
+    func carrying(keyNotice: String?, status: AwayStatus, keyOnPage: Bool = false) -> AwayBadge {
+        guard let keyNotice, keyOnPage == false else { return self }
         var next = self
         if status.isAway {
             next.detail = [detail, keyNotice].compactMap { $0 }.joined(separator: " ")

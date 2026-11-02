@@ -155,6 +155,141 @@ final class RejectedAwayKeyTests: XCTestCase {
         XCTAssertEqual(plain.carrying(keyNotice: nil, status: .unreachable), plain)
     }
 
+    func testMailboxAgeLineIsTheSameOnEveryTab() throws {
+        let reading = AwayStatus.reading(generatedAt: .streetFixtureNow, problem: nil, note: nil)
+        let age = reading.badge(now: .streetFixtureNow)
+        for section in [AppSection.home, .group(.adBlockerAndDNS), .group(.piHealth), .settings] {
+            let notice = AwayKeyNotice(rejected: true, section: section, hasAwayCard: true)
+            XCTAssertTrue(reading.showsBar(keyOnPage: notice.onPage))
+            let badge = age.carrying(keyNotice: notice.text, status: reading, keyOnPage: notice.onPage)
+            XCTAssertEqual(badge.line, age.line)
+        }
+        let message = try XCTUnwrap(AwayKeyNotice(rejected: true, section: .settings).text)
+        XCTAssertEqual(age.carrying(keyNotice: message, status: reading, keyOnPage: true), age)
+    }
+
+    func testPageMessageHidesTheBarWhenThereIsNoReport() {
+        XCTAssertFalse(AwayStatus.unreachable.showsBar(keyOnPage: true))
+        XCTAssertFalse(AwayStatus.notSetUp.showsBar(keyOnPage: true))
+        XCTAssertTrue(AwayStatus.unreachable.showsBar(keyOnPage: false))
+    }
+
+    func testDraftWithoutBothValuesNeverReachesTheForm() {
+        for (clientID, secret) in [("", "cfast_FAKE_new"), ("new.access", " "), ("", "")] {
+            var draft = AwayKeyDraft(clientID: clientID, secret: secret)
+            draft.save(with: AwayGatewayForm(onSave: { _, _, _ in
+                XCTFail("An empty value must not be saved")
+                return .saved
+            }))
+            XCTAssertEqual(draft.note, AwayGatewaySaveResult.missingCredentials.note)
+            XCTAssertEqual(draft.clientID, clientID)
+            XCTAssertEqual(draft.secret, secret)
+            XCTAssertFalse(draft.saved)
+        }
+    }
+
+    func testDraftSavesTheFormAddressAndTypedValues() {
+        var received: [String] = []
+        let form = AwayGatewayForm(address: "https://gateway.example.test", onSave: { address, clientID, secret in
+            received = [address, clientID, secret]
+            return .saved
+        })
+        var draft = AwayKeyDraft(clientID: "new.access", secret: "cfast_FAKE_new", note: "Old note")
+        draft.save(with: form)
+        XCTAssertEqual(received, ["https://gateway.example.test", "new.access", "cfast_FAKE_new"])
+        XCTAssertEqual(draft, AwayKeyDraft(saved: true))
+    }
+
+    func testFailedSaveKeepsTheTypedValuesAndSaysWhy() {
+        for result in [AwayGatewaySaveResult.badAddress, .missingCredentials, .failed] {
+            var draft = AwayKeyDraft(clientID: "new.access", secret: "cfast_FAKE_new")
+            draft.save(with: AwayGatewayForm(onSave: { _, _, _ in result }))
+            XCTAssertEqual(draft.note, result.note)
+            XCTAssertEqual(draft.clientID, "new.access")
+            XCTAssertEqual(draft.secret, "cfast_FAKE_new")
+            XCTAssertFalse(draft.showsConfirmation(notice: nil))
+        }
+    }
+
+    func testSaveThroughRootStoresTheKeyAndConfirmsAfterTheNoticeClears() throws {
+        let store = try oldKeyStore()
+        let root = try rejectedRoot()
+        var form = root.makeGatewayForm(store: store)
+        form.address = "https://gateway.example.test"
+        var draft = AwayKeyDraft(clientID: "new.access", secret: "cfast_FAKE_new")
+        draft.save(with: form)
+
+        XCTAssertEqual(store.load()?.clientID, "new.access")
+        XCTAssertEqual(store.load()?.clientSecret, "cfast_FAKE_new")
+        assertNoticeHidden(root)
+        XCTAssertNil(root.certificateRecovery.awayHTTP)
+        let notice = AwayKeyNotice(rejected: root.awayKeyRejected, section: .settings).text
+        XCTAssertTrue(draft.showsConfirmation(notice: notice))
+        XCTAssertFalse(draft.showsForm(notice: notice))
+    }
+
+    func testRefusedSaveThroughRootKeepsTheNoticeAndTheOldKey() throws {
+        let store = try oldKeyStore()
+        let root = try rejectedRoot()
+        var form = root.makeGatewayForm(store: store)
+        form.address = "http://gateway.example.test"
+        var draft = AwayKeyDraft(clientID: "new.access", secret: "cfast_FAKE_new")
+        draft.save(with: form)
+
+        XCTAssertEqual(draft.note, AwayGatewaySaveResult.badAddress.note)
+        XCTAssertEqual(store.load()?.clientID, "old.access")
+        assertNoticeShows(root)
+        XCTAssertNotNil(root.certificateRecovery.awayHTTP)
+    }
+
+    func testProbeClearingTheNoticeLeavesTheTypedKeyOnScreen() async throws {
+        let root = RootView(now: .streetFixtureNow)
+        root.certificateRecovery.gatewayReply = .rejectedKey
+        var draft = AwayKeyDraft(clientID: "new.access", secret: "cfast_FAKE_new")
+        _ = await root.probeRoad(
+            gateway: try gateway(), mailbox: nil,
+            home: { PiProbe.Reading(mode: .offline) },
+            gatewayReply: { await GatewayProbe().reply($0, http: ProbeReply(status: nil)) }
+        )
+        let notice = AwayKeyNotice(rejected: root.awayKeyRejected, section: .settings).text
+        XCTAssertNil(notice)
+        draft.noticeChanged(to: notice)
+        XCTAssertTrue(draft.showsForm(notice: notice))
+        XCTAssertEqual(draft.clientID, "new.access")
+        XCTAssertEqual(draft.secret, "cfast_FAKE_new")
+        XCTAssertFalse(AwayKeyDraft().showsForm(notice: notice))
+    }
+
+    func testNewRejectionDropsTheConfirmationForGood() {
+        var draft = AwayKeyDraft(saved: true)
+        XCTAssertTrue(draft.showsConfirmation(notice: nil))
+        XCTAssertFalse(draft.showsConfirmation(notice: "Rejected"))
+        draft.noticeChanged(to: "Rejected")
+        draft.noticeChanged(to: nil)
+        XCTAssertFalse(draft.showsConfirmation(notice: nil))
+    }
+
+    private func oldKeyStore() throws -> AwayGatewayStore {
+        let suite = "streetpi.tests.rejected-save"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defaults.removePersistentDomain(forName: suite)
+        addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suite) }
+        let store = AwayGatewayStore(store: MemorySecretStore(), defaults: defaults)
+        XCTAssertEqual(
+            store.save(address: "https://gateway.example.test", clientID: "old.access", secret: "cfast_FAKE_old"),
+            .saved
+        )
+        return store
+    }
+
+    private func rejectedRoot() throws -> RootView {
+        let gateway = try gateway()
+        let root = RootView(now: .streetFixtureNow, mode: .awayLive(gateway))
+        root.certificateRecovery.awayHTTP = AwayHTTPClient(settings: gateway, configuration: .ephemeral)
+        root.certificateRecovery.gatewayReply = .rejectedKey
+        return root
+    }
+
     private static var cleanDeskSteps: [ScriptedPiholeTransport.Step] {
         let stamp = Int(Date.streetFixtureNow.timeIntervalSince1970) - 3_600
         return [
