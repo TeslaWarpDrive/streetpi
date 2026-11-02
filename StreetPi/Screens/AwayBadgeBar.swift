@@ -70,8 +70,8 @@ extension AwayStatus {
 extension AwayBadge {
     /// One card while the key is rejected. A mailbox report keeps its age. "Can't reach the Pi" adds nothing.
     /// A report's calm look would read as all clear, so the card warns, and a silent report stays a problem.
-    /// `shortened` is for accessibility text: the message comes first and the age gives way, since the
-    /// card has no room for both. VoiceOver still hears the age.
+    /// `shortened` is for accessibility text: the message comes first and a plain age gives way, since the
+    /// card has no room for both. VoiceOver still hears the age. A line that is itself a warning stays.
     func carrying(
         keyNotice: String?, status: AwayStatus, keyOnPage: Bool = false, onSettings: Bool = false,
         shortened: Bool = false
@@ -81,8 +81,10 @@ extension AwayBadge {
         guard let keyNotice, keyOnPage == false else { return next }
         if status.isAway {
             if shortened {
+                let keepsLine = status.hasReportAge == false || tone == .problem
+                let rest = [keepsLine ? line : nil, detail].compactMap { $0 }
                 next.line = keyNotice
-                next.detail = status.hasReportAge ? detail : line
+                next.detail = rest.isEmpty ? nil : rest.joined(separator: " ")
             } else {
                 next.detail = [detail, keyNotice].compactMap { $0 }.joined(separator: " ")
             }

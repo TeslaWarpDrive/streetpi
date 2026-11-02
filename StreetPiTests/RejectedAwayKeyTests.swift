@@ -204,6 +204,27 @@ final class RejectedAwayKeyTests: XCTestCase {
         XCTAssertEqual(shortFirst.detail, first.line)
     }
 
+    func testShortenedCardKeepsTheWordsThatThePiWentQuiet() throws {
+        let message = try XCTUnwrap(AwayKeyNotice(rejected: true, section: .settings).text)
+        let now = Date.streetFixtureNow
+        let generatedAt = now.addingTimeInterval(-86_400)
+        let silent = AwayStatus.reading(generatedAt: generatedAt, problem: nil, note: nil)
+        let quiet = silent.badge(now: now)
+        XCTAssertTrue(quiet.line.hasPrefix("Pi hasn't reported"))
+        let short = quiet.carrying(keyNotice: message, status: silent, shortened: true)
+        XCTAssertEqual(short.line, message)
+        XCTAssertEqual(short.detail, quiet.line)
+        XCTAssertEqual(short.tone, .problem)
+        XCTAssertTrue(silent.capsBar(
+            keyNotice: message, keyOnPage: false, messageOnly: short.line == message && short.detail == nil
+        ))
+
+        let both = AwayStatus.reading(generatedAt: generatedAt, problem: .wrongAddress, note: nil)
+        let reported = both.badge(now: now)
+        let shortBoth = reported.carrying(keyNotice: message, status: both, shortened: true)
+        XCTAssertEqual(shortBoth.detail, "\(reported.line) \(try XCTUnwrap(reported.detail))")
+    }
+
     func testShortenedCardLeavesThePageMessageAlone() throws {
         let message = try XCTUnwrap(AwayKeyNotice(rejected: true, section: .settings).text)
         let reading = AwayStatus.reading(generatedAt: .streetFixtureNow, problem: nil, note: nil)
