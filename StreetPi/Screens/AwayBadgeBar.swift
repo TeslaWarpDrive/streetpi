@@ -21,27 +21,30 @@ struct AwayBadgeBar: View {
     @Environment(\.awayKeyNotice) private var keyNotice
     @Environment(\.awayKeyOnPage) private var keyOnPage
     @Environment(\.awayOnSettings) private var onSettings
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         if status.showsBar(keyOnPage: keyOnPage) == false {
             EmptyView()
         } else if still {
-            AwayBadgeLine(badge: badge(at: now), capped: capped, onSetUp: onSetUp)
+            line(at: now)
         } else {
             TimelineView(.periodic(from: .now, by: 1)) { context in
-                AwayBadgeLine(badge: badge(at: context.date), capped: capped, onSetUp: onSetUp)
+                line(at: context.date)
             }
         }
     }
 
-    private var capped: Bool {
-        status.capsBar(keyNotice: keyNotice, keyOnPage: keyOnPage)
-    }
-
-    private func badge(at date: Date) -> AwayBadge {
-        status.badge(now: date).carrying(
-            keyNotice: keyNotice, status: status, keyOnPage: keyOnPage, onSettings: onSettings
+    private func line(at date: Date) -> some View {
+        let badge = status.badge(now: date).carrying(
+            keyNotice: keyNotice, status: status, keyOnPage: keyOnPage, onSettings: onSettings,
+            shortened: dynamicTypeSize.isAccessibilitySize
         )
+        let capped = status.capsBar(
+            keyNotice: keyNotice, keyOnPage: keyOnPage,
+            messageOnly: badge.line == keyNotice && badge.detail == nil
+        )
+        return AwayBadgeLine(badge: badge, capped: capped, onSetUp: onSetUp)
     }
 }
 
@@ -53,22 +56,39 @@ extension AwayStatus {
     }
 
     /// The age, a mailbox problem, and the key message can fill a small phone at the largest text.
-    func capsBar(keyNotice: String?, keyOnPage: Bool) -> Bool {
-        isAway && (keyNotice != nil || keyOnPage)
+    /// The message alone stays whole, like the card with no mailbox, and the page keeps the rest.
+    func capsBar(keyNotice: String?, keyOnPage: Bool, messageOnly: Bool = false) -> Bool {
+        isAway && (keyNotice != nil || keyOnPage) && messageOnly == false
+    }
+
+    fileprivate var hasReportAge: Bool {
+        if case .reading(_?, _, _) = self { return true }
+        return false
     }
 }
 
 extension AwayBadge {
     /// One card while the key is rejected. A mailbox report keeps its age. "Can't reach the Pi" adds nothing.
+    /// A report's calm look would read as all clear, so the card warns, and a silent report stays a problem.
+    /// `shortened` is for accessibility text: the message comes first and the age gives way, since the
+    /// card has no room for both. VoiceOver still hears the age.
     func carrying(
-        keyNotice: String?, status: AwayStatus, keyOnPage: Bool = false, onSettings: Bool = false
+        keyNotice: String?, status: AwayStatus, keyOnPage: Bool = false, onSettings: Bool = false,
+        shortened: Bool = false
     ) -> AwayBadge {
         var next = self
         next.offersSetup = offersSetup && onSettings == false
         guard let keyNotice, keyOnPage == false else { return next }
         if status.isAway {
-            next.detail = [detail, keyNotice].compactMap { $0 }.joined(separator: " ")
+            if shortened {
+                next.line = keyNotice
+                next.detail = status.hasReportAge ? detail : line
+            } else {
+                next.detail = [detail, keyNotice].compactMap { $0 }.joined(separator: " ")
+            }
             next.spoken = "\(spoken) \(keyNotice)"
+            next.symbol = "key.slash"
+            next.tone = tone == .problem ? .problem : .attention
         } else {
             next.line = keyNotice
             next.detail = nil
