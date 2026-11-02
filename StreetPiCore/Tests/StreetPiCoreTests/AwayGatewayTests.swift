@@ -339,11 +339,19 @@ final class AwayGravityTests: XCTestCase {
         ])
         let transport = HangingGravityPoll(base: script)
         let client = PiholeClient(transport: transport, password: { "fixture-password" })
+        let log = GravityLog()
         let receipt = try await AwayGravityFlow(
-            client: client, timeLimit: 0.1, sleep: { _ in }, onStep: { _ in }
+            client: client, now: { log.now },
+            timeoutSleep: { _ in
+                await transport.waitForPoll()
+                try Task.checkCancellation()
+                log.slept(AwayGravityFlow.capSeconds)
+            },
+            sleep: { _ in }, onStep: { _ in }
         ).run()
         XCTAssertEqual(receipt.title, AwayGravityFlow.couldNotCheckTitle)
         XCTAssertNil(receipt.listsUpdatedAt)
+        await transport.waitForCancellation()
         let cancelled = await transport.wasCancelled
         XCTAssertTrue(cancelled)
     }
@@ -456,19 +464,35 @@ private actor HangingGravityPoll: PiholeTransport {
     let base: ScriptedPiholeTransport
     var summaries = 0
     private(set) var wasCancelled = false
+    private var pollWaiters: [CheckedContinuation<Void, Never>] = []
+    private var cancellationWaiter: CheckedContinuation<Void, Never>?
 
     init(base: ScriptedPiholeTransport) { self.base = base }
+
+    func waitForPoll() async {
+        if summaries > 1 { return }
+        await withCheckedContinuation { pollWaiters.append($0) }
+    }
+
+    func waitForCancellation() async {
+        if wasCancelled { return }
+        await withCheckedContinuation { cancellationWaiter = $0 }
+    }
 
     func send(_ request: PiholeRequest) async throws -> PiholeResponse {
         if request.path == "/api/stats/summary" {
             summaries += 1
             if summaries > 1 {
-                do {
-                    try await Task.sleep(for: .seconds(30))
-                } catch {
-                    wasCancelled = true
-                    throw error
-                }
+                let (stream, finish) = AsyncStream<Void>.makeStream()
+                defer { finish.finish() }
+                for waiter in pollWaiters { waiter.resume() }
+                pollWaiters.removeAll()
+                var iterator = stream.makeAsyncIterator()
+                _ = await iterator.next()
+                wasCancelled = Task.isCancelled
+                cancellationWaiter?.resume()
+                cancellationWaiter = nil
+                try Task.checkCancellation()
             }
         }
         return try await AwayPiholeTransport(base: base).send(request)

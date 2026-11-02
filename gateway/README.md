@@ -65,14 +65,18 @@ This Free rule cannot be scoped to `pistats.thestreetfam.com`. Matching paths on
 
 Cloudflare cuts a proxied response at about 100 seconds. Gravity on the Pi can take longer. The gate waits up to 310 seconds for gravity's response headers, so the gate is not what cuts the call. The app expects the cut at about 100 seconds. A phone that stops waiting is not, by itself, a failed gravity run.
 
-After deploy, this live check is required before track A ships. This repository does not run it.
+### R1 live cut test and ship gate
+
+After Pi Keeper deploys the gateway, complete this checklist before track A ships. Record the date, Pi-hole FTL version, and each result. This repository does not run these live checks. Keep credentials out of commands, logs, screenshots, and the result record.
 
 1. Note Pi-hole's `gravity.last_update`.
 2. Start `POST /api/action/gravity` through the gate.
 3. Drop the client after about 10 seconds.
-4. Confirm `gravity.last_update` has changed.
+4. Confirm `gravity.last_update` has changed. If it has not changed, gravity did not keep going after the cut. Redesign start-then-check-back before track A ships.
+5. Through the public away hostname, request `/healthz` with an already revoked Access service key. Disable redirect following and record the HTTP status only. Confirm the status is **403**. A 302, 401, or other status does not pass this gate.
+6. On the small iPhone, set Dynamic Type to the largest accessibility size. Open Settings after the rejected-key notice appears. Scroll to **Save new key**, enter a valid replacement key, and save it successfully. Confirm the notice clears and an away refresh succeeds. Record the result without capturing either key.
 
-If it has not changed, gravity did not keep going after the cut. Start-then-check-back needs a redesign before track A ships.
+All steps must pass before shipping. Pi Keeper owns the live gateway checks. Do not revoke keys or change infrastructure as part of repository verification.
 
 ## Checks
 

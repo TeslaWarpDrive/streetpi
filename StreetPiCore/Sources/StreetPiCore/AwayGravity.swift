@@ -66,17 +66,22 @@ public struct AwayGravityFlow: Sendable {
     private let sleep: @Sendable (Int) async throws -> Void
     private let onStep: @Sendable (AwayGravityStep) async -> Void
     private let timeLimit: TimeInterval
+    private let timeoutSleep: @Sendable (TimeInterval) async throws -> Void
 
     public init(
         client: PiholeClient,
         now: @escaping @Sendable () -> Date = { Date() },
         timeLimit: TimeInterval = TimeInterval(Self.capSeconds),
+        timeoutSleep: @escaping @Sendable (TimeInterval) async throws -> Void = {
+            try await Task.sleep(for: .seconds($0))
+        },
         sleep: @escaping @Sendable (Int) async throws -> Void,
         onStep: @escaping @Sendable (AwayGravityStep) async -> Void
     ) {
         self.client = client
         self.now = now
         self.timeLimit = timeLimit
+        self.timeoutSleep = timeoutSleep
         self.sleep = sleep
         self.onStep = onStep
     }
@@ -200,7 +205,7 @@ public struct AwayGravityFlow: Sendable {
             }
         }
         let timer = Task {
-            try await Task.sleep(for: .seconds(min(seconds, remaining)))
+            try await timeoutSleep(min(seconds, remaining))
             finish.finish(throwing: remaining <= seconds ? GravityDeadline.reached : PiholeProblem.offline)
         }
         defer {
