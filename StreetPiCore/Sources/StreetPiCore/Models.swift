@@ -1,6 +1,6 @@
 import Foundation
 
-/// A reading of the house at one moment. Built from fixtures in Phase 1.
+/// A reading of the house at one moment, from live data or fixtures for tests and previews.
 public struct HouseholdSnapshot: Sendable, Equatable, Codable {
     public var capturedAt: Date
     public var link: LinkState
