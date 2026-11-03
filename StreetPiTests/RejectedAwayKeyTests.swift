@@ -185,7 +185,7 @@ final class RejectedAwayKeyTests: XCTestCase {
         root.certificateRecovery.awayHTTP = http
         let road = LivePiholeTransport(http: http, base: try XCTUnwrap(gateway.piholeBase))
         let client = PiholeClient(
-            transport: AfterReplyTransport(base: AwayPiholeTransport(base: road)) { @MainActor in
+            transport: AfterReplyTransport(base: AwayPiholeTransport(base: road)) { @MainActor _ in
                 root.adopt(.home)
             },
             password: { "FAKE_password" }
@@ -193,6 +193,43 @@ final class RejectedAwayKeyTests: XCTestCase {
         _ = await root.refresh(client, now: .streetFixtureNow, secrets: MemorySecretStore())
         assertNoticeHidden(root)
         XCTAssertNil(root.certificateRecovery.awayHTTP)
+    }
+
+    func testAHouseReadThatLandsAfterLeavingTheRoadKeepsTheNewRejection() async throws {
+        let gateway = try gateway()
+        let secrets = MemorySecretStore()
+        try KeychainSession(store: secrets).saveAppPassword("FAKE_password")
+        for mailbox in [nil, try mailbox()] {
+            let root = RootView(now: .streetFixtureNow, mode: .home)
+            let fallback = mailbox.map(ConnectionMode.awayMailbox) ?? .offline
+            let client = PiholeClient(
+                transport: AfterReplyTransport(
+                    base: ScriptedPiholeTransport(steps: Self.cleanDeskSteps)
+                ) { @MainActor request in
+                    // The login reply is already in. The phone leaves while the desk is still loading.
+                    guard request.path == "/api/auth" else { return }
+                    let mode = await root.probeRoad(
+                        gateway: gateway, mailbox: mailbox,
+                        home: { PiProbe.Reading(mode: .offline) },
+                        gatewayReply: { _ in .rejectedKey }
+                    )
+                    XCTAssertEqual(mode, fallback)
+                    root.adopt(fallback)
+                },
+                password: { "FAKE_password" },
+                now: { .streetFixtureNow }
+            )
+            let board = await root.refresh(client, now: .streetFixtureNow, secrets: secrets)
+            XCTAssertNil(board.problem)
+            assertNoticeShows(root)
+
+            let later = PiholeClient(
+                transport: ScriptedPiholeTransport(steps: [.json(200, #"{"dns":true}"#)]),
+                password: { "FAKE_password" }
+            )
+            _ = await root.refresh(later, now: .streetFixtureNow, secrets: MemorySecretStore())
+            assertNoticeHidden(root)
+        }
     }
 
     func testChangingTheGatewayClearsTheNoticeAndItsClient() throws {
@@ -565,11 +602,11 @@ final class RejectedAwayKeyTests: XCTestCase {
 /// Lets a test change the road while a read is still on its way back.
 private struct AfterReplyTransport: PiholeTransport {
     var base: any PiholeTransport
-    var after: @Sendable () async -> Void
+    var after: @Sendable (PiholeRequest) async -> Void
 
     func send(_ request: PiholeRequest) async throws -> PiholeResponse {
         let response = try await base.send(request)
-        await after()
+        await after(request)
         return response
     }
 }
