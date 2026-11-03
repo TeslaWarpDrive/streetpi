@@ -407,28 +407,7 @@ struct RejectedKeyCard: View {
                 .font((dynamicTypeSize.isAccessibilitySize ? Font.caption : .footnote).weight(.semibold))
                 .foregroundStyle(theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            TextField(
-                "Client id",
-                text: $draft.clientID,
-                prompt: Text("Client id").foregroundStyle(theme.tertiary),
-                axis: .vertical
-            )
-            .modifier(RejectedKeyField(theme: theme))
-            .accessibilityLabel("Client id")
-            if dynamicTypeSize.isAccessibilitySize {
-                Text("Client secret")
-                    .font(.body)
-                    .foregroundStyle(theme.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityHidden(true)
-            }
-            SecureField(
-                "Client secret",
-                text: $draft.secret,
-                prompt: Text(dynamicTypeSize.isAccessibilitySize ? "" : "Client secret").foregroundStyle(theme.tertiary)
-            )
-            .modifier(RejectedKeyField(theme: theme))
-            .accessibilityLabel("Client secret")
+            AwayKeyFields(theme: theme, fill: theme.background, clientID: $draft.clientID, secret: $draft.secret)
             Button("Save new key", action: save)
                 .font(.body.weight(.semibold))
                 .foregroundStyle(theme.accent)
@@ -455,27 +434,5 @@ struct RejectedKeyCard: View {
         if draft.saved {
             AccessibilityNotification.Announcement(AwayKeyDraft.savedLine).post()
         }
-    }
-}
-
-private struct RejectedKeyField: ViewModifier {
-    var theme: StreetTheme
-
-    func body(content: Content) -> some View {
-        content
-            .textFieldStyle(.plain)
-            .font(.body)
-            .foregroundStyle(theme.ink)
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled(true)
-            .padding(Rhythm.line)
-            .background {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(theme.background)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(theme.hairline, lineWidth: 1)
-                    }
-            }
     }
 }

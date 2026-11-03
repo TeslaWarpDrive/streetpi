@@ -5,7 +5,6 @@ import SwiftUI
 /// the fields empty on save, and from then on the screen only says it is saved.
 /// Replace key opens empty fields over that saved pair. It does not reveal the secret.
 struct AwayGatewaySection: View {
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     var theme: StreetTheme
     var form: AwayGatewayForm
 
@@ -36,8 +35,15 @@ struct AwayGatewaySection: View {
                 .font(.body)
                 .foregroundStyle(theme.ink)
                 .frame(minHeight: 44)
-            field("Gateway address", text: $address, prompt: "https://")
-                .keyboardType(.URL)
+            TextField(
+                "Gateway address",
+                text: $address,
+                prompt: Text("https://").foregroundStyle(theme.tertiary),
+                axis: .vertical
+            )
+            .modifier(AwayFieldPlate(theme: theme, fill: theme.surface))
+            .accessibilityLabel("Gateway address")
+            .keyboardType(.URL)
             credentials
             saveButton
             if replacingKey {
@@ -93,45 +99,8 @@ struct AwayGatewaySection: View {
                 .accessibilityLabel("Gateway client id and secret saved on this phone")
         }
         if AwayKeyReplace.showsFields(saved: form.saved, replacing: replacingKey) {
-            field("Client id", text: $clientID, prompt: "Client id")
-            if dynamicTypeSize.isAccessibilitySize {
-                Text("Client secret")
-                    .font(.body)
-                    .foregroundStyle(theme.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityHidden(true)
-            }
-            SecureField(
-                "Client secret",
-                text: $secret,
-                prompt: Text(dynamicTypeSize.isAccessibilitySize ? "" : "Client secret").foregroundStyle(theme.tertiary)
-            )
-            .textFieldStyle(.plain)
-            .font(.body)
-            .foregroundStyle(theme.ink)
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled(true)
-            .padding(Rhythm.line)
-            .background { plate }
-            .accessibilityLabel("Client secret")
+            AwayKeyFields(theme: theme, fill: theme.surface, clientID: $clientID, secret: $secret)
         }
-    }
-
-    private func field(_ title: String, text: Binding<String>, prompt: String) -> some View {
-        TextField(
-            title,
-            text: text,
-            prompt: Text(prompt).foregroundStyle(theme.tertiary),
-            axis: .vertical
-        )
-        .textFieldStyle(.plain)
-        .font(.body)
-        .foregroundStyle(theme.ink)
-        .textInputAutocapitalization(.never)
-        .autocorrectionDisabled(true)
-        .padding(Rhythm.line)
-        .background { plate }
-        .accessibilityLabel(title)
     }
 
     private var saveButton: some View {
@@ -147,15 +116,6 @@ struct AwayGatewaySection: View {
                 .overlay { Capsule().stroke(theme.hairline, lineWidth: 1) }
         }
         .buttonStyle(.plain)
-    }
-
-    private var plate: some View {
-        RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(theme.surface)
-            .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(theme.hairline, lineWidth: 1)
-            }
     }
 
     private func beginReplace() {
