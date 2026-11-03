@@ -23,9 +23,10 @@ public enum ConnectionMode: Sendable, Equatable {
         return .offline
     }
 
-    /// Whether a finished read should send the app looking for the house again.
+    /// A good read does not prove the road while nothing answered or the away key is in doubt,
+    /// so those keep looking until a probe says otherwise.
     public func looksAgain(readFailed: Bool, keyRejected: Bool) -> Bool {
-        readFailed
+        readFailed || keyRejected || self == .offline
     }
 
     /// Only the mailbox holds actions back. Face ID is decided by `ActionPolicy` in every mode.
