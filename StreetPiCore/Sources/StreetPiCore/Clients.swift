@@ -12,7 +12,7 @@ public struct ServiceEndpoint: Sendable, Equatable, Codable {
     }
 }
 
-/// Where each client will connect later. Hosts are supplied at runtime. Phase 1 uses fixtures only.
+/// Service endpoints with hosts supplied at runtime. Tests and previews can use the fixture plan.
 public struct ConnectionPlan: Sendable, Equatable, Codable {
     public var statusPage: ServiceEndpoint
     public var telemetry: ServiceEndpoint
