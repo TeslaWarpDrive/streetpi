@@ -23,6 +23,11 @@ public enum ConnectionMode: Sendable, Equatable {
         return .offline
     }
 
+    /// Whether a finished read should send the app looking for the house again.
+    public func looksAgain(readFailed: Bool, keyRejected: Bool) -> Bool {
+        readFailed
+    }
+
     /// Only the mailbox holds actions back. Face ID is decided by `ActionPolicy` in every mode.
     public func allows(_ action: HouseholdAction) -> Bool {
         if case .awayMailbox = self { return AwayGate.allows(action) }
