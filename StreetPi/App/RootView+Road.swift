@@ -61,6 +61,9 @@ extension RootView {
         mode = next
         let previous = dnsSession.client
         dnsSession.clear()
+        // A read or probe still on the old road, away or at home, can no longer speak for the key.
+        certificateRecovery.generation += 1
+        certificateRecovery.awayHTTP = nil
         try? KeychainSession(store: secretStore).deleteSessionID()
         // The old road may be gone, so the app does not wait on this.
         Task { await previous?.signOut() }
@@ -105,7 +108,7 @@ extension RootView {
         while !Task.isCancelled {
             guard await pullAway(setup) else { return }
             failures = awaySession.problem == nil ? 0 : failures + 1
-            noteRead(worked: awaySession.problem == nil)
+            noteRead(worked: !mode.looksAgain(readFailed: awaySession.problem != nil, keyRejected: awayKeyRejected))
             try? await Task.sleep(for: .seconds(AwayPace.waitSeconds(afterFailures: failures)))
         }
     }

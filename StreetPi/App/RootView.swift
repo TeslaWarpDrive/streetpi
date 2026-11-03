@@ -307,7 +307,7 @@ struct RootView: View {
             if Task.isCancelled || signedOut { break }
             apply(board)
             failures = board.problem == nil ? 0 : failures + 1
-            if board.problem == .offline {
+            if mode.looksAgain(readFailed: board.problem == .offline, keyRejected: awayKeyRejected) {
                 noteRead(worked: false)
             }
             let wait = RefreshPace.waitSeconds(afterFailures: failures)
@@ -393,22 +393,29 @@ struct RootView: View {
         let http = isAwayLive ? certificateRecovery.awayHTTP : nil
         _ = http?.takeKeyRejection()
         let saved = AdBlockerSecrets.password(in: secrets ?? secretStore).isEmpty == false
-        let board = await readBoard(client, now: now, saved: saved)
-        if !Task.isCancelled, generation == certificateRecovery.generation,
-           let http, http === certificateRecovery.awayHTTP {
+        var piAnswered = false
+        let board = await readBoard(client, now: now, saved: saved, piAnswered: &piAnswered)
+        guard !Task.isCancelled, generation == certificateRecovery.generation else { return board }
+        if let http {
+            guard http === certificateRecovery.awayHTTP else { return board }
             if http.takeKeyRejection() {
                 certificateRecovery.gatewayReply = .rejectedKey
                 return AdBlockerHome.offline(now: now)
-            } else if board.problem == nil {
-                certificateRecovery.gatewayReply = .answered
             }
+        }
+        // Pi-hole itself replied, so no key is in doubt, whatever the board goes on to say.
+        if piAnswered {
+            certificateRecovery.gatewayReply = http == nil ? .noAnswer : .answered
         }
         return board
     }
 
-    private func readBoard(_ client: PiholeClient, now: Date, saved: Bool) async -> AdBlockerBoard {
+    private func readBoard(
+        _ client: PiholeClient, now: Date, saved: Bool, piAnswered: inout Bool
+    ) async -> AdBlockerBoard {
         do {
             let state = try await client.reachability()
+            piAnswered = true
             guard saved else { return AdBlockerHome.notSetUp(now: now) }
             if state == .dnsOff { return AdBlockerHome.dnsOff(now: now) }
             let load = try await client.loadDesk(now: now)
