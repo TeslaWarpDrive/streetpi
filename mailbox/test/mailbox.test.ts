@@ -1,4 +1,4 @@
-import { SELF, reset } from "cloudflare:test";
+import { SELF, reset, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { READ, WRITE, historySnapshot, liveSnapshot } from "./fixtures";
@@ -169,18 +169,32 @@ describe("storage", () => {
     expect(body.snapshots.map((snapshot) => snapshot.kind)).toEqual(["history"]);
   });
 
-  it("trims history to the newest 288 rows and reads newest first", async () => {
+  it("keeps up to four history rows and trims oldest first on each push", async () => {
     const tiny = { adBlocker: 1, cpu: 1, monitors: 1 };
-    for (let run = 0; run < 290; run += 1) {
+    const mailbox = env.MAILBOX.get(env.MAILBOX.idFromName("house"));
+    for (let run = 0; run < 7; run += 1) {
       const snapshot = historySnapshot(tiny);
       (snapshot.machine as Record<string, unknown>).uptimeSeconds = run;
       expect((await push(snapshot)).status).toBe(204);
+      const rows = await mailbox.history(5);
+      const uptimes = rows.map((row) => (JSON.parse(row) as { machine: { uptimeSeconds: number } }).machine.uptimeSeconds);
+      expect(uptimes).toEqual(Array.from({ length: Math.min(run + 1, 4) }, (_, index) => run - index));
     }
-    const rows = await env.MAILBOX.get(env.MAILBOX.idFromName("house")).history(289);
-    const uptimes = rows.map((row) => (JSON.parse(row) as { machine: { uptimeSeconds: number } }).machine.uptimeSeconds);
-    expect(uptimes).toHaveLength(288);
-    expect(uptimes[0]).toBe(289);
-    expect(uptimes.at(-1)).toBe(2);
+  });
+
+  it("trims an existing 288-row mailbox on the next history push", async () => {
+    const mailbox = env.MAILBOX.get(env.MAILBOX.idFromName("house"));
+    await runInDurableObject(mailbox, (_instance, state) => {
+      for (let run = 0; run < 288; run += 1) {
+        state.storage.sql.exec("INSERT INTO history (body) VALUES (?)", JSON.stringify({ legacyRow: run }));
+      }
+    });
+    const snapshot = historySnapshot();
+    expect((await push(snapshot)).status).toBe(204);
+    const rows = await mailbox.history(289);
+    expect(rows.map((row) => JSON.parse(row))).toEqual([
+      snapshot, { legacyRow: 287 }, { legacyRow: 286 }, { legacyRow: 285 },
+    ]);
   });
 
   it("reads the newest row by default and up to three on request", async () => {

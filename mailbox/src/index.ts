@@ -9,7 +9,7 @@ const MAX_BODY_BYTES = 16 * 1024;
 
 /** One row already holds a full day, and the rows before it hold nearly the same day. */
 const DEFAULT_HISTORY_READ = 1;
-/** Holds an answer to about 48 KB. A full table is 4.6 MB, which may not fit the 10 ms CPU limit. */
+/** Holds an answer to about 48 KB. The fourth stored row is only a retention margin. */
 const MAX_HISTORY_READ = 3;
 
 const BASE_HEADERS = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
