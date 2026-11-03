@@ -1,7 +1,7 @@
 import Foundation
 
 /// Blocked lookups against every lookup in one window, usually the last 24 hours.
-/// Later phases can fill this from a live counter. The screens only read it.
+/// `from(desk:)` fills this from live DNS desk counts. The screens only read it.
 public struct LookupShare: Sendable, Equatable {
     public var stopped: Int
     public var lookups: Int
