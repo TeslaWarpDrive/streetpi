@@ -43,6 +43,7 @@ struct SquareRow: View {
                 onOpen(squareTile.group)
             }
             .frame(maxWidth: .infinity, alignment: .top)
+            .reportsLayout("home-square-\(squareTile.id)")
         }
     }
 }

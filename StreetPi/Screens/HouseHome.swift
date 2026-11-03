@@ -19,18 +19,10 @@ struct HouseHome: View {
     @State private var showMeaning = false
 
     var body: some View {
-        ScrollView {
-            FitOfferedWidth(maxWidth: wide ? 880 : nil) {
-                column
-                    .padding(.horizontal, wide ? AfterglowShape.page : edge)
-                    .padding(.top, AfterglowShape.tight)
-                    .padding(.bottom, AfterglowShape.block)
+        scrolling
+            .refreshable {
+                await refresh()
             }
-        }
-        .scrollIndicators(.hidden)
-        .refreshable {
-            await refresh()
-        }
         .sheet(isPresented: $showMeaning) {
             PercentMeaningSheet(title: "About this percent", text: board.blocker.explainer) {
                 showMeaning = false
@@ -67,19 +59,40 @@ struct HouseHome: View {
             SquareRow(squares: board.squares, onOpen: onOpen)
             BoardColumns(wide: wide) {
                 MonitorBoardCard(tile: board.monitors, onOpen: onOpenMonitors)
+                    .reportsLayout("home-monitor-card")
             } trailing: {
                 BackupBoardCard(tile: board.backups) {
                     onOpen(.backups)
                 }
+                .reportsLayout("home-backup-card")
             }
             BoardColumns(wide: wide) {
                 RunningBoardCard(tile: board.running) {
                     onOpen(.piHealth)
                 }
+                .reportsLayout("home-running-card")
             } trailing: {
                 DevicesBoardCard(tile: board.devices, onOpen: onOpenDevices)
+                    .reportsLayout("home-devices-card")
             }
             HouseFooter()
+        }
+    }
+
+    private var scrolling: some View {
+        ScrollView {
+            FitOfferedWidth(maxWidth: wide ? 880 : nil) {
+                column
+                    .padding(.horizontal, wide ? AfterglowShape.page : edge)
+                    .padding(.top, AfterglowShape.tight)
+                    .padding(.bottom, AfterglowShape.block)
+            }
+        }
+        .scrollIndicators(.hidden)
+        .background {
+            if wide == false {
+                Color.clear.endsAboveTabBar()
+            }
         }
     }
 
