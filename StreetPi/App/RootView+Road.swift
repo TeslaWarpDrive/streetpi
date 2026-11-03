@@ -61,7 +61,8 @@ extension RootView {
         mode = next
         let previous = dnsSession.client
         dnsSession.clear()
-        // A read still on the old road can no longer speak for the key.
+        // A read or probe still on the old road, away or at home, can no longer speak for the key.
+        certificateRecovery.generation += 1
         certificateRecovery.awayHTTP = nil
         try? KeychainSession(store: secretStore).deleteSessionID()
         // The old road may be gone, so the app does not wait on this.

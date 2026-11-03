@@ -122,7 +122,7 @@ final class RejectedAwayKeyTests: XCTestCase {
         root.certificateRecovery.awayHTTP = AwayHTTPClient(settings: gateway, configuration: .ephemeral)
         root.certificateRecovery.gatewayReply = .rejectedKey
         let client = PiholeClient(
-            transport: ScriptedPiholeTransport(steps: Self.cleanDeskSteps),
+            transport: ScriptedPiholeTransport(steps: AnsweredBoard.cleanDeskSteps),
             password: { "FAKE_password" },
             now: { .streetFixtureNow }
         )
@@ -135,7 +135,7 @@ final class RejectedAwayKeyTests: XCTestCase {
 
     func testAwayReadThatReachesThePiClearsTheNoticeWhateverTheBoardSays() async throws {
         let gateway = try gateway()
-        for reading in try Self.answeredBoards() {
+        for reading in try AnsweredBoard.all() {
             let root = RootView(now: .streetFixtureNow, mode: .awayLive(gateway))
             root.certificateRecovery.awayHTTP = AwayHTTPClient(settings: gateway, configuration: .ephemeral)
             root.certificateRecovery.gatewayReply = .rejectedKey
@@ -146,7 +146,7 @@ final class RejectedAwayKeyTests: XCTestCase {
     }
 
     func testHouseReadThatReachesThePiClearsTheNoticeWhateverTheBoardSays() async throws {
-        for reading in try Self.answeredBoards() {
+        for reading in try AnsweredBoard.all() {
             let root = RootView(now: .streetFixtureNow, mode: .offline)
             root.certificateRecovery.gatewayReply = .rejectedKey
             let board = await root.refresh(reading.client, now: .streetFixtureNow, secrets: reading.secrets)
@@ -204,7 +204,7 @@ final class RejectedAwayKeyTests: XCTestCase {
             let fallback = mailbox.map(ConnectionMode.awayMailbox) ?? .offline
             let client = PiholeClient(
                 transport: AfterReplyTransport(
-                    base: ScriptedPiholeTransport(steps: Self.cleanDeskSteps)
+                    base: ScriptedPiholeTransport(steps: AnsweredBoard.cleanDeskSteps)
                 ) { @MainActor request in
                     // The login reply is already in. The phone leaves while the desk is still loading.
                     guard request.path == "/api/auth" else { return }
@@ -530,14 +530,30 @@ final class RejectedAwayKeyTests: XCTestCase {
         return root
     }
 
-    private struct AnsweredBoard {
-        var client: PiholeClient
-        var secrets: MemorySecretStore
-        var problem: PiholeProblem?
+    private func assertNoticeShows(_ root: RootView, line: UInt = #line) {
+        let message = "Away key was rejected – replace it in Settings"
+        for section in [AppSection.group(.adBlockerAndDNS), .settings] {
+            XCTAssertEqual(
+                AwayKeyNotice(rejected: root.awayKeyRejected, section: section).text, message, line: line
+            )
+        }
+        XCTAssertNil(AwayKeyNotice(rejected: root.awayKeyRejected, section: .group(.piHealth)).text, line: line)
     }
 
+    private func assertNoticeHidden(_ root: RootView, line: UInt = #line) {
+        for section in [AppSection.group(.adBlockerAndDNS), .settings] {
+            XCTAssertNil(AwayKeyNotice(rejected: root.awayKeyRejected, section: section).text, line: line)
+        }
+    }
+}
+
+private struct AnsweredBoard {
+    var client: PiholeClient
+    var secrets: MemorySecretStore
+    var problem: PiholeProblem?
+
     /// Every board a Pi-hole login reply can lead to: not set up, dns off, a failed desk, and a clean read.
-    private static func answeredBoards() throws -> [AnsweredBoard] {
+    static func all() throws -> [AnsweredBoard] {
         let saved = MemorySecretStore()
         try KeychainSession(store: saved).saveAppPassword("FAKE_password")
         func client(_ steps: [ScriptedPiholeTransport.Step]) -> PiholeClient {
@@ -559,7 +575,7 @@ final class RejectedAwayKeyTests: XCTestCase {
         ]
     }
 
-    private static var cleanDeskSteps: [ScriptedPiholeTransport.Step] {
+    static var cleanDeskSteps: [ScriptedPiholeTransport.Step] {
         let stamp = Int(Date.streetFixtureNow.timeIntervalSince1970) - 3_600
         return [
             .json(200, #"{"dns":true,"https_port":443}"#),
@@ -580,22 +596,6 @@ final class RejectedAwayKeyTests: XCTestCase {
             .json(200, #"{"cnameRecords":[]}"#),
             .json(200, #"{"config":{"dns":{"queryLogging":false}}}"#),
         ]
-    }
-
-    private func assertNoticeShows(_ root: RootView, line: UInt = #line) {
-        let message = "Away key was rejected – replace it in Settings"
-        for section in [AppSection.group(.adBlockerAndDNS), .settings] {
-            XCTAssertEqual(
-                AwayKeyNotice(rejected: root.awayKeyRejected, section: section).text, message, line: line
-            )
-        }
-        XCTAssertNil(AwayKeyNotice(rejected: root.awayKeyRejected, section: .group(.piHealth)).text, line: line)
-    }
-
-    private func assertNoticeHidden(_ root: RootView, line: UInt = #line) {
-        for section in [AppSection.group(.adBlockerAndDNS), .settings] {
-            XCTAssertNil(AwayKeyNotice(rejected: root.awayKeyRejected, section: section).text, line: line)
-        }
     }
 }
 
