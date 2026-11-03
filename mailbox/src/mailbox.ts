@@ -1,9 +1,10 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./env";
 
-export const HISTORY_ROWS = 288;
+/** Three rows can be read at once, with one extra push kept as a margin. */
+export const HISTORY_ROWS = 4;
 
-/** The one object that holds the house's newest snapshot and its last day of history pushes. */
+/** The one object that holds the house's newest snapshot and four recent full-day history pushes. */
 export class Mailbox extends DurableObject<Env> {
   private readonly sql: SqlStorage;
 

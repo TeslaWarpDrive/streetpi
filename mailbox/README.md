@@ -15,7 +15,7 @@ One Worker and one SQLite-backed Durable Object. No KV. Everything fits the free
 
 A missing or wrong token gets `401`. The read token cannot write and the write token cannot read. Everything else gets `404`. Every answer carries `Cache-Control: no-store`, and none carries a CORS header. The Worker logs nothing, and observability is off in `wrangler.jsonc`.
 
-A `live` push replaces the one `latest` row. A `history` push adds a row, and the table keeps the newest 288.
+A `live` push replaces the one `latest` row. A `history` push adds a row, and the table keeps the newest 4. After a mailbox deploy, the next history push trims any older rows to this cap. Deploying the mailbox is Bradley's call.
 
 ## Schema
 
@@ -28,7 +28,7 @@ The check holds to these rules, which go beyond the plan's example payload:
 - A monitor `status` is `up`, `down`, `pending`, or `maintenance`, the four Uptime Kuma states.
 - A monitor `name` is 1 to 64 characters and cannot contain an IPv4 address. The Pi must rename or leave out a monitor whose name holds one.
 
-Each `history` push already carries a full day of points, so the app asks for `GET /v1/history?limit=1` and pays for about 16 KB. All 288 rows can reach 4.6 MB, and that read was never measured against the 10 ms CPU limit, so a read stops at 3 rows, about 48 KB. Rows beyond the newest are only a few minutes older, so 3 leaves room to step back past a bad push and no more. The 288 rows stay in storage, but no route reads past the newest 3.
+Each `history` push already carries a full day of points, including the optional Netdata day charts, so the app asks for `GET /v1/history?limit=1` and pays for about 16 KiB. A read stops at 3 rows, about 48 KiB. The table keeps 4 rows: the largest allowed read plus one spare push. History bodies total at most 64 KiB, plus database overhead and the separate latest row. Rows beyond the newest are only a few minutes older. The retention change leaves the response shape, payload limits, and read limits unchanged.
 
 A full history push sits close to the 16 KB cap: about 16,020 bytes on a typical day, and about 16,450 on a busy one, which is over and gets `413`. The Pi should send `busy` as a whole number and JSON with no spaces. That brings a busy day to about 15,880 bytes. `historySnapshot()` in `test/fixtures.ts` is a realistic full day, and a test proves that it fits.
 
