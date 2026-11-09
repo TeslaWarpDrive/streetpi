@@ -81,13 +81,26 @@ final class RejectedAwayKeyTests: XCTestCase {
     }
 
     func testForbiddenDuringAwayRefreshReachesTheNotice() async throws {
-        try await assertRefreshRejection(protocolClass: RejectedKeyHTTPStub.self)
-        try await assertRefreshRejection(protocolClass: RejectedAfterLoginHTTPStub.self)
+        try await assertAwayRefresh(RejectedKeyHTTPStub.self, problem: .offline, showsNotice: true)
     }
 
-    private func assertRefreshRejection(protocolClass: URLProtocol.Type) async throws {
+    func testALaterForbiddenDuringAwayRefreshIsNotABadKey() async throws {
+        try await assertAwayRefresh(
+            RejectedAfterLoginHTTPStub.self, problem: .refused, showsNotice: false, priorRejection: true
+        )
+    }
+
+    private func assertAwayRefresh(
+        _ protocolClass: URLProtocol.Type,
+        problem: PiholeProblem,
+        showsNotice: Bool,
+        priorRejection: Bool = false
+    ) async throws {
         let gateway = try gateway()
         let root = RootView(now: .streetFixtureNow, mode: .awayLive(gateway))
+        if priorRejection {
+            root.certificateRecovery.gatewayReply = .rejectedKey
+        }
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [protocolClass]
         let http = AwayHTTPClient(settings: gateway, configuration: configuration)
@@ -101,8 +114,12 @@ final class RejectedAwayKeyTests: XCTestCase {
         let secrets = MemorySecretStore()
         try KeychainSession(store: secrets).saveAppPassword("FAKE_password")
         let board = await root.refresh(client, now: .streetFixtureNow, secrets: secrets)
-        XCTAssertEqual(board.problem, .offline)
-        assertNoticeShows(root)
+        XCTAssertEqual(board.problem, problem)
+        if showsNotice {
+            assertNoticeShows(root)
+        } else {
+            assertNoticeHidden(root)
+        }
     }
 
     func testHomeRefreshForbiddenDoesNotClaimAwayKeyWasRejected() async {
