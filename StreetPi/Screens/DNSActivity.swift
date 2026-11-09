@@ -1,5 +1,6 @@
-import SwiftUI
 import StreetPiCore
+import SwiftUI
+import UIKit
 
 struct DNSStatistics: View {
     var desk: DNSDesk
@@ -80,17 +81,24 @@ struct DNSLogScreen: View {
         offersAllow ? "Lookups the Pi has kept." : "Lookups as they happen."
     }
 
-    /// Largest type wraps a name after each dot. Smaller type keeps one line when it fits.
-    private func domainText(_ domain: String) -> String {
-        dynamicTypeSize.isAccessibilitySize ? LargeTypeWrap.allowingWrap(domain) : domain
+    /// Largest type breaks after a dot and does not hyphenate a run the row can hold.
+    @ViewBuilder
+    private func domainName(_ domain: String) -> some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            LargeTypeLabel(text: domain, monospaced: true, style: .headline, color: theme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            Text(domain)
+                .font(.headline.monospaced())
+                .foregroundStyle(theme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private func queryRow(_ query: DNSQuery) -> some View {
         VStack(alignment: .leading, spacing: Rhythm.line) {
-            Text(domainText(query.domain))
-                .font(.headline.monospaced())
-                .foregroundStyle(theme.ink)
-                .fixedSize(horizontal: false, vertical: true)
+            domainName(query.domain)
                 .accessibilityLabel(query.domain)
             StatusChip(title: query.outcome.word, tone: query.outcome == .blocked ? .problem : .calm)
             Text("\(query.client) · \(AgePhrase.english(from: query.at, to: now))")

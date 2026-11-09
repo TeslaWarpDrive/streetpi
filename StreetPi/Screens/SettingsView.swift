@@ -72,6 +72,7 @@ struct SettingsView: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.awayKeyNotice) private var awayKeyNotice
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @FocusState private var slugFocused: Bool
 
     var body: some View {
         ControlScreen(wide: sizeClass == .regular) {
@@ -280,6 +281,7 @@ struct SettingsView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled(true)
                 .submitLabel(.done)
+                .focused($slugFocused)
                 .padding(Rhythm.line)
                 .background { plate }
                 .onSubmit(saveStatusPage)
@@ -350,6 +352,7 @@ extension SettingsView {
                 text: $piHost,
                 ink: theme.ink,
                 promptInk: theme.tertiary,
+                submit: .done,
                 onSubmit: onCommitHost
             )
         } else {
@@ -376,7 +379,10 @@ extension SettingsView {
                 prompt: LiveEndpoints.house.uptimeKuma.absoluteString,
                 text: $pageAddress,
                 ink: theme.ink,
-                promptInk: theme.tertiary
+                promptInk: theme.tertiary,
+                submit: .next,
+                onBeginEditing: { slugFocused = false },
+                onSubmit: { slugFocused = true }
             )
         } else {
             TextField(
