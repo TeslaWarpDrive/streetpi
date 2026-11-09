@@ -152,6 +152,34 @@ final class ConnectionModeTests: XCTestCase {
         XCTAssertTrue(dwell.wantsReprobe(now: start.addingTimeInterval(1)))
     }
 
+    func testAHealthyMailboxComesHomeWhenThePiAnswers() async throws {
+        let gateway = try gateway()
+        let mailbox = try mailbox()
+        let away = ConnectionMode.awayMailbox(mailbox)
+        XCTAssertTrue(away.looksAgain(readFailed: false, keyRejected: false))
+
+        var dwell = ConnectionDwell()
+        XCTAssertEqual(dwell.settle(away, trigger: .launch, now: start), away)
+
+        let quiet = ConnectionProber(piAnswers: { false }, gatewayAnswers: { _ in false })
+        let stillAway = await quiet.mode(gateway: gateway, mailbox: mailbox)
+        XCTAssertEqual(stillAway, away)
+
+        let dialed = Flag()
+        let found = await ConnectionProber(
+            piAnswers: { true },
+            gatewayAnswers: { _ in
+                dialed.raise()
+                return true
+            }
+        ).mode(gateway: gateway, mailbox: mailbox)
+        XCTAssertEqual(found, .home)
+        XCTAssertFalse(dialed.raised)
+        XCTAssertEqual(dwell.settle(found, trigger: .requestFailed, now: start.addingTimeInterval(9)), away)
+        XCTAssertEqual(dwell.settle(found, trigger: .requestFailed, now: start.addingTimeInterval(10)), .home)
+        XCTAssertFalse(ConnectionMode.home.looksAgain(readFailed: false, keyRejected: false))
+    }
+
     func testOnlyTheMailboxHoldsActionsBack() throws {
         let pause = HouseholdAction.pauseAdBlocking(try XCTUnwrap(PauseLength(seconds: 30)))
         XCTAssertTrue(ConnectionMode.home.allows(pause))
