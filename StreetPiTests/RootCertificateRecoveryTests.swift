@@ -50,6 +50,49 @@ final class RootCertificateRecoveryTests: XCTestCase {
         }
     }
 
+    /// Keep clears the wall. The next poll still reports that certificate, and away live
+    /// must leave the prompt down the way the mailbox road already leaves its desk up.
+    func testKeepOnAwayLiveLeavesThePromptDownAfterOnePoll() async throws {
+        let mode = ConnectionMode.awayLive(try gateway())
+        let root = RootView(now: .streetFixtureNow, mode: mode)
+        root.certificateRecovery.reading = PiProbe.Reading(mode: mode, presentedPin: fakePin)
+        root.certificateRecovery.dnsProblem = .certificateChanged
+        XCTAssertEqual(root.displayedDNSProblem, .certificateChanged)
+
+        root.keepSavedPin()
+
+        XCTAssertNil(root.displayedDNSProblem)
+        XCTAssertNil(root.certificateRecovery.dnsProblem)
+        XCTAssertEqual(root.certificateRecovery.declinedPin, fakePin)
+
+        try await assertKeptPromptStaysDown(root, presented: fakePin, stored: .pinKept)
+        try await assertKeptPromptStaysDown(root, presented: nil, stored: .certificateChanged)
+
+        let other = Data(repeating: 0xFB, count: 32).base64EncodedString()
+        root.dnsSession.presented = presentedPin(other)
+        let board = await root.refresh(
+            changedCertificate(), now: .streetFixtureNow, secrets: MemorySecretStore()
+        )
+        XCTAssertEqual(board.problem, .certificateChanged)
+        root.apply(board)
+        XCTAssertEqual(root.displayedDNSProblem, .certificateChanged)
+        XCTAssertEqual(root.certificateRecovery.dnsProblem, .certificateChanged)
+    }
+
+    func testHomePollStillShowsTheKeptPin() async throws {
+        let root = RootView(now: .streetFixtureNow)
+        root.certificateRecovery.reading = PiProbe.Reading(mode: .home, presentedPin: fakePin)
+        root.certificateRecovery.declinedPin = fakePin
+        root.dnsSession.presented = presentedPin(fakePin)
+        let board = await root.refresh(
+            changedCertificate(), now: .streetFixtureNow, secrets: MemorySecretStore()
+        )
+        XCTAssertEqual(board.problem, .pinKept)
+        root.apply(board)
+        XCTAssertEqual(root.certificateRecovery.dnsProblem, .pinKept)
+        XCTAssertEqual(root.displayedDNSProblem, .pinKept)
+    }
+
     func testDeclinePreservesAnUnrelatedGatewayProblem() throws {
         let mode = ConnectionMode.awayLive(try gateway())
         let root = RootView(now: .streetFixtureNow, mode: mode)
@@ -131,6 +174,39 @@ final class RootCertificateRecoveryTests: XCTestCase {
         XCTAssertNil(root.certificateRecovery.reading.presentedPin)
         XCTAssertNil(root.displayedDNSProblem)
         XCTAssertEqual(root.certificateRecovery.trigger, .settingsChanged)
+    }
+}
+
+extension RootCertificateRecoveryTests {
+    private func changedCertificate() -> PiholeClient {
+        PiholeClient(
+            transport: ScriptedPiholeTransport(steps: [.fail(.certificateChanged)]),
+            password: { "FAKE_password" }
+        )
+    }
+
+    private func presentedPin(_ pin: String) -> PresentedPinBox {
+        let box = PresentedPinBox()
+        box.record(pin)
+        return box
+    }
+
+    private func assertKeptPromptStaysDown(
+        _ root: RootView, presented: String?, stored: PiholeProblem
+    ) async throws {
+        if let presented {
+            root.dnsSession.presented = self.presentedPin(presented)
+        } else {
+            root.dnsSession.presented = nil
+        }
+        let board = await root.refresh(
+            changedCertificate(), now: .streetFixtureNow, secrets: MemorySecretStore()
+        )
+        XCTAssertEqual(board.problem, stored)
+        root.apply(board)
+        XCTAssertNil(root.displayedDNSProblem)
+        XCTAssertNil(root.certificateRecovery.dnsProblem)
+        XCTAssertEqual(root.certificateRecovery.declinedPin, fakePin)
     }
 }
 
