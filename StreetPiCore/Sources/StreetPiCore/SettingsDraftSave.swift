@@ -17,8 +17,7 @@ public enum SettingsDraftSave {
     public static func decide(basis: String, current: String, draftIsCopy: Bool) -> Decision {
         let olderCopy = current != basis && draftIsCopy
         if olderCopy {
-            // Today the older copy still replaces the newer save.
-            return .write
+            return .keepSaved
         }
         return .write
     }

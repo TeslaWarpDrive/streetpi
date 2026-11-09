@@ -9,11 +9,22 @@ struct AwayGatewayForm {
     var onSave: (String, String, String) -> AwayGatewaySaveResult = { _, _, _ in .failed }
     var onRemove: () -> AwayGatewaySaveResult = { .failed }
     var onEnabled: (Bool) -> Void = { _ in }
+    /// The away-key save count, read when a screen saves, so the other Settings screen sees a newer key.
+    var savedStamp: () -> Int = { 0 }
 }
 
 extension AwayKeyDraft {
     /// The rejected-key card saves through the same form the away section uses.
+    /// An incomplete older copy still asks for both values before the newer key is left in place.
     mutating func save(with form: AwayGatewayForm) {
+        guard AwayKeyReplace.canSave(replacing: true, clientID: clientID, secret: secret) else {
+            note = AwayGatewaySaveResult.missingCredentials.note
+            return
+        }
+        if copy.decision(clientID: clientID, secret: secret, stamp: form.savedStamp()) == .keepSaved {
+            note = SettingsDraftSave.keptKeyNote
+            return
+        }
         save(address: form.address, onSave: form.onSave)
     }
 }
@@ -35,6 +46,7 @@ extension AwayGatewaySettings {
 struct AwayGatewayStore: @unchecked Sendable {
     private static let enabledKey = "settings.away.gatewayEnabled"
     private static let seedHandledKey = "settings.away.gatewaySeedHandled"
+    private static let stampKey = "settings.away.gatewayStamp"
 
     private let store: any SecretStoring
     private let defaults: UserDefaults
@@ -67,6 +79,11 @@ struct AwayGatewayStore: @unchecked Sendable {
         load()?.origin ?? ""
     }
 
+    /// How many times the saved key itself has changed. An address-only save does not count.
+    var stamp: Int {
+        defaults.integer(forKey: Self.stampKey)
+    }
+
     /// Empty credential fields keep the saved ones, so the address can change on its own.
     func save(address: String, clientID: String, secret: String) -> AwayGatewaySaveResult {
         let current = load()
@@ -86,6 +103,10 @@ struct AwayGatewayStore: @unchecked Sendable {
             return .failed
         }
         defaults.set(true, forKey: Self.seedHandledKey)
+        let keyChanged = current?.clientID != settings.clientID || current?.clientSecret != settings.clientSecret
+        if keyChanged {
+            bumpStamp()
+        }
         return .saved
     }
 
@@ -96,7 +117,12 @@ struct AwayGatewayStore: @unchecked Sendable {
             return .failed
         }
         defaults.set(true, forKey: Self.seedHandledKey)
+        bumpStamp()
         return .saved
+    }
+
+    private func bumpStamp() {
+        defaults.set(stamp + 1, forKey: Self.stampKey)
     }
 
     /// Fills an empty phone from the build, once. A failed save tries again next launch.

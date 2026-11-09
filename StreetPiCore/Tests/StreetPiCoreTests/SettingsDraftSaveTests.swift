@@ -12,11 +12,11 @@ final class SettingsDraftSaveTests: XCTestCase {
 
     /// House Settings and the Settings tab each hold a copy. This is the copy that has not moved.
     private let olderCopy = Row(
-        name: "an older copy replaces a newer save",
+        name: "an older copy leaves a newer save",
         basis: "pin-before",
         current: "pin-after",
         draftIsCopy: true,
-        decision: .write
+        decision: .keepSaved
     )
 
     private let preserved: [Row] = [

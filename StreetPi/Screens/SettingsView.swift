@@ -21,6 +21,8 @@ struct SettingsView: View {
 
     @State private var address: String
     @State private var pin: String
+    /// The pin this screen copied. The other Settings screen, or Trust, may have saved a newer one.
+    @State private var pinBasis: String
     @State private var note: String
     @State private var pageAddress: String
     @State private var slug: String
@@ -61,8 +63,11 @@ struct SettingsView: View {
         self.onSaveMailbox = onSaveMailbox
         self.onRemoveMailbox = onRemoveMailbox
         self.gatewayForm = gatewayForm
-        _address = State(initialValue: LiveHostStore().piholeText())
-        _pin = State(initialValue: LiveHostStore().pinText())
+        let hosts = LiveHostStore()
+        let storedPin = hosts.pinText()
+        _address = State(initialValue: hosts.piholeText())
+        _pin = State(initialValue: storedPin)
+        _pinBasis = State(initialValue: storedPin)
         _note = State(initialValue: "")
         _pageAddress = State(initialValue: statusAddress)
         _slug = State(initialValue: statusSlug)
@@ -136,8 +141,10 @@ struct SettingsView: View {
             let hosts = LiveHostStore()
             address = hosts.piholeText()
             pin = hosts.pinText()
+            pinBasis = pin
             pageAddress = statusAddress
             slug = statusSlug
+            keyDraft.acknowledge(stamp: gatewayForm.savedStamp())
         }
         .onDisappear { keyDraft.saved = false }
         .onChange(of: awayKeyNotice) { _, notice in
@@ -146,6 +153,8 @@ struct SettingsView: View {
         .onChange(of: keyDraft.showsForm(notice: awayKeyNotice)) {
             keyDraft.settle(notice: awayKeyNotice)
         }
+        .onChange(of: keyDraft.clientID) { _, _ in keyDraft.noteTyping(stamp: gatewayForm.savedStamp()) }
+        .onChange(of: keyDraft.secret) { _, _ in keyDraft.noteTyping(stamp: gatewayForm.savedStamp()) }
     }
 
     private var keySavedLine: some View {
@@ -203,13 +212,17 @@ struct SettingsView: View {
             note = "Use an https address on port 443, ending in /api."
             return
         }
+        let savedPin = hosts.pinText()
+        let pinDecision = SettingsDraftSave.decision(seen: pinBasis, draft: pin, saved: savedPin)
         do {
             try hosts.save(
                 pihole: trimmedAddress,
                 netdata: hosts.netdataText(),
                 uptimeKuma: hosts.uptimeKumaText()
             )
-            try hosts.savePin(pin)
+            if pinDecision == .write {
+                try hosts.savePin(pin)
+            }
         } catch LiveHostError.invalidPin {
             note = "That pin does not look right."
             return
@@ -217,7 +230,14 @@ struct SettingsView: View {
             note = "Those settings could not be saved on this phone."
             return
         }
-        note = "Saved."
+        if pinDecision == .keepSaved {
+            pin = savedPin
+            pinBasis = savedPin
+            note = SettingsDraftSave.keptPinNote
+        } else {
+            pinBasis = hosts.pinText()
+            note = "Saved."
+        }
         onSaved()
     }
 
