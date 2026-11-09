@@ -34,6 +34,26 @@ final class AwayNoticeRecoveryTests: XCTestCase {
         XCTAssertTrue(ConnectionMode.offline.looksAgain(readFailed: false, keyRejected: false))
     }
 
+    /// The badge stays "Can't reach the Pi" on this road. One row changes: a read that
+    /// worked stays off the house. A miss still shows, and every other road paints both.
+    func testOnlyAnOfflineSuccessStaysOffTheHouse() throws {
+        let gateway = try gateway()
+        let mailbox = try mailbox()
+        let rows = [
+            PaintRow(mode: .home, succeeded: true, paints: true),
+            PaintRow(mode: .home, succeeded: false, paints: true),
+            PaintRow(mode: .awayLive(gateway), succeeded: true, paints: true),
+            PaintRow(mode: .awayLive(gateway), succeeded: false, paints: true),
+            PaintRow(mode: .awayMailbox(mailbox), succeeded: true, paints: true),
+            PaintRow(mode: .awayMailbox(mailbox), succeeded: false, paints: true),
+            PaintRow(mode: .offline, succeeded: false, paints: true),
+            PaintRow(mode: .offline, succeeded: true, paints: false),
+        ]
+        for row in rows {
+            XCTAssertEqual(row.mode.paintsHouse(readSucceeded: row.succeeded), row.paints)
+        }
+    }
+
     func testHomeStaysPutOnAGoodRead() {
         XCTAssertFalse(ConnectionMode.home.looksAgain(readFailed: false, keyRejected: false))
     }
@@ -41,4 +61,10 @@ final class AwayNoticeRecoveryTests: XCTestCase {
     func testAHealthyLiveGatewayKeepsLookingForHome() throws {
         XCTAssertTrue(ConnectionMode.awayLive(try gateway()).looksAgain(readFailed: false, keyRejected: false))
     }
+}
+
+private struct PaintRow {
+    var mode: ConnectionMode
+    var succeeded: Bool
+    var paints: Bool
 }

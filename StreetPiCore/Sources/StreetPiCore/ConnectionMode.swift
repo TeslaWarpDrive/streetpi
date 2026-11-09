@@ -32,6 +32,13 @@ public enum ConnectionMode: Sendable, Equatable {
         return readFailed || keyRejected || self == .offline
     }
 
+    /// Offline keeps the last house on screen. A read that worked stays off it until a probe
+    /// leaves that road, so the house cannot look live under "Can't reach the Pi".
+    /// A missed read can still land. Every other road shows the read it just got.
+    public func paintsHouse(readSucceeded: Bool) -> Bool {
+        self != .offline || readSucceeded == false
+    }
+
     /// Only the mailbox holds actions back. Face ID is decided by `ActionPolicy` in every mode.
     public func allows(_ action: HouseholdAction) -> Bool {
         if case .awayMailbox = self { return AwayGate.allows(action) }
