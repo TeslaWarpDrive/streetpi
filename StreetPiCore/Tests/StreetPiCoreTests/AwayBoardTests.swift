@@ -246,6 +246,38 @@ final class AwayBoardTests: XCTestCase {
         XCTAssertEqual(generatedAt, session.latest?.generatedAt)
     }
 
+    func testARefusedTokenKeepsTheReportAndOpensSettings() async throws {
+        let good = try replies()
+        var session = try await AwaySession().refreshed(using: client(good), now: now)
+        let kept = try XCTUnwrap(session.latest)
+        XCTAssertFalse(session.status.badge(now: now).offersSetup)
+
+        var refused = good
+        refused.latest = MailboxReply(status: 401, body: Data())
+        let later = now.addingTimeInterval(15)
+        session = try await session.refreshed(using: client(refused), now: later)
+        XCTAssertEqual(session.latest, kept)
+        XCTAssertEqual(session.problem, .refused)
+        let badge = session.status.badge(now: later)
+        XCTAssertTrue(badge.offersSetup)
+        XCTAssertEqual(badge.detail, "The mailbox refused the read token. Check Settings.")
+    }
+
+    func testASavedReportStillHidesSettingsForOtherMailboxFailures() async throws {
+        let good = try replies()
+        let saved = try await AwaySession().refreshed(using: client(good), now: now)
+        let later = now.addingTimeInterval(15)
+        let failures: [(Int, MailboxProblem)] = [(404, .wrongAddress), (500, .offline)]
+        for (status, problem) in failures {
+            var bad = good
+            bad.latest = MailboxReply(status: status, body: Data())
+            let session = try await saved.refreshed(using: client(bad), now: later)
+            XCTAssertEqual(session.latest, saved.latest)
+            XCTAssertEqual(session.problem, problem)
+            XCTAssertFalse(session.status.badge(now: later).offersSetup)
+        }
+    }
+
     func testNoReportYetKeepsWaiting() async throws {
         var transport = try replies()
         transport.latest = MailboxReply(status: 204, body: Data())

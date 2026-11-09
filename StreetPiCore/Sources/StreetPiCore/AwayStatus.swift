@@ -123,21 +123,23 @@ public enum AwayStatus: Sendable, Equatable {
     private func badge(freshness: AwayFreshness, problem: MailboxProblem?, note: String?) -> AwayBadge {
         let detail = problem.map(AwayCopy.problem) ?? note
         let spoken = [freshness.spoken, detail].compactMap { $0 }.joined(separator: " ")
+        // A saved report keeps its age. Only a refused token still opens Settings.
+        let offersSetup = problem == .refused
         switch freshness.level {
         case .fresh:
             return AwayBadge(
                 line: freshness.line, detail: detail, tone: .calm,
-                symbol: "antenna.radiowaves.left.and.right", spoken: spoken, offersSetup: false
+                symbol: "antenna.radiowaves.left.and.right", spoken: spoken, offersSetup: offersSetup
             )
         case .stale:
             return AwayBadge(
                 line: freshness.line, detail: detail, tone: .attention,
-                symbol: "clock.badge.exclamationmark", spoken: spoken, offersSetup: false
+                symbol: "clock.badge.exclamationmark", spoken: spoken, offersSetup: offersSetup
             )
         case .silent:
             return AwayBadge(
                 line: freshness.line, detail: detail, tone: .problem,
-                symbol: "exclamationmark.triangle", spoken: spoken, offersSetup: false
+                symbol: "exclamationmark.triangle", spoken: spoken, offersSetup: offersSetup
             )
         }
     }
