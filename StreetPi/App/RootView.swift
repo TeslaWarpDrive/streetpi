@@ -450,9 +450,11 @@ struct RootView: View {
         store(currentAccess.reduce(.boardReported(problem: board.problem, readPin: offered)))
     }
 
-    /// The same declined certificate must not cover the away-live desk again.
+    /// A kept pin stays. The same certificate, and a phone that does not trust the Pi yet, must not cover the desk.
     private func repeatsDeclinedCertificate(_ board: AdBlockerBoard) -> Bool {
-        guard isAwayLive, let declined = certificateRecovery.declinedPin else { return false }
+        guard let declined = certificateRecovery.declinedPin else { return false }
+        if board.problem == .untrusted { return true }
+        guard isAwayLive else { return false }
         switch board.problem {
         case .pinKept:
             return true
