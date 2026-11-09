@@ -65,7 +65,19 @@ struct BlockerCard: View {
     }
 
     /// One line when it fits. A narrow card uses the shorter wording before it wraps.
+    /// Largest type keeps the full phrase and wraps it, instead of the short form.
+    @ViewBuilder
     private var windowLabel: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            windowText("Ad blocker · last 24 hours")
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            fittingWindow
+        }
+    }
+
+    private var fittingWindow: some View {
         ViewThatFits(in: .horizontal) {
             windowText("Ad blocker · last 24 hours")
                 .fixedSize(horizontal: true, vertical: true)

@@ -71,6 +71,7 @@ struct SettingsView: View {
 
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.awayKeyNotice) private var awayKeyNotice
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         ControlScreen(wide: sizeClass == .regular) {
@@ -169,12 +170,7 @@ struct SettingsView: View {
             Text("Address")
                 .font(.subheadline)
                 .foregroundStyle(theme.secondary)
-            TextField("https://192.168.1.78/api", text: $address)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .keyboardType(.URL)
-                .font(.body)
-                .foregroundStyle(theme.ink)
+            addressEntry
             Text("Security pin")
                 .font(.subheadline)
                 .foregroundStyle(theme.secondary)
@@ -227,18 +223,7 @@ struct SettingsView: View {
                 .font(.headline)
                 .foregroundStyle(theme.ink)
                 .accessibilityAddTraits(.isHeader)
-            TextField(
-                "Pi address",
-                text: $piHost,
-                prompt: Text(LiveEndpoints.house.netdata.absoluteString).foregroundStyle(theme.tertiary)
-            )
-            .textFieldStyle(.plain)
-            .font(.body)
-            .foregroundStyle(theme.ink)
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled(true)
-            .keyboardType(.URL)
-            .submitLabel(.done)
+            piHostEntry
             .padding(Rhythm.line)
             .background {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -248,7 +233,6 @@ struct SettingsView: View {
                             .stroke(theme.hairline, lineWidth: 1)
                     }
             }
-            .onSubmit(onCommitHost)
             .accessibilityLabel("Pi address")
             Text("Charts are read from this address on your home network. Nothing here signs in.")
                 .font(.subheadline)
@@ -285,18 +269,7 @@ struct SettingsView: View {
                 .font(.subheadline)
                 .foregroundStyle(theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            TextField(
-                "Status page address",
-                text: $pageAddress,
-                prompt: Text(LiveEndpoints.house.uptimeKuma.absoluteString).foregroundStyle(theme.tertiary)
-            )
-            .textFieldStyle(.plain)
-            .font(.body)
-            .foregroundStyle(theme.ink)
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled(true)
-            .keyboardType(.URL)
-            .submitLabel(.next)
+            statusAddressEntry
             .padding(Rhythm.line)
             .background { plate }
             .accessibilityLabel("Status page address")
@@ -344,6 +317,81 @@ struct SettingsView: View {
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
         guard short.isEmpty == false, build.isEmpty == false else { return "Raspberry Pi Stats" }
         return "Version \(short) (\(build))"
+    }
+}
+
+extension SettingsView {
+    /// The example address wraps at the largest text size. Smaller type keeps the one-line field.
+    @ViewBuilder
+    private var addressEntry: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            LargeTypeEntry(
+                prompt: "https://192.168.1.78/api",
+                text: $address,
+                ink: theme.ink,
+                promptInk: theme.tertiary
+            )
+        } else {
+            TextField("https://192.168.1.78/api", text: $address)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+                .font(.body)
+                .foregroundStyle(theme.ink)
+        }
+    }
+
+    /// A saved address wraps at the largest text size instead of ending in an ellipsis.
+    @ViewBuilder
+    private var piHostEntry: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            LargeTypeEntry(
+                prompt: LiveEndpoints.house.netdata.absoluteString,
+                text: $piHost,
+                ink: theme.ink,
+                promptInk: theme.tertiary,
+                onSubmit: onCommitHost
+            )
+        } else {
+            TextField(
+                "Pi address",
+                text: $piHost,
+                prompt: Text(LiveEndpoints.house.netdata.absoluteString).foregroundStyle(theme.tertiary)
+            )
+            .textFieldStyle(.plain)
+            .font(.body)
+            .foregroundStyle(theme.ink)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled(true)
+            .keyboardType(.URL)
+            .submitLabel(.done)
+            .onSubmit(onCommitHost)
+        }
+    }
+
+    @ViewBuilder
+    private var statusAddressEntry: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            LargeTypeEntry(
+                prompt: LiveEndpoints.house.uptimeKuma.absoluteString,
+                text: $pageAddress,
+                ink: theme.ink,
+                promptInk: theme.tertiary
+            )
+        } else {
+            TextField(
+                "Status page address",
+                text: $pageAddress,
+                prompt: Text(LiveEndpoints.house.uptimeKuma.absoluteString).foregroundStyle(theme.tertiary)
+            )
+            .textFieldStyle(.plain)
+            .font(.body)
+            .foregroundStyle(theme.ink)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled(true)
+            .keyboardType(.URL)
+            .submitLabel(.next)
+        }
     }
 }
 
