@@ -47,6 +47,33 @@ final class SettingsCopyTests: XCTestCase {
         XCTAssertEqual(gate.clientID, "fresh.access")
         XCTAssertEqual(gate.secret, "older-copy")
     }
+
+    func testAPairTypedAfterThisCardSavesDoesNotReplaceANewerKey() {
+        let gate = StampGate(stamp: 1)
+        var card = AwayKeyDraft()
+        card.acknowledge(stamp: gate.stamp)
+        card.clientID = "first.access"
+        card.secret = "first-copy"
+        card.noteTyping(stamp: gate.stamp)
+        card.save(with: gate.form())
+        XCTAssertEqual(gate.writes, 1)
+        XCTAssertTrue(card.saved)
+        XCTAssertEqual(card.clientID, "")
+        XCTAssertEqual(card.secret, "")
+
+        card.clientID = "second.access"
+        card.secret = "second-copy"
+        card.noteTyping(stamp: gate.stamp)
+        gate.stamp += 1
+        card.acknowledge(stamp: gate.stamp)
+        card.save(with: gate.form())
+        XCTAssertEqual(gate.writes, 1)
+        XCTAssertEqual(card.note, SettingsDraftSave.keptKeyNote)
+        XCTAssertEqual(card.clientID, "second.access")
+        XCTAssertEqual(card.secret, "second-copy")
+        XCTAssertEqual(gate.clientID, "first.access")
+        XCTAssertEqual(gate.secret, "first-copy")
+    }
 }
 
 private final class StampGate {

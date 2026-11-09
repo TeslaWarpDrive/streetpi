@@ -19,7 +19,7 @@ final class AwaySectionDraftTests: XCTestCase {
         house.secret = "working-copy"
         house.noteTyping(stamp: 1)
         XCTAssertEqual(
-            house.save(address: "https://gateway.example.test", replacing: true, stamp: 1, onSave: save),
+            house.save(address: "https://gateway.example.test", replacing: true, stamp: { 1 }, onSave: save),
             .wrote(.saved)
         )
         XCTAssertEqual(writes, 1)
@@ -32,7 +32,7 @@ final class AwaySectionDraftTests: XCTestCase {
         tab.secret = "older-copy"
         tab.noteTyping(stamp: 1)
         XCTAssertEqual(
-            tab.save(address: "https://gateway.example.test", replacing: true, stamp: 2, onSave: save),
+            tab.save(address: "https://gateway.example.test", replacing: true, stamp: { 2 }, onSave: save),
             .kept
         )
         XCTAssertEqual(writes, 1)
@@ -53,9 +53,56 @@ final class AwaySectionDraftTests: XCTestCase {
             return .saved
         }
         let outcome = tab.save(
-            address: "https://moved.example.test", replacing: false, stamp: 2, onSave: save
+            address: "https://moved.example.test", replacing: false, stamp: { 2 }, onSave: save
         )
         XCTAssertEqual(outcome, .wrote(.saved))
         XCTAssertEqual(address, "https://moved.example.test")
+    }
+
+    func testAPairTypedAfterThisSectionsSaveDoesNotReplaceANewerKey() {
+        var stamp = 1
+        var stored = (clientID: "", secret: "")
+        var writes = 0
+        let save: (String, String, String) -> AwayGatewaySaveResult = { _, clientID, secret in
+            writes += 1
+            stored = (clientID, secret)
+            if clientID.isEmpty == false || secret.isEmpty == false {
+                stamp += 1
+            }
+            return .saved
+        }
+
+        var section = AwaySectionDraft()
+        section.acknowledge(stamp: stamp)
+        section.clientID = "first.access"
+        section.secret = "first-copy"
+        section.noteTyping(stamp: stamp)
+        XCTAssertEqual(
+            section.save(
+                address: "https://gateway.example.test", replacing: true, stamp: { stamp }, onSave: save
+            ),
+            .wrote(.saved)
+        )
+        XCTAssertEqual(section.clientID, "")
+        XCTAssertEqual(section.secret, "")
+
+        section.clientID = "second.access"
+        section.secret = "second-copy"
+        section.noteTyping(stamp: stamp)
+        stamp += 1
+        let newer = (clientID: "other.access", secret: "other-copy")
+        stored = newer
+        section.acknowledge(stamp: stamp)
+        XCTAssertEqual(
+            section.save(
+                address: "https://gateway.example.test", replacing: true, stamp: { stamp }, onSave: save
+            ),
+            .kept
+        )
+        XCTAssertEqual(writes, 1)
+        XCTAssertEqual(section.clientID, "second.access")
+        XCTAssertEqual(section.secret, "second-copy")
+        XCTAssertEqual(stored.clientID, newer.clientID)
+        XCTAssertEqual(stored.secret, newer.secret)
     }
 }

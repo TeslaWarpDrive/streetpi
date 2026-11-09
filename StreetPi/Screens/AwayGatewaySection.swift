@@ -140,7 +140,7 @@ struct AwayGatewaySection: View {
         switch entry.save(
             address: address,
             replacing: replacingKey,
-            stamp: form.savedStamp(),
+            stamp: form.savedStamp,
             onSave: form.onSave
         ) {
         case .kept:

@@ -89,9 +89,11 @@ public struct AwayKeyDraft: Sendable, Equatable {
         copy.typed(clientID: clientID, secret: secret, stamp: stamp)
     }
 
-    /// Both new values are required. A failed save keeps what was typed. A saved key replaces the draft.
+    /// Both new values are required. A failed save keeps what was typed.
+    /// A saved key replaces the draft, then the basis catches up to the stamp so the next pair is recorded.
     public mutating func save(
         address: String,
+        stamp: () -> Int = { 0 },
         onSave: (String, String, String) -> AwayGatewaySaveResult
     ) {
         guard AwayKeyReplace.canSave(replacing: true, clientID: clientID, secret: secret) else {
@@ -104,5 +106,6 @@ public struct AwayKeyDraft: Sendable, Equatable {
             return
         }
         self = AwayKeyDraft(saved: true)
+        acknowledge(stamp: stamp())
     }
 }

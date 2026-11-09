@@ -25,7 +25,7 @@ extension AwayKeyDraft {
             note = SettingsDraftSave.keptKeyNote
             return
         }
-        save(address: form.address, onSave: form.onSave)
+        save(address: form.address, stamp: form.savedStamp, onSave: form.onSave)
     }
 }
 

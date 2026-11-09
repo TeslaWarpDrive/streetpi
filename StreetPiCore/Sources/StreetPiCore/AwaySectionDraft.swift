@@ -33,20 +33,22 @@ public struct AwaySectionDraft: Sendable, Equatable {
     public mutating func save(
         address: String,
         replacing: Bool,
-        stamp: Int,
+        stamp: () -> Int,
         onSave: (String, String, String) -> AwayGatewaySaveResult
     ) -> Outcome {
         guard AwayKeyReplace.canSave(replacing: replacing, clientID: clientID, secret: secret) else {
             return .wrote(.missingCredentials)
         }
+        let seen = stamp()
         let writingPair = clientID.isEmpty == false || secret.isEmpty == false
-        if writingPair, copy.decision(clientID: clientID, secret: secret, stamp: stamp) == .keepSaved {
+        if writingPair, copy.decision(clientID: clientID, secret: secret, stamp: seen) == .keepSaved {
             return .kept
         }
         let result = onSave(address, clientID, secret)
         if result == .saved {
             clientID = ""
             secret = ""
+            copy.appeared(clientID: "", secret: "", stamp: stamp())
         }
         return .wrote(result)
     }
