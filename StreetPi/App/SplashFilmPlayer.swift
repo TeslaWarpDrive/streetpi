@@ -1,4 +1,5 @@
 import AVFoundation
+import StreetPiCore
 import SwiftUI
 import UIKit
 
@@ -52,13 +53,31 @@ final class SplashPlayerModel {
     }
 
     private func reachedEnd(of item: AVPlayerItem, sawPlayback: Bool, started: Date) -> Bool {
-        guard item.duration.isNumeric else { return false }
-        if Date().timeIntervalSince(started) > item.duration.seconds + 3 { return true }
-        guard sawPlayback else { return false }
-        let remaining = CMTimeSubtract(item.duration, item.currentTime())
-        guard remaining.isNumeric else { return false }
-        if remaining.seconds <= 0.05 { return true }
-        return remaining.seconds <= 0.2 && player.timeControlStatus != .playing
+        let duration = item.duration.isNumeric ? item.duration.seconds : nil
+        let gap = CMTimeSubtract(item.duration, item.currentTime())
+        let remaining = gap.isNumeric ? gap.seconds : nil
+        return LaunchFilmPlayback.reachedEnd(
+            duration: duration,
+            elapsed: Date().timeIntervalSince(started),
+            remaining: remaining,
+            sawPlayback: sawPlayback,
+            transport: .init(player.timeControlStatus)
+        )
+    }
+}
+
+private extension LaunchFilmPlayback.Transport {
+    init(_ status: AVPlayer.TimeControlStatus) {
+        switch status {
+        case .playing:
+            self = .playing
+        case .paused:
+            self = .paused
+        case .waitingToPlayAtSpecifiedRate:
+            self = .waiting
+        @unknown default:
+            self = .waiting
+        }
     }
 }
 

@@ -23,13 +23,13 @@ public enum LaunchFilmHandoff: Sendable, Equatable {
 
     /// Skip, the end, a missing file, and the still hold finish.
     /// Backgrounding finishes too. A paused film never starts again.
-    /// A cancelled wait stays, and a second cue does nothing.
+    /// A cancelled wait finishes while the film is still up, and a second cue does nothing.
     public static func step(_ cue: LaunchFilmCue, alreadyFinished: Bool) -> LaunchFilmHandoff {
         guard !alreadyFinished else { return .stay }
         switch cue {
-        case .tap, .playbackEnded, .missingFilm, .stillHeld, .scene(.background):
+        case .tap, .playbackEnded, .missingFilm, .stillHeld, .scene(.background), .sleepCancelled:
             return .finish
-        case .scene(.active), .scene(.inactive), .sleepCancelled:
+        case .scene(.active), .scene(.inactive):
             return .stay
         }
     }
