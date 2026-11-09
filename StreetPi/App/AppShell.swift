@@ -17,7 +17,6 @@ struct AppShell: View {
     var dnsProblem: PiholeProblem?
     var sessionActive: Bool = false
     var trustNote: String?
-    var offersSetup = false
     var onTrustNewCertificate: () -> Void = {}
     var onKeepSavedPin: () -> Void = {}
     var onSettingsSaved: () -> Void = {}
@@ -71,7 +70,6 @@ struct AppShell: View {
         dnsProblem: PiholeProblem? = nil,
         sessionActive: Bool = false,
         trustNote: String? = nil,
-        offersSetup: Bool = false,
         onTrustNewCertificate: @escaping () -> Void = {},
         onKeepSavedPin: @escaping () -> Void = {},
         onSettingsSaved: @escaping () -> Void = {},
@@ -117,7 +115,6 @@ struct AppShell: View {
         self.dnsProblem = dnsProblem
         self.sessionActive = sessionActive
         self.trustNote = trustNote
-        self.offersSetup = offersSetup
         self.onTrustNewCertificate = onTrustNewCertificate
         self.onKeepSavedPin = onKeepSavedPin
         self.onSettingsSaved = onSettingsSaved
@@ -237,6 +234,15 @@ struct AppShell: View {
         awayStatus?.isAway == true
     }
 
+    /// The saved password and the ask decide the form. Callers cannot pass a contradictory offer.
+    private var setupCover: SetupCover {
+        SetupCover(passwordSaved: passwordSaved, userAsked: showsSetup)
+    }
+
+    private var offersSetup: Bool {
+        SetupCover.offersSetup(passwordSaved: passwordSaved)
+    }
+
     private func page(_ tab: HouseTab) -> some View {
         VStack(spacing: 0) {
             if let awayStatus {
@@ -276,21 +282,6 @@ struct AppShell: View {
                             .background(theme.background.ignoresSafeArea())
                             .navigationBarTitleDisplayMode(.inline)
                             .toolbar(.visible, for: .navigationBar)
-                            .sheet(
-                                isPresented: Binding(
-                                    get: { destination == .devices && showsSetup },
-                                    set: { if !$0 { onSetupCancel() } }
-                                ),
-                                onDismiss: onSetupCancel
-                            ) {
-                                PiholeSetupView(
-                                    theme: theme, wide: false, trustNote: trustNote,
-                                    onSave: onSetupSave, onCancel: onSetupCancel
-                                )
-                                .presentationDragIndicator(.visible)
-                                .presentationBackground(theme.background)
-                                .interactiveDismissDisabled()
-                            }
                     }
             }
         }
@@ -371,15 +362,30 @@ struct AppShell: View {
         roomPath.append(.devices)
     }
 
+    /// Settings and Clients open the Ad blocker tab. That tab is the only setup presenter.
+    private func askForSetup(from ask: SetupCover.Ask) {
+        let request = SetupCover.request(from: ask)
+        if request.openAdBlockerTab {
+            onSection(.group(.adBlockerAndDNS))
+        }
+        if request.showForm {
+            onSavePassword()
+        }
+    }
+
     @ViewBuilder
     private func homeDetail(_ destination: HomeDestination, wide: Bool) -> some View {
         switch destination {
         case .devices:
             if let dnsProblem {
                 DNSProblemView(
-                    problem: dnsProblem, theme: theme, wide: wide,
-                    offersSetup: offersSetup, onSavePassword: onSavePassword,
-                    onTrustNewCertificate: onTrustNewCertificate, onKeepSavedPin: onKeepSavedPin
+                    problem: dnsProblem,
+                    theme: theme,
+                    wide: wide,
+                    offersSetup: offersSetup,
+                    onSavePassword: { askForSetup(from: .clients) },
+                    onTrustNewCertificate: onTrustNewCertificate,
+                    onKeepSavedPin: onKeepSavedPin
                 )
                 .navigationTitle("Clients")
             } else {
@@ -422,7 +428,7 @@ struct AppShell: View {
     private func adBlocker(wide: Bool) -> some View {
         NavigationStack {
             VStack(spacing: 0) {
-                if wide == false, dnsPage != nil, showsSetup == false, dnsProblem == nil {
+                if wide == false, dnsPage != nil, setupCover.isShowing == false, dnsProblem == nil {
                     NestedBack(title: "Ad blocker") { onDNSPage(nil) }
                 }
                 DNSDeskDetail(
@@ -434,16 +440,15 @@ struct AppShell: View {
                     now: now,
                     passwordSaved: passwordSaved,
                     sessionActive: sessionActive,
-                    showsSetup: showsSetup,
+                    cover: setupCover,
                     problem: dnsProblem,
                     trustNote: trustNote,
-                    offersSetup: offersSetup,
                     onTrustNewCertificate: onTrustNewCertificate,
                     onKeepSavedPin: onKeepSavedPin,
                     actionNotice: actionNotice,
                     onPage: onDNSPage,
                     onPending: onPending,
-                    onSavePassword: onSavePassword,
+                    onSavePassword: { askForSetup(from: .adBlockerTab) },
                     onSetupSave: onSetupSave,
                     onSetupCancel: onSetupCancel
                 )
@@ -543,10 +548,7 @@ private extension AppShell {
         SettingsView(
             theme: theme,
             passwordSaved: passwordSaved,
-            onPasswordSetup: {
-                onSection(.group(.adBlockerAndDNS))
-                onSavePassword()
-            },
+            onPasswordSetup: { askForSetup(from: .settings) },
             onSignOut: { onPending(.signOutOfAdBlocker) },
             piHost: piHost,
             hostNote: hostNote,

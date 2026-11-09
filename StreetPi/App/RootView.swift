@@ -143,7 +143,6 @@ struct RootView: View {
             dnsProblem: displayedDNSProblem,
             sessionActive: dnsSession.signedIn,
             trustNote: setupTrustNote,
-            offersSetup: !passwordSaved,
             onTrustNewCertificate: { trustPresentedPin() },
             onKeepSavedPin: keepSavedPin,
             onSettingsSaved: {

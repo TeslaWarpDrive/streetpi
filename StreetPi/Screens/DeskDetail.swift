@@ -12,10 +12,9 @@ struct DNSDeskDetail: View {
     var now: Date
     var passwordSaved: Bool
     var sessionActive: Bool
-    var showsSetup: Bool
+    var cover: SetupCover
     var problem: PiholeProblem?
     var trustNote: String?
-    var offersSetup = false
     var onTrustNewCertificate: () -> Void = {}
     var onKeepSavedPin: () -> Void = {}
     var actionNotice: ActionNotice?
@@ -28,7 +27,8 @@ struct DNSDeskDetail: View {
     @Environment(\.streetPiStill) private var still
 
     var body: some View {
-        if showsSetup {
+        // The Ad blocker tab is the only setup presenter. Clients and Settings open this tab.
+        if cover.isShowing {
             if still {
                 setup
             } else {
@@ -45,7 +45,7 @@ struct DNSDeskDetail: View {
                 problem: problem,
                 theme: theme,
                 wide: wide,
-                offersSetup: offersSetup,
+                offersSetup: SetupCover.offersSetup(passwordSaved: passwordSaved),
                 onSavePassword: onSavePassword,
                 onTrustNewCertificate: onTrustNewCertificate,
                 onKeepSavedPin: onKeepSavedPin
