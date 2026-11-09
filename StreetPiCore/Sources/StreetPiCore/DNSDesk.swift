@@ -254,6 +254,39 @@ extension DNSDesk {
         return desk
     }
 
+    /// Offline withholds a log half that succeeded. A miss writes that half's note and leaves its feed unpublished.
+    /// Every other road keeps the assignments it had before.
+    public func applyingLiveLog(
+        queries: LiveLogFeed,
+        liveNote: String?,
+        text: TextLogFeed,
+        textNote: String?,
+        mode: ConnectionMode
+    ) -> DNSDesk {
+        var next = self
+        guard mode.paintsHouse(readSucceeded: true) else {
+            if let liveNote {
+                next.liveReadNote = liveNote
+            }
+            if let textNote {
+                next.textLogReadNote = textNote
+            }
+            return next
+        }
+        let merged = LiveLogFeed(queries: liveFeed ?? []).applying(queries.queries)
+        next.liveFeed = merged.queries
+        next.liveReadNote = merged.queries.isEmpty ? liveNote : nil
+        next.textLogLines = text.lines
+        if textNote == nil {
+            next.textLogFileEnabled = text.fileEnabled
+            next.textLogKnown = true
+            next.textLogReadNote = nil
+        } else {
+            next.textLogReadNote = textNote
+        }
+        return next
+    }
+
     public var blockingLine: String {
         if let spokenLine, !spokenLine.isEmpty {
             return spokenLine

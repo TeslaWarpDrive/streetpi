@@ -54,6 +54,93 @@ final class AwayNoticeRecoveryTests: XCTestCase {
         }
     }
 
+    /// A successful log half stays off the desk while the badge says the Pi is out of reach.
+    /// A miss on the other half, or a later miss that returns the withheld feed, still must not publish it.
+    func testAnOfflineLogSuccessStaysOffTheDesk() throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let older = DNSQuery(id: "1", domain: "old.example.test", client: "Kitchen", outcome: .allowed, at: now)
+        let fresh = DNSQuery(
+            id: "9", domain: "news.example.test", client: "Kitchen", outcome: .allowed, at: now.addingTimeInterval(5)
+        )
+        let liveMiss = "The live log could not be read."
+        let textMiss = "The text log could not be read."
+        let desk = DNSDesk.quiet
+
+        let liveSucceeded = desk.applyingLiveLog(
+            queries: LiveLogFeed(queries: [fresh]),
+            liveNote: nil,
+            text: TextLogFeed(lines: ["gravity updated"], fileEnabled: true),
+            textNote: textMiss,
+            mode: .offline
+        )
+        XCTAssertNil(liveSucceeded.liveFeed)
+        XCTAssertNil(liveSucceeded.liveReadNote)
+        XCTAssertEqual(liveSucceeded.textLogLines, [])
+        XCTAssertFalse(liveSucceeded.textLogKnown)
+        XCTAssertFalse(liveSucceeded.textLogFileEnabled)
+        XCTAssertEqual(liveSucceeded.textLogReadNote, textMiss)
+
+        let textSucceeded = desk.applyingLiveLog(
+            queries: LiveLogFeed(queries: [fresh]),
+            liveNote: liveMiss,
+            text: TextLogFeed(lines: ["gravity updated"], fileEnabled: true),
+            textNote: nil,
+            mode: .offline
+        )
+        XCTAssertNil(textSucceeded.liveFeed)
+        XCTAssertEqual(textSucceeded.liveReadNote, liveMiss)
+        XCTAssertEqual(textSucceeded.textLogLines, [])
+        XCTAssertFalse(textSucceeded.textLogKnown)
+        XCTAssertFalse(textSucceeded.textLogFileEnabled)
+        XCTAssertNil(textSucceeded.textLogReadNote)
+
+        var shown = DNSDesk.quiet
+        shown.liveFeed = [older]
+        shown.textLogLines = ["already shown"]
+        shown.textLogKnown = true
+        let withheld = shown.applyingLiveLog(
+            queries: LiveLogFeed(queries: [fresh, older]),
+            liveNote: nil,
+            text: TextLogFeed(lines: ["already shown", "new line"], fileEnabled: true),
+            textNote: nil,
+            mode: .offline
+        )
+        XCTAssertEqual(withheld.liveFeed, [older])
+        XCTAssertEqual(withheld.textLogLines, ["already shown"])
+        XCTAssertTrue(withheld.textLogKnown)
+        XCTAssertNil(withheld.liveReadNote)
+        XCTAssertNil(withheld.textLogReadNote)
+
+        let later = withheld.applyingLiveLog(
+            queries: LiveLogFeed(queries: [fresh, older]),
+            liveNote: LiveReadCopy.offline,
+            text: TextLogFeed(lines: ["already shown", "new line"], fileEnabled: true),
+            textNote: LiveReadCopy.offline,
+            mode: .offline
+        )
+        XCTAssertEqual(later.liveFeed, [older])
+        XCTAssertEqual(later.textLogLines, ["already shown"])
+        XCTAssertTrue(later.textLogKnown)
+        XCTAssertEqual(later.liveReadNote, LiveReadCopy.offline)
+        XCTAssertEqual(later.textLogReadNote, LiveReadCopy.offline)
+
+        for mode in [ConnectionMode.home, .awayLive(try gateway()), .awayMailbox(try mailbox())] {
+            let painted = desk.applyingLiveLog(
+                queries: LiveLogFeed(queries: [fresh]),
+                liveNote: nil,
+                text: TextLogFeed(lines: ["gravity updated"], fileEnabled: true),
+                textNote: nil,
+                mode: mode
+            )
+            XCTAssertEqual(painted.liveFeed, [fresh])
+            XCTAssertEqual(painted.textLogLines, ["gravity updated"])
+            XCTAssertTrue(painted.textLogKnown)
+            XCTAssertTrue(painted.textLogFileEnabled)
+            XCTAssertNil(painted.liveReadNote)
+            XCTAssertNil(painted.textLogReadNote)
+        }
+    }
+
     func testHomeStaysPutOnAGoodRead() {
         XCTAssertFalse(ConnectionMode.home.looksAgain(readFailed: false, keyRejected: false))
     }

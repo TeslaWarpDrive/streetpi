@@ -713,19 +713,13 @@ private extension RootView {
 
     private func applyLive(history: NetdataHistoryLoad, log: LogPull) {
         applyHistory(history)
-        let paint = mode.paintsHouse(readSucceeded: true)
-        guard paint || log.liveNote != nil || log.textNote != nil else { return }
-        let merged = LiveLogFeed(queries: desk.liveFeed ?? []).applying(log.queries.queries)
-        desk.liveFeed = merged.queries
-        desk.liveReadNote = merged.queries.isEmpty ? log.liveNote : nil
-        desk.textLogLines = log.text.lines
-        if log.textNote == nil {
-            desk.textLogFileEnabled = log.text.fileEnabled
-            desk.textLogKnown = true
-            desk.textLogReadNote = nil
-        } else {
-            desk.textLogReadNote = log.textNote
-        }
+        desk = desk.applyingLiveLog(
+            queries: log.queries,
+            liveNote: log.liveNote,
+            text: log.text,
+            textNote: log.textNote,
+            mode: mode
+        )
     }
 
     private func commitPiHost() {
