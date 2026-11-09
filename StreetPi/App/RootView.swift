@@ -549,22 +549,15 @@ private extension RootView {
 
     private func confirm(_ action: HouseholdAction) async {
         guard !sending else { return }
-        if mode.allows(action) == false {
-            actionNotice = ActionNotice(
-                title: AwayCopy.onlyAtHomeTitle,
-                detail: AwayCopy.onlyAtHomeDetail,
-                failed: false
-            )
-            pending = nil
+        let before = ActionPolicy.confirmStep(action, mode: mode, faceID: .notAsked)
+        if before == .refuse {
+            noteViewOnlyRoad()
             return
         }
         sending = true
         defer { sending = false }
-        let policy = ActionPolicy.confirmation(for: action)
-        if policy.requiresFaceID {
-            let reason = policy.explanation ?? "Confirm this change."
-            let allowed = await FaceIDGate.allow(reason: reason)
-            guard allowed else { return }
+        if before == .wait {
+            if await heldAfterFaceID(action) { return }
         }
         switch action {
         case .signOutOfAdBlocker:
@@ -589,6 +582,26 @@ private extension RootView {
                 await performLive(action)
             }
         }
+    }
+
+    private func noteViewOnlyRoad() {
+        actionNotice = ActionNotice(
+            title: AwayCopy.onlyAtHomeTitle,
+            detail: AwayCopy.onlyAtHomeDetail,
+            failed: false
+        )
+        pending = nil
+    }
+
+    /// Face ID, then the road again. Cancel and failure do not send. A mailbox clears pending.
+    private func heldAfterFaceID(_ action: HouseholdAction) async -> Bool {
+        let policy = ActionPolicy.confirmation(for: action)
+        let reason = policy.explanation ?? "Confirm this change."
+        let prompted = await FaceIDGate.prompt(reason: reason)
+        let faceID: FaceIDPrompt = pending == action ? prompted : .cancelled
+        let step = ActionPolicy.confirmStep(action, mode: mode, faceID: faceID)
+        if step == .refuse { noteViewOnlyRoad() }
+        return step != .allow
     }
 
     /// Production calls Pi-hole and shows that answer. It does not edit the fixture desk.

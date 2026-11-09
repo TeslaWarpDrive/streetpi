@@ -30,6 +30,47 @@ final class ActionPolicyTests: XCTestCase {
         XCTAssertFalse(ActionPolicy.confirmation(for: .signOutOfAdBlocker).requiresFaceID)
     }
 
+    func testMailboxAfterFaceIDRefusesTheWrite() throws {
+        let pause = HouseholdAction.pauseAdBlocking(.fiveMinutes)
+        let block = HouseholdAction.blockDomain(named: "ads.example.test")
+        let allow = HouseholdAction.allowDomain(named: "news.example.test")
+        let box = ConnectionMode.awayMailbox(try mailbox())
+        let live = ConnectionMode.awayLive(try gateway())
+        let sameRoad: [Row] = [
+            Row(action: pause, mode: .home, faceID: .notAsked, step: .wait),
+            Row(action: pause, mode: .home, faceID: .passed, step: .allow),
+            Row(action: pause, mode: .offline, faceID: .passed, step: .allow),
+            Row(action: pause, mode: live, faceID: .passed, step: .allow),
+            Row(action: block, mode: .home, faceID: .passed, step: .allow),
+            Row(action: allow, mode: .home, faceID: .passed, step: .allow),
+            Row(action: .refresh, mode: box, faceID: .notAsked, step: .allow),
+            Row(action: .signOutOfAdBlocker, mode: .home, faceID: .notAsked, step: .allow),
+            Row(action: .signOutOfAdBlocker, mode: box, faceID: .notAsked, step: .refuse),
+        ]
+        for row in sameRoad {
+            XCTAssertEqual(ActionPolicy.confirmStep(row.action, mode: row.mode, faceID: row.faceID), row.step)
+        }
+        for action in [pause, block, allow] {
+            XCTAssertEqual(ActionPolicy.confirmStep(action, mode: box, faceID: .passed), .refuse)
+            XCTAssertEqual(ActionPolicy.confirmStep(action, mode: box, faceID: .notAsked), .refuse)
+        }
+    }
+
+    /// Deny stays on wait so the sheet can stay up. Cancel and failure are not a send.
+    func testCancelOrFailedFaceIDDoesNotSend() {
+        let pause = HouseholdAction.pauseAdBlocking(.fiveMinutes)
+        let block = HouseholdAction.blockDomain(named: "ads.example.test")
+        let allow = HouseholdAction.allowDomain(named: "news.example.test")
+        for action in [pause, block, allow] {
+            XCTAssertEqual(ActionPolicy.confirmStep(action, mode: .home, faceID: .cancelled), .wait)
+            XCTAssertEqual(ActionPolicy.confirmStep(action, mode: .home, faceID: .failed), .wait)
+            XCTAssertNotEqual(ActionPolicy.confirmStep(action, mode: .home, faceID: .cancelled), .allow)
+            XCTAssertNotEqual(ActionPolicy.confirmStep(action, mode: .home, faceID: .failed), .allow)
+        }
+        XCTAssertEqual(ActionPolicy.confirmStep(pause, mode: .home, faceID: .denied), .wait)
+        XCTAssertEqual(ActionPolicy.confirmStep(pause, mode: .home, faceID: .passed), .allow)
+    }
+
     func testCopyDoesNotNameAPersonOrAPrivateAddress() throws {
         let custom = try XCTUnwrap(PauseLength(seconds: 120))
         let actions: [HouseholdAction] = [
@@ -46,5 +87,27 @@ final class ActionPolicyTests: XCTestCase {
             XCTAssertFalse(text.localizedCaseInsensitiveContains("admin"))
             XCTAssertFalse(text.contains("192.168"))
         }
+    }
+
+    private struct Row {
+        var action: HouseholdAction
+        var mode: ConnectionMode
+        var faceID: FaceIDPrompt
+        var step: ConfirmStep
+    }
+
+    private func gateway() throws -> AwayGatewaySettings {
+        try XCTUnwrap(AwayGatewaySettings(
+            url: "https://gateway.example.test",
+            clientID: "test-client.access",
+            clientSecret: "cfast_FAKE_not_a_real_secret"
+        ))
+    }
+
+    private func mailbox() throws -> MailboxSetup {
+        MailboxSetup(
+            address: try XCTUnwrap(MailboxAddress(text: "https://mailbox.example.test")),
+            token: try XCTUnwrap(MailboxToken(text: "fixture-not-a-real-read-token"))
+        )
     }
 }
