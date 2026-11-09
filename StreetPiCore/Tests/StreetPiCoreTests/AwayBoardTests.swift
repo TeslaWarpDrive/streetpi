@@ -154,13 +154,41 @@ final class AwayBoardTests: XCTestCase {
         XCTAssertEqual(monitors.tone, .attention)
     }
 
-    func testAPendingCheckStillAllowsAnAllUpCount() throws {
+    func testAnAllUpCountBesideAPendingCheckIsNotShown() throws {
         let latest = try live {
             $0.monitors?.items[0].status = .pending
         }
         let monitors = try tile(.monitors, in: AwayBoard.make(latest: latest, history: nil))
-        XCTAssertEqual(monitors.summary, "8 of 8 up")
-        XCTAssertEqual(monitors.tone, .calm)
+        XCTAssertEqual(monitors.summary, AwayCopy.noChecks)
+        XCTAssertEqual(monitors.tone, .attention)
+    }
+
+    func testAnAllUpCountBesideMaintenanceIsNotShown() throws {
+        let latest = try live {
+            $0.monitors?.items[0].status = .maintenance
+        }
+        let monitors = try tile(.monitors, in: AwayBoard.make(latest: latest, history: nil))
+        XCTAssertEqual(monitors.summary, AwayCopy.noChecks)
+        XCTAssertEqual(monitors.tone, .attention)
+    }
+
+    func testADownCountAboveTheTotalIsNotShown() throws {
+        let latest = try live {
+            $0.monitors?.down = 9
+        }
+        let monitors = try tile(.monitors, in: AwayBoard.make(latest: latest, history: nil))
+        XCTAssertEqual(monitors.summary, AwayCopy.noChecks)
+        XCTAssertEqual(monitors.tone, .attention)
+    }
+
+    func testAPendingCheckBesideAPartialCountStillShows() throws {
+        let latest = try live {
+            $0.monitors?.up = 7
+            $0.monitors?.items[0].status = .pending
+        }
+        let monitors = try tile(.monitors, in: AwayBoard.make(latest: latest, history: nil))
+        XCTAssertEqual(monitors.summary, "7 of 8 up")
+        XCTAssertEqual(monitors.tone, .attention)
     }
 
     func testACountedDownStillUsesTheCount() throws {
@@ -279,12 +307,22 @@ final class AwayBoardTests: XCTestCase {
         try Data(contentsOf: XCTUnwrap(Bundle.module.url(forResource: name, withExtension: "json")))
     }
 
-    private func markingFirstMonitorDown(_ data: Data) throws -> Data {
+    private func markingFirstMonitor(_ status: String, in data: Data) throws -> Data {
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         var monitors = try XCTUnwrap(object["monitors"] as? [String: Any])
         var items = try XCTUnwrap(monitors["items"] as? [[String: Any]])
-        items[0]["status"] = "down"
+        items[0]["status"] = status
         monitors["items"] = items
+        object["monitors"] = monitors
+        return try JSONSerialization.data(withJSONObject: object)
+    }
+
+    private func downAboveTotal(_ data: Data) throws -> Data {
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var monitors = try XCTUnwrap(object["monitors"] as? [String: Any])
+        monitors["up"] = 1
+        monitors["down"] = 9
+        monitors["total"] = 2
         object["monitors"] = monitors
         return try JSONSerialization.data(withJSONObject: object)
     }
@@ -417,7 +455,7 @@ final class AwayBoardTests: XCTestCase {
         let good = try replies()
         var session = try await AwaySession().refreshed(using: client(good), now: now)
         var bad = good
-        bad.latest = MailboxReply(status: 200, body: try markingFirstMonitorDown(good.latest.body))
+        bad.latest = MailboxReply(status: 200, body: try markingFirstMonitor("down", in: good.latest.body))
         session = try await session.refreshed(using: client(bad), now: now.addingTimeInterval(15))
         XCTAssertEqual(session.problem, .notUnderstood)
         let row = try XCTUnwrap(try tile(.monitors, in: session.board).rows.first { $0.name == "Pi-hole DNS" })
@@ -465,6 +503,40 @@ final class AwayBoardTests: XCTestCase {
         XCTAssertEqual(session.problem, .notUnderstood)
         XCTAssertEqual(session.latest?.adBlocker?.queriesToday, kept)
         XCTAssertEqual(session.board.desk.reportedQueries, kept)
+    }
+
+    func testADownCountAboveTheTotalDoesNotReplaceTheReport() async throws {
+        let good = try replies()
+        var session = try await AwaySession().refreshed(using: client(good), now: now)
+        let kept = try tile(.monitors, in: session.board).summary
+        var bad = good
+        bad.latest = MailboxReply(status: 200, body: try downAboveTotal(good.latest.body))
+        session = try await session.refreshed(using: client(bad), now: now.addingTimeInterval(15))
+        XCTAssertEqual(session.problem, .notUnderstood)
+        XCTAssertEqual(try tile(.monitors, in: session.board).summary, kept)
+    }
+
+    func testAnAllUpCountBesidePendingDoesNotReplaceTheReport() async throws {
+        let good = try replies()
+        var session = try await AwaySession().refreshed(using: client(good), now: now)
+        var bad = good
+        bad.latest = MailboxReply(status: 200, body: try markingFirstMonitor("pending", in: good.latest.body))
+        session = try await session.refreshed(using: client(bad), now: now.addingTimeInterval(15))
+        XCTAssertEqual(session.problem, .notUnderstood)
+        let row = try XCTUnwrap(try tile(.monitors, in: session.board).rows.first { $0.name == "Pi-hole DNS" })
+        XCTAssertEqual(row.tone, .calm)
+    }
+
+    func testAnAllUpCountBesideMaintenancePaintsNothing() async throws {
+        var transport = try replies()
+        transport.latest = MailboxReply(
+            status: 200,
+            body: try markingFirstMonitor("maintenance", in: transport.latest.body)
+        )
+        let session = try await AwaySession().refreshed(using: client(transport), now: now)
+        XCTAssertNil(session.latest)
+        XCTAssertEqual(session.problem, .notUnderstood)
+        XCTAssertNil(session.board.status)
     }
 
     func testPartHealthBecomesANote() throws {

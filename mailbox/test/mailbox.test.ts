@@ -135,11 +135,112 @@ describe("schema", () => {
       monitors: {
         up: 1,
         down: 0,
-        total: 1,
+        total: 2,
         items: [{ name: "Ad blocker", status: "pending" }],
       },
     });
     expect((await push(pending)).status).toBe(204);
+
+    const maintenance = liveSnapshot({
+      monitors: {
+        up: 1,
+        down: 1,
+        total: 2,
+        items: [{ name: "Weekly backup", status: "maintenance" }],
+      },
+    });
+    expect((await push(maintenance)).status).toBe(204);
+
+    const downAtTotal = liveSnapshot({
+      monitors: {
+        up: 0,
+        down: 2,
+        total: 2,
+        items: [{ name: "Internet", status: "down" }],
+      },
+    });
+    expect((await push(downAtTotal)).status).toBe(204);
+  });
+
+  it("rejects a down count above the total, and an all-up count beside pending or maintenance", async () => {
+    const good = liveSnapshot();
+    expect((await push(good)).status).toBe(204);
+
+    const tooManyDown = liveSnapshot({
+      monitors: { up: 1, down: 9, total: 2, items: [{ name: "Internet", status: "down" }] },
+    });
+    const overDown = await push(tooManyDown);
+    expect(overDown.status).toBe(400);
+    const overText = await overDown.text();
+    expect(overText).toContain("monitors.down");
+    expect(overText).not.toContain("9");
+    expect(overText).not.toContain("Internet");
+
+    const pendingLie = liveSnapshot({
+      monitors: {
+        up: 1,
+        down: 0,
+        total: 1,
+        items: [{ name: "Ad blocker", status: "pending" }],
+      },
+    });
+    const pending = await push(pendingLie);
+    expect(pending.status).toBe(400);
+    const pendingText = await pending.text();
+    expect(pendingText).toContain("monitors.items");
+    expect(pendingText).not.toContain("Ad blocker");
+
+    const maintenanceLie = liveSnapshot({
+      monitors: {
+        up: 2,
+        down: 0,
+        total: 2,
+        items: [
+          { name: "Ad blocker", status: "up" },
+          { name: "Weekly backup", status: "maintenance" },
+        ],
+      },
+    });
+    const maintenance = await push(maintenanceLie);
+    expect(maintenance.status).toBe(400);
+    const maintenanceText = await maintenance.text();
+    expect(maintenanceText).toContain("monitors.items");
+    expect(maintenanceText).not.toContain("Weekly backup");
+
+    const kept = await (await get("/v1/latest", READ)).json<{ monitors: unknown }>();
+    expect(kept.monitors).toEqual(good.monitors);
+  });
+
+  it("does not store a history push with those same impossible counts", async () => {
+    const down = historySnapshot({ adBlocker: 1, cpu: 1, monitors: 1 });
+    down.monitors = {
+      up: 0,
+      down: 4,
+      total: 1,
+      items: [{ name: "Internet", status: "down" }],
+    };
+    await expectRejected(down, "monitors.down");
+
+    const pending = historySnapshot({ adBlocker: 1, cpu: 1, monitors: 1 });
+    pending.monitors = {
+      up: 1,
+      down: 0,
+      total: 1,
+      items: [{ name: "Ad blocker", status: "pending" }],
+    };
+    await expectRejected(pending, "monitors.items");
+
+    const maintenance = historySnapshot({ adBlocker: 1, cpu: 1, monitors: 1 });
+    maintenance.monitors = {
+      up: 1,
+      down: 0,
+      total: 1,
+      items: [{ name: "Weekly backup", status: "maintenance" }],
+    };
+    await expectRejected(maintenance, "monitors.items");
+
+    const body = await (await get("/v1/history", READ)).json<{ snapshots: unknown[] }>();
+    expect(body.snapshots).toEqual([]);
   });
 
   it("does not store a history push whose counts say every check is up", async () => {

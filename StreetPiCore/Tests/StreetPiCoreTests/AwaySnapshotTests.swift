@@ -102,13 +102,61 @@ final class AwaySnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.monitors?.items.count, 2)
     }
 
-    func testAcceptsAllUpCountsWhenNoNamedMonitorIsDown() throws {
+    func testRejectsMonitorDownGreaterThanTotal() throws {
+        let monitors: [String: Any] = [
+            "up": 1, "down": 9, "total": 2,
+            "items": [["name": "Internet", "status": "down"]],
+        ]
+        XCTAssertThrowsError(try decode(json(replacing: "monitors", with: monitors)))
+    }
+
+    func testRejectsAllUpCountsWhileANamedMonitorIsPending() throws {
         let monitors: [String: Any] = [
             "up": 1, "down": 0, "total": 1,
             "items": [["name": "Ad blocker", "status": "pending"]],
         ]
+        XCTAssertThrowsError(try decode(json(replacing: "monitors", with: monitors)))
+    }
+
+    func testRejectsAllUpCountsWhileANamedMonitorIsInMaintenance() throws {
+        let monitors: [String: Any] = [
+            "up": 2, "down": 0, "total": 2,
+            "items": [
+                ["name": "Ad blocker", "status": "up"],
+                ["name": "Weekly backup", "status": "maintenance"],
+            ],
+        ]
+        XCTAssertThrowsError(try decode(json(replacing: "monitors", with: monitors)))
+    }
+
+    func testAcceptsAPendingCheckWhenTheCountIsNotAllUp() throws {
+        let monitors: [String: Any] = [
+            "up": 1, "down": 0, "total": 2,
+            "items": [["name": "Ad blocker", "status": "pending"]],
+        ]
         let snapshot = try decode(json(replacing: "monitors", with: monitors))
+        XCTAssertEqual(snapshot.monitors?.up, 1)
+        XCTAssertEqual(snapshot.monitors?.total, 2)
         XCTAssertEqual(snapshot.monitors?.items.first?.status, .pending)
+    }
+
+    func testAcceptsADownCountEqualToTheTotal() throws {
+        let monitors: [String: Any] = [
+            "up": 0, "down": 2, "total": 2,
+            "items": [["name": "Internet", "status": "down"]],
+        ]
+        let snapshot = try decode(json(replacing: "monitors", with: monitors))
+        XCTAssertEqual(snapshot.monitors?.down, 2)
+        XCTAssertEqual(snapshot.monitors?.total, 2)
+    }
+
+    func testAcceptsMaintenanceWhenTheCountAdmitsADown() throws {
+        let monitors: [String: Any] = [
+            "up": 1, "down": 1, "total": 2,
+            "items": [["name": "Weekly backup", "status": "maintenance"]],
+        ]
+        let snapshot = try decode(json(replacing: "monitors", with: monitors))
+        XCTAssertEqual(snapshot.monitors?.items.first?.status, .maintenance)
     }
 
     func testRejectsAnotherSchema() throws {
