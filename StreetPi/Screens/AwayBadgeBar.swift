@@ -103,7 +103,7 @@ extension AwayBadge {
 }
 
 private struct AwayBadgeLine: View {
-    /// The most the card may take. It takes less when the text is short or the screen is.
+    /// The most the card may take, including Open Settings. It takes less when the text is short.
     private static let heightLimit: CGFloat = 260
 
     var badge: AwayBadge
@@ -119,38 +119,67 @@ private struct AwayBadgeLine: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: AfterglowShape.tight) {
-            fittedSummary
-            if badge.offersSetup {
-                Button("Open Settings", action: onSetUp)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(palette.accent)
-                    .frame(minHeight: 44, alignment: .leading)
-            }
-        }
-        .padding(.horizontal, AfterglowShape.line)
-        .padding(.vertical, AfterglowShape.tight)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .modifier(AwayBadgeGlass(tone: palette.tone(badge.tone)))
-        .padding(.horizontal, AfterglowShape.line)
-        .padding(.top, AfterglowShape.tight)
+        card
+            .padding(.horizontal, AfterglowShape.line)
+            .padding(.vertical, AfterglowShape.tight)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .modifier(AwayBadgeGlass(tone: palette.tone(badge.tone)))
+            .padding(.horizontal, AfterglowShape.line)
+            .padding(.top, AfterglowShape.tight)
     }
 
-    /// Short text keeps its own height. Past the limit the card scrolls, so the page stays reachable.
+    /// Open Settings stays in the card. The summary grows while it fits, and scrolls once the card is full.
+    @ViewBuilder
+    private var card: some View {
+        if capped, badge.offersSetup {
+            ViewThatFits(in: .vertical) {
+                VStack(alignment: .leading, spacing: AfterglowShape.tight) {
+                    summary
+                    setupButton
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                PinnedButtonColumn(spacing: AfterglowShape.tight) {
+                    scrollingSummary
+                    setupButton
+                }
+            }
+            .frame(maxHeight: Self.heightLimit, alignment: .top)
+        } else {
+            VStack(alignment: .leading, spacing: AfterglowShape.tight) {
+                fittedSummary
+                if badge.offersSetup {
+                    setupButton
+                }
+            }
+        }
+    }
+
+    private var setupButton: some View {
+        Button("Open Settings", action: onSetUp)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(palette.accent)
+            .frame(minHeight: 44, alignment: .leading)
+    }
+
+    /// Short text keeps its own height. Past the limit the summary scrolls, so the page stays reachable.
     @ViewBuilder
     private var fittedSummary: some View {
         if capped {
             CappedHeight(limit: Self.heightLimit) {
-                ScrollView {
-                    summary.frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .scrollBounceBehavior(.basedOnSize)
-                .scrollIndicators(.visible)
-                .scrollIndicatorsFlash(onAppear: true)
+                scrollingSummary
             }
         } else {
             summary
         }
+    }
+
+    private var scrollingSummary: some View {
+        ScrollView {
+            summary.frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .scrollIndicators(.visible)
+        .scrollIndicatorsFlash(onAppear: true)
     }
 
     private var summary: some View {
@@ -174,6 +203,43 @@ private struct AwayBadgeLine: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(badge.spoken)
+    }
+}
+
+/// The summary takes the room left above the button, so the button stays inside the card.
+private struct PinnedButtonColumn: Layout {
+    var spacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? 0
+        guard subviews.count >= 2 else {
+            return subviews.first?.sizeThatFits(proposal) ?? .zero
+        }
+        // Fill the height the card was given, so the summary scrolls and the button is not pushed out.
+        if let offered = proposal.height {
+            return CGSize(width: width, height: offered)
+        }
+        let summary = subviews[0].sizeThatFits(ProposedViewSize(width: width, height: nil))
+        let button = subviews[1].sizeThatFits(ProposedViewSize(width: width, height: nil))
+        return CGSize(width: width, height: summary.height + spacing + button.height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard subviews.count >= 2 else {
+            subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
+            return
+        }
+        let button = subviews[1].sizeThatFits(ProposedViewSize(width: bounds.width, height: nil))
+        let buttonHeight = min(button.height, bounds.height)
+        let summaryHeight = max(0, bounds.height - spacing - buttonHeight)
+        subviews[0].place(
+            at: bounds.origin,
+            proposal: ProposedViewSize(width: bounds.width, height: summaryHeight)
+        )
+        subviews[1].place(
+            at: CGPoint(x: bounds.minX, y: bounds.maxY - buttonHeight),
+            proposal: ProposedViewSize(width: bounds.width, height: buttonHeight)
+        )
     }
 }
 
