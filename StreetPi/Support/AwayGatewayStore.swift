@@ -1,26 +1,6 @@
 import Foundation
 import StreetPiCore
 
-enum AwayGatewaySaveResult: Equatable {
-    case saved
-    case badAddress
-    case missingCredentials
-    case failed
-
-    var note: String {
-        switch self {
-        case .saved:
-            "Saved."
-        case .badAddress:
-            "Use the gateway's https address, with nothing after the name."
-        case .missingCredentials:
-            "Paste the client id and the secret, with no spaces."
-        case .failed:
-            "That could not be saved on this phone."
-        }
-    }
-}
-
 /// What Settings > Away shows for the gateway. The secret never comes back out of the Keychain.
 struct AwayGatewayForm {
     var address = ""
@@ -29,6 +9,13 @@ struct AwayGatewayForm {
     var onSave: (String, String, String) -> AwayGatewaySaveResult = { _, _, _ in .failed }
     var onRemove: () -> AwayGatewaySaveResult = { .failed }
     var onEnabled: (Bool) -> Void = { _ in }
+}
+
+extension AwayKeyDraft {
+    /// The rejected-key card saves through the same form the away section uses.
+    mutating func save(with form: AwayGatewayForm) {
+        save(address: form.address, onSave: form.onSave)
+    }
 }
 
 extension AwayGatewaySettings {

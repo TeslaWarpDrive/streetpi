@@ -114,7 +114,8 @@ public enum MailboxSeedStep: Sendable, Equatable {
     case markHandled
     case seed(MailboxSetup)
 
-    /// `handled` is true once this install has seeded, or has saved or removed a mailbox itself.
+    /// `handled` is true after a successful seed or removal, or after a saved mailbox was
+    /// noticed and marked. Saving a mailbox does not set `handled` by itself.
     public static func next(handled: Bool, configured: Bool, seed: ProvisionSeed?) -> MailboxSeedStep {
         if handled { return .nothing }
         if configured { return .markHandled }

@@ -158,21 +158,6 @@ struct AwayGatewaySection: View {
     }
 }
 
-/// A saved gateway key stays masked until Replace key. The secret is never copied into the fields.
-enum AwayKeyReplace {
-    static func showsFields(saved: Bool, replacing: Bool) -> Bool {
-        saved == false || replacing
-    }
-
-    /// An empty replacement would keep the saved secret, so both new values are required.
-    static func canSave(replacing: Bool, clientID: String, secret: String) -> Bool {
-        guard replacing else { return true }
-        let id = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
-        let key = secret.trimmingCharacters(in: .whitespacesAndNewlines)
-        return id.isEmpty == false && key.isEmpty == false
-    }
-}
-
 /// The small "Away" chip while the app is live through the gateway. Chrome, so it may be glass.
 struct AwayChip: View {
     @Environment(\.afterglowPalette) private var palette

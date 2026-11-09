@@ -347,49 +347,6 @@ struct SettingsView: View {
     }
 }
 
-/// What the rejected-key card has typed so far. Settings holds it, so a probe that clears the message
-/// takes the message away and leaves the text. It stays in memory and goes when the save does.
-struct AwayKeyDraft: Equatable {
-    static let savedLine = "New key saved."
-
-    var clientID = ""
-    var secret = ""
-    var note = ""
-    var saved = false
-
-    private var hasText: Bool {
-        clientID.isEmpty == false || secret.isEmpty == false
-    }
-
-    func showsForm(notice: String?) -> Bool {
-        notice != nil || hasText
-    }
-
-    func showsConfirmation(notice: String?) -> Bool {
-        saved && showsForm(notice: notice) == false
-    }
-
-    /// A rejection after a save means the new key did not work, so "saved" must not come back later.
-    /// A note about a form that has gone must not come back with the next one either.
-    mutating func settle(notice: String?) {
-        if notice != nil { saved = false }
-        if showsForm(notice: notice) == false { note = "" }
-    }
-
-    mutating func save(with form: AwayGatewayForm) {
-        guard AwayKeyReplace.canSave(replacing: true, clientID: clientID, secret: secret) else {
-            note = AwayGatewaySaveResult.missingCredentials.note
-            return
-        }
-        let result = form.onSave(form.address, clientID, secret)
-        guard result == .saved else {
-            note = result.note
-            return
-        }
-        self = AwayKeyDraft(saved: true)
-    }
-}
-
 /// Puts the way out first while the key is rejected. It scrolls with the page, so large text still reaches
 /// every field. The away section below keeps the address, the switch, and Remove.
 /// With no message, a probe cleared the rejection mid-typing, and the card waits for that text.
