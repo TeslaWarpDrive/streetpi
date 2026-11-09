@@ -75,26 +75,8 @@ extension RootView {
 
     /// Charts, and the containers and alarms that arrive in the same read.
     /// A miss keeps the last good rows and says why, the same as the loop.
-    /// Offline lands only the halves that missed.
+    /// Offline lands only the halves that missed, by the same `HousePass` rule as the loop.
     func applyHistory(_ history: NetdataHistoryLoad) {
-        let paint = mode.paintsHouse(readSucceeded: true)
-        if paint || history.chartNote != nil {
-            if history.chartNote == nil {
-                machine.series = history.series
-            }
-            machine.chartNote = history.chartNote
-        }
-        if paint || history.containerNote != nil {
-            if history.containerNote == nil {
-                machine.containers = history.containers
-            }
-            machine.containerNote = history.containerNote
-        }
-        if paint || history.alertNote != nil {
-            if history.alertNote == nil {
-                machine.alerts = history.alerts
-            }
-            machine.alertNote = history.alertNote
-        }
+        machine = HousePass(history: history).appliedHistory(to: machine, mode: mode)
     }
 }

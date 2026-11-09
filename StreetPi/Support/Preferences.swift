@@ -57,6 +57,10 @@ private struct StreetAwayKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+private struct StreetReachableKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
 extension EnvironmentValues {
     /// Snapshot stand-in for Reduce Motion. The system key is read-only in the iOS 26 SDK.
     var streetPiStill: Bool {
@@ -68,5 +72,11 @@ extension EnvironmentValues {
     var streetPiAway: Bool {
         get { self[StreetAwayKey.self] }
         set { self[StreetAwayKey.self] = newValue }
+    }
+
+    /// False while the badge says the Pi is out of reach. Pause, block, and allow wait.
+    var streetPiReachable: Bool {
+        get { self[StreetReachableKey.self] }
+        set { self[StreetReachableKey.self] = newValue }
     }
 }

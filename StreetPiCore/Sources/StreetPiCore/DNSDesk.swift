@@ -258,6 +258,12 @@ extension DNSDesk {
         return desk
     }
 
+    /// A failed poll's desk is empty. Offline keeps the desk already on screen.
+    /// Every other road takes the incoming desk. The app merges logs after that.
+    public func applyingAdBlockerPoll(_ incoming: DNSDesk, failed: Bool, mode: ConnectionMode) -> DNSDesk {
+        mode.takesAdBlockerDesk(pollFailed: failed) ? incoming : self
+    }
+
     /// Offline withholds a log half that succeeded. A miss writes that half's note and leaves its feed unpublished.
     /// Every other road keeps the assignments it had before.
     public func applyingLiveLog(

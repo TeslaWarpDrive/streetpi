@@ -87,3 +87,25 @@ public struct TextLogFeed: Sendable, Equatable {
         )
     }
 }
+
+/// Identity of the live-log loop. Backgrounding changes it, so the loop starts again
+/// when the phone is active. The page and the road still restart it on their own.
+public struct LiveLogWatch: Sendable, Equatable {
+    public var onLiveLog: Bool
+    public var modeCheck: Int
+    public var phoneIsActive: Bool
+
+    public init(onLiveLog: Bool, modeCheck: Int, phoneIsActive: Bool) {
+        self.onLiveLog = onLiveLog
+        self.modeCheck = modeCheck
+        self.phoneIsActive = phoneIsActive
+    }
+
+    public var token: String {
+        "\(onLiveLog)|\(modeCheck)|\(phoneIsActive)"
+    }
+
+    public var runs: Bool {
+        onLiveLog && phoneIsActive
+    }
+}

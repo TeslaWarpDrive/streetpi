@@ -148,6 +148,152 @@ final class AwayNoticeRecoveryTests: XCTestCase {
     func testAHealthyLiveGatewayKeepsLookingForHome() throws {
         XCTAssertTrue(ConnectionMode.awayLive(try gateway()).looksAgain(readFailed: false, keyRejected: false))
     }
+
+    /// A failed ad-blocker poll's desk is empty. Offline keeps pause and the day's counts.
+    /// Home still takes that poll. A success while offline stays off the desk too.
+    func testAFailedAdBlockerPollDoesNotEmptyTheDeskWhileOffline() throws {
+        var shown = DNSDesk.houseFixture
+        shown.blocking = DNSBlocking(
+            enabled: false, pause: .fiveMinutes, pauseEndsAt: Date(timeIntervalSince1970: 1_700_000_300)
+        )
+        let empty = DNSDesk.quiet
+        XCTAssertTrue(empty.queries.isEmpty)
+        XCTAssertFalse(shown.queries.isEmpty)
+
+        let kept = shown.applyingAdBlockerPoll(empty, failed: true, mode: .offline)
+        XCTAssertEqual(kept.blocking, shown.blocking)
+        XCTAssertEqual(kept.queries, shown.queries)
+        XCTAssertFalse(ConnectionMode.offline.takesAdBlockerDesk(pollFailed: true))
+
+        let home = shown.applyingAdBlockerPoll(empty, failed: true, mode: .home)
+        XCTAssertEqual(home.queries, empty.queries)
+        XCTAssertTrue(home.blocking.enabled)
+        XCTAssertTrue(ConnectionMode.home.takesAdBlockerDesk(pollFailed: true))
+        XCTAssertTrue(ConnectionMode.awayLive(try gateway()).takesAdBlockerDesk(pollFailed: true))
+        XCTAssertTrue(ConnectionMode.awayMailbox(try mailbox()).takesAdBlockerDesk(pollFailed: false))
+        XCTAssertFalse(ConnectionMode.offline.takesAdBlockerDesk(pollFailed: false))
+    }
+
+    /// Charts and the log are one pass. A half that succeeded stays off the house while the
+    /// other half missed. A later miss does not publish the withheld half either.
+    func testASplitChartsAndLogPassDoesNotWriteTheSuccessfulHalf() throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let older = DNSQuery(id: "1", domain: "old.example.test", client: "Kitchen", outcome: .allowed, at: now)
+        let fresh = DNSQuery(
+            id: "9", domain: "news.example.test", client: "Kitchen", outcome: .allowed, at: now.addingTimeInterval(5)
+        )
+        var desk = DNSDesk.quiet
+        desk.liveFeed = [older]
+        desk.textLogLines = ["already shown"]
+        desk.textLogKnown = true
+        var machine = MachineDesk.quiet
+        let oldSeries = MetricSeries(id: "cpu", title: "Processor", caption: "Already shown", points: [])
+        let newSeries = MetricSeries(
+            id: "cpu", title: "Processor", caption: "Just read",
+            points: [MetricPoint(hour: 1, value: 0.4)]
+        )
+        let oldContainer = NamedRow(id: "old", name: "Old helper", detail: "Running")
+        let newContainer = NamedRow(id: "media", name: "Media helper", detail: "Running")
+        machine.series = [oldSeries]
+        machine.containers = [oldContainer]
+        let newAlert = HouseAlert(id: "heat", sentence: "The Pi is warm.", tone: .attention)
+
+        let chartsWorked = HousePass(
+            series: [newSeries], chartNote: nil,
+            containers: [newContainer], containerNote: nil,
+            alerts: [newAlert], alertNote: nil,
+            queries: LiveLogFeed(queries: [fresh, older]), liveNote: LiveReadCopy.liveLog,
+            text: TextLogFeed(lines: ["already shown", "new line"], fileEnabled: true), textNote: nil
+        ).applied(to: machine, desk: desk, mode: .offline)
+        XCTAssertEqual(chartsWorked.machine.series, [oldSeries])
+        XCTAssertEqual(chartsWorked.machine.containers, [oldContainer])
+        XCTAssertEqual(chartsWorked.machine.alerts, [])
+        XCTAssertNil(chartsWorked.machine.chartNote)
+        XCTAssertNil(chartsWorked.machine.containerNote)
+        XCTAssertNil(chartsWorked.machine.alertNote)
+        XCTAssertEqual(chartsWorked.desk.liveFeed, [older])
+        XCTAssertEqual(chartsWorked.desk.liveReadNote, LiveReadCopy.liveLog)
+        XCTAssertEqual(chartsWorked.desk.textLogLines, ["already shown"])
+        XCTAssertTrue(chartsWorked.desk.textLogKnown)
+        XCTAssertNil(chartsWorked.desk.textLogReadNote)
+
+        let logWorked = HousePass(
+            series: [newSeries], chartNote: LiveReadCopy.charts,
+            containers: [newContainer], containerNote: nil,
+            alerts: [newAlert], alertNote: LiveReadCopy.alarms,
+            queries: LiveLogFeed(queries: [fresh, older]), liveNote: nil,
+            text: TextLogFeed(lines: ["already shown", "new line"], fileEnabled: true), textNote: nil
+        ).applied(to: machine, desk: desk, mode: .offline)
+        XCTAssertEqual(logWorked.machine.series, [oldSeries])
+        XCTAssertEqual(logWorked.machine.chartNote, LiveReadCopy.charts)
+        XCTAssertEqual(logWorked.machine.containers, [oldContainer])
+        XCTAssertNil(logWorked.machine.containerNote)
+        XCTAssertEqual(logWorked.machine.alerts, [])
+        XCTAssertEqual(logWorked.machine.alertNote, LiveReadCopy.alarms)
+        XCTAssertEqual(logWorked.desk.liveFeed, [older])
+        XCTAssertNil(logWorked.desk.liveReadNote)
+        XCTAssertEqual(logWorked.desk.textLogLines, ["already shown"])
+
+        let home = HousePass(
+            series: [newSeries], chartNote: nil,
+            containers: [newContainer], containerNote: nil,
+            alerts: [newAlert], alertNote: nil,
+            queries: LiveLogFeed(queries: [fresh]), liveNote: nil,
+            text: TextLogFeed(lines: ["gravity updated"], fileEnabled: true), textNote: nil
+        ).applied(to: machine, desk: desk, mode: .home)
+        XCTAssertEqual(home.machine.series, [newSeries])
+        XCTAssertEqual(home.machine.containers, [newContainer])
+        XCTAssertEqual(home.machine.alerts, [newAlert])
+        XCTAssertNil(home.machine.chartNote)
+        XCTAssertEqual(home.desk.liveFeed, [fresh, older])
+        XCTAssertEqual(home.desk.textLogLines, ["gravity updated"])
+        XCTAssertTrue(home.desk.textLogKnown)
+    }
+
+    func testAPullKeepsAChartReadThatWorkedOffTheHouseWhileOffline() {
+        var machine = MachineDesk.quiet
+        let oldSeries = MetricSeries(id: "cpu", title: "Processor", caption: "Already shown", points: [])
+        let newSeries = MetricSeries(
+            id: "cpu", title: "Processor", caption: "Just read",
+            points: [MetricPoint(hour: 1, value: 0.4)]
+        )
+        let oldContainer = NamedRow(id: "old", name: "Old helper", detail: "Running")
+        let newContainer = NamedRow(id: "media", name: "Media helper", detail: "Running")
+        let newAlert = HouseAlert(id: "heat", sentence: "The Pi is warm.", tone: .attention)
+        machine.series = [oldSeries]
+        machine.containers = [oldContainer]
+        let pulled = NetdataHistoryLoad(
+            series: [newSeries], containers: [newContainer], alerts: [newAlert],
+            chartNote: nil, containerNote: nil, alertNote: LiveReadCopy.alarms
+        )
+
+        let offline = HousePass(history: pulled).appliedHistory(to: machine, mode: .offline)
+        XCTAssertEqual(offline.series, [oldSeries])
+        XCTAssertNil(offline.chartNote)
+        XCTAssertEqual(offline.containers, [oldContainer])
+        XCTAssertEqual(offline.alerts, [])
+        XCTAssertEqual(offline.alertNote, LiveReadCopy.alarms)
+
+        let home = HousePass(history: pulled).appliedHistory(to: machine, mode: .home)
+        XCTAssertEqual(home.series, [newSeries])
+        XCTAssertEqual(home.containers, [newContainer])
+        XCTAssertEqual(home.alerts, [])
+        XCTAssertEqual(home.alertNote, LiveReadCopy.alarms)
+    }
+
+    func testTheLiveLogStartsAgainAfterBackgrounding() {
+        let watching = LiveLogWatch(onLiveLog: true, modeCheck: 3, phoneIsActive: true)
+        let background = LiveLogWatch(onLiveLog: true, modeCheck: 3, phoneIsActive: false)
+        XCTAssertTrue(watching.runs)
+        XCTAssertFalse(background.runs)
+        XCTAssertNotEqual(watching.token, background.token)
+        let back = LiveLogWatch(onLiveLog: true, modeCheck: 3, phoneIsActive: true)
+        XCTAssertEqual(back.token, watching.token)
+        XCTAssertTrue(back.runs)
+        let otherPage = LiveLogWatch(onLiveLog: false, modeCheck: 3, phoneIsActive: true)
+        XCTAssertFalse(otherPage.runs)
+        XCTAssertNotEqual(otherPage.token, watching.token)
+    }
 }
 
 private struct PaintRow {

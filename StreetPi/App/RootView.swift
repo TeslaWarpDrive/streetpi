@@ -200,8 +200,8 @@ struct RootView: View {
             guard reprobeAsk > 0 else { return }
             await reprobe()
         }
-        .task(id: "\(String(describing: dnsPage))|\(modeCheck)|\(currentAccess.logsRefuse)") {
-            guard !LiveGate.usesFixtures, dnsPage == .liveLog, scenePhase == .active, awayBoard == nil else { return }
+        .task(id: "\(liveLogWatch.token)|\(currentAccess.logsRefuse)") {
+            guard !LiveGate.usesFixtures, liveLogWatch.runs, awayBoard == nil else { return }
             while !Task.isCancelled, dnsPage == .liveLog, scenePhase == .active, currentAccess.logsRefuse == false {
                 await refreshLiveLog()
                 try? await Task.sleep(for: .seconds(4))
@@ -220,6 +220,11 @@ struct RootView: View {
             statusAddress: statusAddress, statusSlug: statusSlug, watch: modeCheck,
             signedOut: signedOut, retry: certificateRecovery.retry
         )
+    }
+
+    /// Backgrounding changes the token, so the live log starts again when the phone is active.
+    private var liveLogWatch: LiveLogWatch {
+        LiveLogWatch(onLiveLog: dnsPage == .liveLog, modeCheck: modeCheck, phoneIsActive: scenePhase == .active)
     }
 
     /// Nil at home. Away, the screens read this and the home state waits untouched.
@@ -451,9 +456,11 @@ struct RootView: View {
 
     func apply(_ board: AdBlockerBoard) {
         if repeatsDeclinedCertificate(board) { return }
-        guard mode.paintsHouse(readSucceeded: board.problem == nil) else { return }
+        let failed = board.problem != nil
+        let next = desk.applyingAdBlockerPoll(board.desk, failed: failed, mode: mode)
+        guard mode.takesAdBlockerDesk(pollFailed: failed) else { return }
         clock = Date()
-        desk = keepingLog(board.desk)
+        desk = keepingLog(next)
         var snapshot = board.snapshot
         snapshot.machine = liveReading
         var status = board.status
@@ -557,7 +564,7 @@ private extension RootView {
         guard !sending else { return }
         let before = ActionPolicy.confirmStep(action, mode: mode, faceID: .notAsked)
         if before == .refuse {
-            noteViewOnlyRoad()
+            noteRefusedAction()
             return
         }
         sending = true
@@ -590,11 +597,13 @@ private extension RootView {
         }
     }
 
-    private func noteViewOnlyRoad() {
+    /// Mailbox stays "Only at home". Offline says the Pi is out of reach, with the failure icon.
+    private func noteRefusedAction() {
+        let unreachable = mode == .offline
         actionNotice = ActionNotice(
-            title: AwayCopy.onlyAtHomeTitle,
-            detail: AwayCopy.onlyAtHomeDetail,
-            failed: false
+            title: unreachable ? AwayCopy.notSetUp : AwayCopy.onlyAtHomeTitle,
+            detail: unreachable ? AwayCopy.pauseHeld : AwayCopy.onlyAtHomeDetail,
+            failed: unreachable
         )
         pending = nil
     }
@@ -606,7 +615,7 @@ private extension RootView {
         let prompted = await FaceIDGate.prompt(reason: reason)
         let faceID: FaceIDPrompt = pending == action ? prompted : .cancelled
         let step = ActionPolicy.confirmStep(action, mode: mode, faceID: faceID)
-        if step == .refuse { noteViewOnlyRoad() }
+        if step == .refuse { noteRefusedAction() }
         return step != .allow
     }
 
@@ -710,14 +719,15 @@ private extension RootView {
     }
 
     private func applyLive(history: NetdataHistoryLoad, log: LogPull) {
-        applyHistory(history)
-        desk = desk.applyingLiveLog(
+        let painted = HousePass(
+            history: history,
             queries: log.queries,
             liveNote: log.liveNote,
             text: log.text,
-            textNote: log.textNote,
-            mode: mode
-        )
+            textNote: log.textNote
+        ).applied(to: machine, desk: desk, mode: mode)
+        machine = painted.machine
+        desk = painted.desk
     }
 
     private func commitPiHost() {

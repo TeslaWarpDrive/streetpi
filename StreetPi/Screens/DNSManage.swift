@@ -34,14 +34,17 @@ struct DomainScreen: View {
     var onAction: (HouseholdAction) -> Void
 
     @State private var editing = false
+    @Environment(\.streetPiReachable) private var reachable
 
     var body: some View {
         ControlScreen(wide: wide) {
             ControlTitle(title: "Domains", line: "Block or allow one name for the whole house.", theme: theme)
-            Button("Block or allow a name") { editing = true }
-                .font(.headline)
-                .foregroundStyle(theme.accent)
-                .frame(minHeight: 44, alignment: .leading)
+            if reachable {
+                Button("Block or allow a name") { editing = true }
+                    .font(.headline)
+                    .foregroundStyle(theme.accent)
+                    .frame(minHeight: 44, alignment: .leading)
+            }
             ControlGrid {
                 ForEach(domains) { row in
                     PlainTile(title: row.name, line: row.detail, theme: theme)

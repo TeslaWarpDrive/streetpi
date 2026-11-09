@@ -10,6 +10,7 @@ struct DNSPageBody: View {
     var onAction: (HouseholdAction) -> Void
 
     @Environment(\.streetPiAway) private var away
+    @Environment(\.streetPiReachable) private var reachable
 
     var body: some View {
         if away, AwayGate.allows(page) == false {
@@ -32,7 +33,7 @@ struct DNSPageBody: View {
                 queries: desk.queries,
                 emptyTitle: DNSCopy.emptyQueriesTitle,
                 emptyDetail: DNSCopy.emptyQueriesDetail,
-                offersAllow: true,
+                offersAllow: reachable,
                 failureNote: nil,
                 theme: theme,
                 wide: wide,
