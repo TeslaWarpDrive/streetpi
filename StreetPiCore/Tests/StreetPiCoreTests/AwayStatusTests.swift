@@ -115,6 +115,42 @@ final class AwayStatusTests: XCTestCase {
         XCTAssertEqual(readingStatus(age: 400, problem: .refused).quietHeadline(now: now), AwayCopy.quietHeadline)
     }
 
+    func testAWrongAddressStillOpensSettingsAfterAReport() {
+        for age in [12.0, 90, 400] {
+            let ageOnly = readingBadge(age: age)
+            let missed = readingBadge(age: age, problem: .wrongAddress, note: AwayCopy.someEarlier)
+            XCTAssertTrue(missed.offersSetup, "age \(age)")
+            XCTAssertEqual(missed.line, ageOnly.line)
+            XCTAssertEqual(missed.tone, ageOnly.tone)
+            XCTAssertEqual(missed.symbol, ageOnly.symbol)
+            XCTAssertEqual(missed.detail, "Nothing answered at that mailbox address. Check Settings.")
+            XCTAssertEqual(
+                missed.spoken,
+                "\(ageOnly.spoken) Nothing answered at that mailbox address. Check Settings."
+            )
+        }
+
+        XCTAssertNil(readingStatus(age: 90, problem: .wrongAddress).quietHeadline(now: now))
+        XCTAssertEqual(
+            readingStatus(age: 400, problem: .wrongAddress).quietHeadline(now: now),
+            AwayCopy.quietHeadline
+        )
+    }
+
+    func testASavedGatewayStaysUnreachableWhenOffline() {
+        for enabled in [true, false] {
+            let saved = AwayStatus.offline(gatewaySaved: true, gatewayEnabled: enabled)
+            XCTAssertEqual(saved, .unreachable, "switch \(enabled)")
+            XCTAssertFalse(saved.badge(now: now).offersSetup)
+            XCTAssertEqual(saved.badge(now: now).detail, AwayCopy.keepTrying)
+
+            let missing = AwayStatus.offline(gatewaySaved: false, gatewayEnabled: enabled)
+            XCTAssertEqual(missing, .notSetUp, "switch \(enabled)")
+            XCTAssertTrue(missing.badge(now: now).offersSetup)
+            XCTAssertEqual(missing.badge(now: now).detail, AwayCopy.notSetUpDetail)
+        }
+    }
+
     func testOtherAwayBadgesKeepTheSettingsButtonTheyHaveToday() {
         XCTAssertTrue(AwayStatus.notSetUp.badge(now: now).offersSetup)
         XCTAssertFalse(AwayStatus.unreachable.badge(now: now).offersSetup)
@@ -124,7 +160,7 @@ final class AwayStatusTests: XCTestCase {
         XCTAssertFalse(readingBadge(problem: .offline).offersSetup)
         XCTAssertFalse(readingBadge(problem: .notUnderstood).offersSetup)
 
-        let kept: [MailboxProblem?] = [nil, .offline, .wrongAddress, .notUnderstood]
+        let kept: [MailboxProblem?] = [nil, .offline, .notUnderstood]
         for age in [12.0, 90, 400] {
             for problem in kept {
                 let badge = readingBadge(age: age, problem: problem, note: AwayCopy.someEarlier)
@@ -132,11 +168,6 @@ final class AwayStatusTests: XCTestCase {
             }
             let noted = readingBadge(age: age, note: AwayCopy.someEarlier)
             XCTAssertEqual(noted.detail, AwayCopy.someEarlier)
-            let missed = readingBadge(age: age, problem: .wrongAddress, note: AwayCopy.someEarlier)
-            XCTAssertEqual(missed.detail, "Nothing answered at that mailbox address. Check Settings.")
-            XCTAssertEqual(missed.line, noted.line)
-            XCTAssertEqual(missed.tone, noted.tone)
-            XCTAssertEqual(missed.symbol, noted.symbol)
         }
     }
 

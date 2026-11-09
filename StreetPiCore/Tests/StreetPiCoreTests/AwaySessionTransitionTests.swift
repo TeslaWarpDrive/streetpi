@@ -266,7 +266,7 @@ final class AwaySessionTransitionTests: XCTestCase {
         XCTAssertFalse(badge.offersSetup)
     }
 
-    func testAWrongAddressAfterAReportDoesNotOfferSetup() async throws {
+    func testAWrongAddressAfterAReportOpensSettings() async throws {
         let (saved, _) = try await refresh(
             latest: [.status(200, liveBody())],
             history: [.status(200, historyPage())],
@@ -278,7 +278,7 @@ final class AwaySessionTransitionTests: XCTestCase {
             at: now.addingTimeInterval(15)
         )
         XCTAssertEqual(session.problem, .wrongAddress)
-        XCTAssertFalse(session.status.badge(now: now.addingTimeInterval(15)).offersSetup)
+        XCTAssertTrue(session.status.badge(now: now.addingTimeInterval(15)).offersSetup)
         XCTAssertEqual(session.latest?.generatedAt, saved.latest?.generatedAt)
     }
 

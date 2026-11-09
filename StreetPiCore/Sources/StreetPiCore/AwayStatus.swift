@@ -58,6 +58,11 @@ public enum AwayStatus: Sendable, Equatable {
     case unreachable
     case reading(generatedAt: Date?, problem: MailboxProblem?, note: String?)
 
+    /// Offline with nothing saved is not set up. A saved gateway stays unreachable when its switch is off.
+    public static func offline(gatewaySaved: Bool, gatewayEnabled _: Bool) -> AwayStatus {
+        gatewaySaved ? .unreachable : .notSetUp
+    }
+
     /// Private pages and every write are held back.
     public var isAway: Bool {
         if case .reading = self { return true }
@@ -123,22 +128,23 @@ public enum AwayStatus: Sendable, Equatable {
     private func badge(freshness: AwayFreshness, problem: MailboxProblem?, note: String?) -> AwayBadge {
         let detail = problem.map(AwayCopy.problem) ?? note
         let spoken = [freshness.spoken, detail].compactMap { $0 }.joined(separator: " ")
-        // A saved report keeps its age. A later refusal does not open Settings.
+        // A saved report keeps its age. A later refusal does not open Settings. A wrong address still does.
+        let offersSetup = problem == .wrongAddress
         switch freshness.level {
         case .fresh:
             return AwayBadge(
                 line: freshness.line, detail: detail, tone: .calm,
-                symbol: "antenna.radiowaves.left.and.right", spoken: spoken, offersSetup: false
+                symbol: "antenna.radiowaves.left.and.right", spoken: spoken, offersSetup: offersSetup
             )
         case .stale:
             return AwayBadge(
                 line: freshness.line, detail: detail, tone: .attention,
-                symbol: "clock.badge.exclamationmark", spoken: spoken, offersSetup: false
+                symbol: "clock.badge.exclamationmark", spoken: spoken, offersSetup: offersSetup
             )
         case .silent:
             return AwayBadge(
                 line: freshness.line, detail: detail, tone: .problem,
-                symbol: "exclamationmark.triangle", spoken: spoken, offersSetup: false
+                symbol: "exclamationmark.triangle", spoken: spoken, offersSetup: offersSetup
             )
         }
     }
