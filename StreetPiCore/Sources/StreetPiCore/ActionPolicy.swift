@@ -33,7 +33,36 @@ public enum Confirmation: Sendable, Equatable {
     }
 }
 
+/// Sent, refused, or still waiting on Face ID. Ask again after the prompt. The road can change.
+public enum ConfirmStep: Sendable, Equatable {
+    case allow
+    case refuse
+    case wait
+}
+
+/// What Face ID just did. Cancel and failure are not a pass. Deny leaves the sheet up.
+public enum FaceIDPrompt: Sendable, Equatable {
+    case notAsked
+    case passed
+    case denied
+    case cancelled
+    case failed
+}
+
 public enum ActionPolicy {
+    /// Refuse when this road will not take the action. A pass allows it.
+    /// Deny, cancel, and failure wait, so the write is not sent.
+    public static func confirmStep(
+        _ action: HouseholdAction,
+        mode: ConnectionMode,
+        faceID: FaceIDPrompt
+    ) -> ConfirmStep {
+        guard mode.allows(action) else { return .refuse }
+        guard confirmation(for: action).requiresFaceID else { return .allow }
+        if faceID == .passed { return .allow }
+        return .wait
+    }
+
     public static func confirmation(for action: HouseholdAction) -> Confirmation {
         switch action {
         case .refresh:
