@@ -86,8 +86,17 @@ public struct AwayAdBlocker: Sendable, Equatable, Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.strictContainer(keyedBy: CodingKeys.self)
         blocking = try container.decode(Blocking.self, forKey: .blocking)
-        queriesToday = try container.decode(Int.self, forKey: .queriesToday)
-        blockedToday = try container.decode(Int.self, forKey: .blockedToday)
+        let queriesToday = try container.decode(Int.self, forKey: .queriesToday)
+        let blockedToday = try container.decode(Int.self, forKey: .blockedToday)
+        guard blockedToday <= queriesToday else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .blockedToday,
+                in: container,
+                debugDescription: "Blocked queries cannot exceed queries today."
+            )
+        }
+        self.queriesToday = queriesToday
+        self.blockedToday = blockedToday
         percentBlocked = try container.decode(Double.self, forKey: .percentBlocked)
         domainsOnLists = try container.decode(Int.self, forKey: .domainsOnLists)
         activeDevices = try container.decode(Int.self, forKey: .activeDevices)

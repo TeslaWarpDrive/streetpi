@@ -181,6 +181,53 @@ describe("schema", () => {
     expect((await push(liveSnapshot({ generatedAt: ahead }))).status).toBe(204);
   });
 
+  it("rejects a backup time too far ahead and keeps the stored snapshot", async () => {
+    const good = liveSnapshot();
+    expect((await push(good)).status).toBe(204);
+    const ahead = new Date(Date.now() + 3 * 60 * 1000).toISOString();
+    const response = await push(liveSnapshot({ backup: { lastRunAt: ahead, ok: true } }));
+    expect(response.status).toBe(400);
+    const text = await response.text();
+    expect(text).toContain("backup.lastRunAt");
+    expect(text).toContain("future");
+    expect(text).not.toContain(ahead);
+    const kept = await (await get("/v1/latest", READ)).json<{ backup: { lastRunAt: string } }>();
+    expect(kept.backup.lastRunAt).toBe((good.backup as { lastRunAt: string }).lastRunAt);
+
+    const slight = new Date(Date.now() + 60 * 1000).toISOString();
+    expect((await push(liveSnapshot({ backup: { lastRunAt: slight, ok: true } }))).status).toBe(204);
+    const old = "2026-10-16T15:00:00Z";
+    expect((await push(liveSnapshot({ backup: { lastRunAt: old, ok: true } }))).status).toBe(204);
+  });
+
+  it("rejects blocked queries above queries today", async () => {
+    const good = liveSnapshot();
+    expect((await push(good)).status).toBe(204);
+    const over = liveSnapshot({
+      adBlocker: { ...(good.adBlocker as object), queriesToday: 10, blockedToday: 424242 },
+    });
+    const response = await push(over);
+    expect(response.status).toBe(400);
+    const text = await response.text();
+    expect(text).toContain("adBlocker.blockedToday");
+    expect(text).not.toContain("424242");
+    const kept = await (await get("/v1/latest", READ)).json<{ adBlocker: { blockedToday: number } }>();
+    expect(kept.adBlocker.blockedToday).toBe(6120);
+
+    const equal = liveSnapshot({
+      adBlocker: { ...(good.adBlocker as object), queriesToday: 10, blockedToday: 10 },
+    });
+    expect((await push(equal)).status).toBe(204);
+
+    const history = historySnapshot({ adBlocker: 1, cpu: 1, monitors: 1 });
+    const part = history.adBlocker as Record<string, unknown>;
+    part.queriesToday = 4;
+    part.blockedToday = 9;
+    await expectRejected(history, "adBlocker.blockedToday");
+    const body = await (await get("/v1/history", READ)).json<{ snapshots: unknown[] }>();
+    expect(body.snapshots).toEqual([]);
+  });
+
   it("rejects out-of-range numbers and bad words", async () => {
     const good = liveSnapshot();
     const machine = good.machine as Record<string, unknown>;
@@ -271,6 +318,57 @@ describe("storage", () => {
     const justNow = at(0);
     expect((await push(withTemperature(justNow, 48))).status).toBe(204);
     expect(await shown()).toMatchObject({ generatedAt: justNow, machine: { temperatureC: 48 } });
+  });
+
+  it("orders history by generated time, so a late older push is not the day chart", async () => {
+    const now = Date.now();
+    const at = (offsetMs: number) => new Date(now + offsetMs).toISOString();
+    const minuteAgo = at(-60 * 1000);
+    const tenMinutesAgo = at(-10 * 60 * 1000);
+    const row = (generatedAt: string, uptimeSeconds: number) => {
+      const snapshot = historySnapshot({ adBlocker: 1, cpu: 1, monitors: 1 });
+      snapshot.generatedAt = generatedAt;
+      (snapshot.machine as Record<string, unknown>).uptimeSeconds = uptimeSeconds;
+      return snapshot;
+    };
+    expect((await push(row(tenMinutesAgo, 10))).status).toBe(204);
+    expect((await push(row(minuteAgo, 60))).status).toBe(204);
+    expect((await push(row(tenMinutesAgo, 11))).status).toBe(204);
+
+    const read = async (path: string) => {
+      const body = await (await get(path, READ)).json<{
+        snapshots: { generatedAt: string; machine: { uptimeSeconds: number } }[];
+      }>();
+      return body.snapshots;
+    };
+    const chart = await read("/v1/history");
+    expect(chart).toHaveLength(1);
+    expect(chart[0]).toMatchObject({ generatedAt: minuteAgo, machine: { uptimeSeconds: 60 } });
+    const page = await read("/v1/history?limit=3");
+    expect(page.map((snapshot) => snapshot.machine.uptimeSeconds)).toEqual([60, 11, 10]);
+  });
+
+  it("drops the oldest generated time when a late older push fills the table", async () => {
+    const now = Date.now();
+    const row = (minutesAgo: number) => {
+      const snapshot = historySnapshot({ adBlocker: 1, cpu: 1, monitors: 1 });
+      snapshot.generatedAt = new Date(now - minutesAgo * 60 * 1000).toISOString();
+      (snapshot.machine as Record<string, unknown>).uptimeSeconds = minutesAgo;
+      return snapshot;
+    };
+    for (const minutesAgo of [4, 3, 2, 1]) {
+      expect((await push(row(minutesAgo))).status).toBe(204);
+    }
+    expect((await push(row(30))).status).toBe(204);
+    const mailbox = env.MAILBOX.get(env.MAILBOX.idFromName("house"));
+    const stored = (await mailbox.history(5)).map(
+      (line) => (JSON.parse(line) as { machine: { uptimeSeconds: number } }).machine.uptimeSeconds,
+    );
+    expect(stored).toEqual([1, 2, 3, 4]);
+    const body = await (await get("/v1/history", READ)).json<{
+      snapshots: { machine: { uptimeSeconds: number } }[];
+    }>();
+    expect(body.snapshots.map((snapshot) => snapshot.machine.uptimeSeconds)).toEqual([1]);
   });
 
   it("keeps a history push out of latest and a live push out of history", async () => {

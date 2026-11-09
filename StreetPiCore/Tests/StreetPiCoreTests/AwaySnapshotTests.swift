@@ -130,6 +130,27 @@ final class AwaySnapshotTests: XCTestCase {
         XCTAssertNil(snapshot.machine)
     }
 
+    func testRejectsBlockedQueriesAboveQueriesToday() throws {
+        var part = try adBlocker()
+        part["queriesToday"] = 10
+        part["blockedToday"] = 11
+        XCTAssertThrowsError(try decode(json(replacing: "adBlocker", with: part)))
+    }
+
+    func testAcceptsBlockedQueriesEqualToQueriesToday() throws {
+        var part = try adBlocker()
+        part["queriesToday"] = 10
+        part["blockedToday"] = 10
+        let snapshot = try decode(json(replacing: "adBlocker", with: part))
+        XCTAssertEqual(snapshot.adBlocker?.queriesToday, 10)
+        XCTAssertEqual(snapshot.adBlocker?.blockedToday, 10)
+    }
+
+    private func adBlocker() throws -> [String: Any] {
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: fixtureData()) as? [String: Any])
+        return try XCTUnwrap(object["adBlocker"] as? [String: Any])
+    }
+
     func testDescriptionsAndMirrorsRedact() throws {
         let snapshot = try FixtureBook.away(named: "away-live")
         for text in [String(describing: snapshot), String(reflecting: snapshot), dumped(snapshot)] {
