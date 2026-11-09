@@ -36,10 +36,9 @@ final class AwayKeySignalTests: XCTestCase {
         }
     }
 
-    /// Current: the away client labels every 403 a refused key, including these.
-    func testAnyOther403IsARefusedKey() {
+    func testAnyOther403IsNotARefusedKey() {
         for path in Self.otherPaths {
-            XCTAssertTrue(AwayKeySignal.isRefusedKey(path: path, status: 403), path)
+            XCTAssertFalse(AwayKeySignal.isRefusedKey(path: path, status: 403), path)
         }
     }
 }
