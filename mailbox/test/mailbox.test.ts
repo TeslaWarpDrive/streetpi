@@ -73,6 +73,88 @@ describe("schema", () => {
     await expectRejected(leaky, "monitors.items[0].name");
   });
 
+  it("rejects an up count above the total, and an all-up count beside a down check", async () => {
+    const good = liveSnapshot();
+    expect((await push(good)).status).toBe(204);
+
+    const fiveOfZero = liveSnapshot({
+      monitors: { up: 5, down: 0, total: 0, items: [] },
+    });
+    const overTotal = await push(fiveOfZero);
+    expect(overTotal.status).toBe(400);
+    const overText = await overTotal.text();
+    expect(overText).toContain("monitors.up");
+    expect(overText).not.toContain("5");
+
+    const calmLie = liveSnapshot({
+      monitors: {
+        up: 2,
+        down: 0,
+        total: 2,
+        items: [
+          { name: "Ad blocker", status: "up" },
+          { name: "Internet", status: "down" },
+        ],
+      },
+    });
+    const lie = await push(calmLie);
+    expect(lie.status).toBe(400);
+    const lieText = await lie.text();
+    expect(lieText).toContain("monitors.items");
+    expect(lieText).not.toContain("Internet");
+
+    const kept = await (await get("/v1/latest", READ)).json<{ monitors: unknown }>();
+    expect(kept.monitors).toEqual(good.monitors);
+  });
+
+  it("keeps a shorter named list, and a down count that the summary already admits", async () => {
+    const subset = liveSnapshot({
+      monitors: {
+        up: 4,
+        down: 1,
+        total: 10,
+        items: [
+          { name: "Ad blocker", status: "up" },
+          { name: "Internet", status: "down" },
+        ],
+      },
+    });
+    expect((await push(subset)).status).toBe(204);
+
+    const counted = liveSnapshot({
+      monitors: {
+        up: 2,
+        down: 1,
+        total: 2,
+        items: [{ name: "Internet", status: "down" }],
+      },
+    });
+    expect((await push(counted)).status).toBe(204);
+
+    const pending = liveSnapshot({
+      monitors: {
+        up: 1,
+        down: 0,
+        total: 1,
+        items: [{ name: "Ad blocker", status: "pending" }],
+      },
+    });
+    expect((await push(pending)).status).toBe(204);
+  });
+
+  it("does not store a history push whose counts say every check is up", async () => {
+    const history = historySnapshot({ adBlocker: 1, cpu: 1, monitors: 1 });
+    history.monitors = {
+      up: 1,
+      down: 0,
+      total: 1,
+      items: [{ name: "Internet", status: "down" }],
+    };
+    await expectRejected(history, "monitors.items");
+    const body = await (await get("/v1/history", READ)).json<{ snapshots: unknown[] }>();
+    expect(body.snapshots).toEqual([]);
+  });
+
   it("never echoes a rejected value", async () => {
     const response = await push(liveSnapshot({ ip: "192.0.2.10" }));
     expect(await response.text()).not.toContain("192.0.2.10");
