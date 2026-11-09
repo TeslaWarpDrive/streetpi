@@ -19,6 +19,7 @@ public struct AwayBoard: Sendable, Equatable {
 
     public static func make(latest: AwaySnapshot, history: AwaySnapshot?) -> AwayBoard {
         let status = AwayStatusBuilder.make(latest)
+        let points = series(history)
         return AwayBoard(
             snapshot: HouseholdSnapshot(
                 capturedAt: latest.generatedAt,
@@ -28,13 +29,13 @@ public struct AwayBoard: Sendable, Equatable {
                 dns: latest.adBlocker.flatMap(summary)
             ),
             desk: desk(latest: latest, history: history),
-            machine: awayDesk(series: series(history), chartNote: AwayCopy.chartWaiting),
+            machine: awayDesk(series: points, chartNote: points.isEmpty ? AwayCopy.chartWaiting : nil),
             status: status,
             piNotice: latest.machine == nil ? AwayCopy.noMeters : nil
         )
     }
 
-    private static func awayDesk(series: [MetricSeries], chartNote: String) -> MachineDesk {
+    private static func awayDesk(series: [MetricSeries], chartNote: String?) -> MachineDesk {
         var desk = MachineDesk.livePlaceholder
         desk.series = series
         desk.chartNote = chartNote

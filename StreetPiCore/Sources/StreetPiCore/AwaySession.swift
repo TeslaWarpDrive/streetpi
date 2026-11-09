@@ -12,12 +12,12 @@ public enum AwayPace {
 }
 
 /// The last good reports. A failed latest read keeps them and says so on the badge.
-/// A failed history read stays on the chart and does not replace that badge.
+/// A failed history read stays on the chart, including before the first report.
 public struct AwaySession: Sendable, Equatable {
     public private(set) var latest: AwaySnapshot?
     public private(set) var history: AwaySnapshot?
     public private(set) var problem: MailboxProblem?
-    /// Set when the day's chart could not be read and a latest report is still showing.
+    /// Set when the day's chart could not be read. The badge does not use this.
     public private(set) var historyProblem: MailboxProblem?
     private var historyAskedAt: Date?
 
@@ -34,7 +34,7 @@ public struct AwaySession: Sendable, Equatable {
     }
 
     /// Only cancellation throws. A latest failure lands in `problem`.
-    /// A history failure lands in `historyProblem` once a report is showing, and in `problem` only when it is not.
+    /// A history failure lands in `historyProblem` and stays off the badge.
     public func refreshed<Transport>(using client: MailboxClient<Transport>, now: Date) async throws -> AwaySession {
         var next = self
         do {
@@ -50,20 +50,18 @@ public struct AwaySession: Sendable, Equatable {
             next.history = try await client.history() ?? history
             next.historyProblem = nil
         } catch let failure as MailboxProblem {
-            if next.latest == nil {
-                next.problem = failure
-            } else {
-                next.historyProblem = failure
-            }
+            next.historyProblem = failure
         }
         return next
     }
 
     public var board: AwayBoard {
-        guard let latest else { return .waiting }
-        var board = AwayBoard.make(latest: latest, history: history)
-        if let historyProblem {
-            board.machine.chartNote = AwayCopy.problem(historyProblem)
+        var board = latest.map { AwayBoard.make(latest: $0, history: history) } ?? .waiting
+        guard let historyProblem else { return board }
+        let sentence = AwayCopy.problem(historyProblem)
+        board.machine.chartNote = sentence
+        if board.desk.hasDayLookups == false {
+            board.desk.dayChartNote = sentence
         }
         return board
     }
