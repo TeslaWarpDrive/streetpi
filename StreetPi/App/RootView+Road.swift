@@ -9,6 +9,8 @@ final class CertificateRecovery {
     var awayHTTP: AwayHTTPClient?
     var declinedPin: String?
     var dnsProblem: PiholeProblem?
+    /// A clear away-live read has happened since the last probe or sign-out.
+    var homeProbeYields = false
     var trigger = ConnectionTrigger.launch
     var retry = 0
     var generation = 0
@@ -43,7 +45,7 @@ extension RootView {
         }
         guard !Task.isCancelled, generation == certificateRecovery.generation else { return nil }
         certificateRecovery.gatewayReply = reply
-        certificateRecovery.reading = reading
+        noteProbe(reading)
         return reading.mode
     }
 
@@ -51,8 +53,36 @@ extension RootView {
         let generation = certificateRecovery.generation
         let reading = await probe()
         guard !Task.isCancelled, generation == certificateRecovery.generation else { return nil }
-        certificateRecovery.reading = reading
+        noteProbe(reading)
         return reading.mode
+    }
+
+    var currentAccess: AdBlockerAccess {
+        AdBlockerAccess(
+            passwordSaved: passwordSaved,
+            signedOut: signedOut,
+            probePin: certificateRecovery.reading.presentedPin,
+            readPin: presentedPin,
+            declinedPin: certificateRecovery.declinedPin,
+            dnsProblem: certificateRecovery.dnsProblem,
+            road: mode,
+            homeProbeYields: certificateRecovery.homeProbeYields
+        )
+    }
+
+    func store(_ next: AdBlockerAccess) {
+        passwordSaved = next.passwordSaved
+        signedOut = next.signedOut
+        presentedPin = next.readPin
+        certificateRecovery.reading.presentedPin = next.probePin
+        certificateRecovery.declinedPin = next.declinedPin
+        certificateRecovery.dnsProblem = next.dnsProblem
+        certificateRecovery.homeProbeYields = next.homeProbeYields
+    }
+
+    func noteProbe(_ reading: PiProbe.Reading) {
+        certificateRecovery.reading = reading
+        store(currentAccess.reduce(.probePresented(pin: reading.presentedPin)))
     }
 
     /// A session id belongs to one road, so a new road drops it and signs in again.

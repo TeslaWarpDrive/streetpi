@@ -6,21 +6,24 @@ final class AdBlockerAccessTests: XCTestCase {
     private let pin = Data(repeating: 0xFA, count: 32).base64EncodedString()
     private let other = Data(repeating: 0xFB, count: 32).base64EncodedString()
 
-    /// Current: a pin from the home probe still covers a later clear away-live read.
-    func testCurrentStuckCertificatePage() throws {
+    /// A pin from the home probe must not cover a later clear away-live read.
+    func testClearAwayLiveReadIsNotCoveredByTheHomeProbePin() throws {
         let away = try awayLive()
         let start = state(road: away, probePin: pin)
         let next = start.reduce(.boardReported(problem: nil, readPin: nil))
-        XCTAssertEqual(next, state(road: away, probePin: pin))
-        XCTAssertEqual(next.displayedDNSProblem, .certificateChanged)
-        XCTAssertEqual(next.phase, .certificateChanged(pin))
+        XCTAssertEqual(next, state(road: away, probePin: pin, homeProbeYields: true))
+        XCTAssertNil(next.displayedDNSProblem)
+        XCTAssertEqual(next.phase, .ready)
         XCTAssertEqual(next.probePin, pin)
         XCTAssertNil(next.readPin)
-        XCTAssertFalse(next.homeProbeYields)
+        XCTAssertTrue(next.homeProbeYields)
+        let home = next.reduce(.roadChanged(.home))
+        XCTAssertEqual(home.displayedDNSProblem, .certificateChanged)
+        XCTAssertEqual(home.phase, .certificateChanged(pin))
     }
 
-    /// Current: sign-out latches the watch and pull to refresh closed.
-    func testCurrentSignOutLatch() {
+    /// Sign-out still says this phone will ask again, and the watch and refresh do ask.
+    func testSignOutAsksAgain() {
         let next = state().reduce(.signOut)
         XCTAssertEqual(next, state(signedOut: true, dnsProblem: .needsSignIn))
         XCTAssertTrue(next.signedOut)
@@ -28,8 +31,8 @@ final class AdBlockerAccessTests: XCTestCase {
         XCTAssertEqual(next.phase, .signedOut)
         XCTAssertNil(next.probePin)
         XCTAssertNil(next.readPin)
-        XCTAssertTrue(next.watchRefuses)
-        XCTAssertTrue(next.refreshRefuses)
+        XCTAssertFalse(next.watchRefuses)
+        XCTAssertFalse(next.refreshRefuses)
     }
 
     func testPasswordAndSettingsLeaveTheCertificatePageAlone() throws {

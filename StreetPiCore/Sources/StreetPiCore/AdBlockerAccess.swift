@@ -126,11 +126,11 @@ public struct AdBlockerAccess: Sendable, Equatable {
         }
     }
 
-    /// The house watch returns before it reads while this phone is signed out.
-    public var watchRefuses: Bool { signedOut }
+    /// Sign-out leaves the latch set. The watch still asks the ad blocker again.
+    public var watchRefuses: Bool { false }
 
-    /// Pull to refresh returns before the ad blocker read while this phone is signed out.
-    public var refreshRefuses: Bool { signedOut }
+    /// Sign-out leaves the latch set. Pull to refresh still asks the ad blocker again.
+    public var refreshRefuses: Bool { false }
 
     private var certificatePin: String {
         if let probePin, probePinCovers { return probePin }
@@ -171,7 +171,10 @@ public struct AdBlockerAccess: Sendable, Equatable {
     private mutating func noteBoard(_ problem: PiholeProblem?, readPin: String?) {
         dnsProblem = problem
         self.readPin = problem == .certificateChanged ? readPin : nil
-        // A clear read does not lift the home probe's pin. The stuck page is that fact.
-        homeProbeYields = false
+        if case .awayLive = road, problem == nil, probePin != nil {
+            homeProbeYields = true
+        } else {
+            homeProbeYields = false
+        }
     }
 }
