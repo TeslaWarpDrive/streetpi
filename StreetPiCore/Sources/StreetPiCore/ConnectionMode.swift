@@ -23,9 +23,11 @@ public enum ConnectionMode: Sendable, Equatable {
         return .offline
     }
 
-    /// A good read does not prove the road while the mailbox is all that answered,
-    /// nothing answered, or the away key is in doubt. Those keep looking until a probe says otherwise.
+    /// A good read does not prove the road while the live gateway or the mailbox
+    /// is all that answered, nothing answered, or the away key is in doubt.
+    /// Those keep looking until a probe says otherwise.
     public func looksAgain(readFailed: Bool, keyRejected: Bool) -> Bool {
+        if case .awayLive = self { return true }
         if case .awayMailbox = self { return true }
         return readFailed || keyRejected || self == .offline
     }
