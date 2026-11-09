@@ -84,7 +84,7 @@ struct LargeTypeLabel: UIViewRepresentable {
     var style: UIFont.TextStyle
     var color: Color
 
-    func makeUIView(context: Context) -> LargeTypeLine {
+    fileprivate func makeUIView(context: Context) -> LargeTypeLine {
         let label = LargeTypeLine()
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         label.setContentCompressionResistancePriority(.required, for: .vertical)
@@ -93,11 +93,11 @@ struct LargeTypeLabel: UIViewRepresentable {
         return label
     }
 
-    func updateUIView(_ label: LargeTypeLine, context: Context) {
+    fileprivate func updateUIView(_ label: LargeTypeLine, context: Context) {
         refresh(label)
     }
 
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: LargeTypeLine, context: Context) -> CGSize? {
+    fileprivate func sizeThatFits(_ proposal: ProposedViewSize, uiView: LargeTypeLine, context: Context) -> CGSize? {
         let font = LargeTypeDrawing.font(style: style, monospaced: monospaced, traits: uiView.traitCollection)
         let limit = LargeTypeDrawing.limit(proposal.width)
         let height = LargeTypeDrawing.height(of: text, font: font, width: limit)
