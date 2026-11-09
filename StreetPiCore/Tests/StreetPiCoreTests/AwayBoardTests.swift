@@ -225,11 +225,14 @@ final class AwayBoardTests: XCTestCase {
         let client = try client(transport)
         var session = AwaySession()
         session = try await session.refreshed(using: client, now: now)
-        XCTAssertEqual(session.problem, .offline)
+        XCTAssertNil(session.problem)
+        XCTAssertEqual(session.historyProblem, .offline)
+        XCTAssertEqual(session.board.machine.chartNote, AwayCopy.problem(.offline))
         XCTAssertNotNil(session.latest)
         session = try await session.refreshed(using: client, now: now.addingTimeInterval(15))
         XCTAssertEqual(transport.historyReads.value, 1)
         XCTAssertNil(session.problem)
+        XCTAssertEqual(session.historyProblem, .offline)
     }
 
     func testAFailedReadKeepsTheLastReport() async throws {

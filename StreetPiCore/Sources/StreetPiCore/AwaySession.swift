@@ -11,11 +11,14 @@ public enum AwayPace {
     }
 }
 
-/// The last good reports. A failed read keeps them on screen and says what went wrong.
+/// The last good reports. A failed latest read keeps them and says so on the badge.
+/// A failed history read stays on the chart and does not replace that badge.
 public struct AwaySession: Sendable, Equatable {
     public private(set) var latest: AwaySnapshot?
     public private(set) var history: AwaySnapshot?
     public private(set) var problem: MailboxProblem?
+    /// Set when the day's chart could not be read and a latest report is still showing.
+    public private(set) var historyProblem: MailboxProblem?
     private var historyAskedAt: Date?
 
     public init() {}
@@ -30,25 +33,39 @@ public struct AwaySession: Sendable, Equatable {
         return now.timeIntervalSince(historyAskedAt) >= AwayPace.historySeconds
     }
 
-    /// Only cancellation throws. Every other failure lands in `problem`.
+    /// Only cancellation throws. A latest failure lands in `problem`.
+    /// A history failure lands in `historyProblem` once a report is showing, and in `problem` only when it is not.
     public func refreshed<Transport>(using client: MailboxClient<Transport>, now: Date) async throws -> AwaySession {
         var next = self
         do {
             next.latest = try await client.latest() ?? latest
             next.problem = nil
-            if next.wantsHistory(now: now) {
-                next.historyAskedAt = now
-                next.history = try await client.history() ?? history
-            }
         } catch let failure as MailboxProblem {
             next.problem = failure
+            return next
+        }
+        guard next.wantsHistory(now: now) else { return next }
+        next.historyAskedAt = now
+        do {
+            next.history = try await client.history() ?? history
+            next.historyProblem = nil
+        } catch let failure as MailboxProblem {
+            if next.latest == nil {
+                next.problem = failure
+            } else {
+                next.historyProblem = failure
+            }
         }
         return next
     }
 
     public var board: AwayBoard {
         guard let latest else { return .waiting }
-        return AwayBoard.make(latest: latest, history: history)
+        var board = AwayBoard.make(latest: latest, history: history)
+        if let historyProblem {
+            board.machine.chartNote = AwayCopy.problem(historyProblem)
+        }
+        return board
     }
 
     public var status: AwayStatus {
