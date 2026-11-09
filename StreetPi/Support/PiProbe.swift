@@ -42,12 +42,7 @@ struct PiProbe: Sendable {
         var presentedPin: String?
 
         func problem(declinedPin: String?) -> PiholeProblem? {
-            guard let presentedPin else { return nil }
-            guard presentedPin == declinedPin else { return .certificateChanged }
-            switch mode {
-            case .awayLive, .awayMailbox: return nil
-            case .home, .offline: return .pinKept
-            }
+            AdBlockerAccess(probePin: presentedPin, declinedPin: declinedPin, road: mode).displayedDNSProblem
         }
     }
 
