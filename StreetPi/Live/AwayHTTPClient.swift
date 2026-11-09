@@ -20,8 +20,8 @@ final class AwayHTTPClient: LiveHTTPSending, @unchecked Sendable {
         return result
     }
 
-    private func noteRejection(status: Int) {
-        guard status == 403 else { return }
+    private func noteRejection(url: URL, status: Int) {
+        guard AwayKeySignal.isRefusedKey(path: url.path, status: status) else { return }
         rejectionLock.lock()
         rejected = true
         rejectionLock.unlock()
@@ -88,7 +88,7 @@ final class AwayHTTPClient: LiveHTTPSending, @unchecked Sendable {
         do {
             let (data, response) = try await sender.data(for: request)
             guard let http = response as? HTTPURLResponse else { throw LiveHTTPProblem.unreachable }
-            noteRejection(status: http.statusCode)
+            noteRejection(url: url, status: http.statusCode)
             return LiveHTTPResponse(status: http.statusCode, headers: LiveHTTPClient.headerMap(http), body: data)
         } catch let problem as LiveHTTPProblem {
             throw problem
