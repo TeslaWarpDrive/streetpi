@@ -24,7 +24,10 @@ export class Mailbox extends DurableObject<Env> {
     `);
   }
 
+  /** An older generatedAt leaves the stored row in place. The same time still replaces it. */
   putLatest(generatedAtMs: number, body: string): void {
+    const stored = this.latestGeneratedAtMs();
+    if (stored !== null && generatedAtMs < stored) return;
     this.sql.exec(
       "INSERT OR REPLACE INTO latest (id, generated_at_ms, body) VALUES (1, ?, ?)",
       generatedAtMs,

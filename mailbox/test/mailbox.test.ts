@@ -161,6 +161,36 @@ describe("storage", () => {
     expect(body.streamingProxy.healthy).toBe(false);
   });
 
+  it("keeps the stored live snapshot when an older one arrives later", async () => {
+    const now = Date.now();
+    const at = (offsetMs: number) => new Date(now + offsetMs).toISOString();
+    const minuteAgo = at(-60 * 1000);
+    const tenMinutesAgo = at(-10 * 60 * 1000);
+    const withTemperature = (generatedAt: string, temperatureC: number) => {
+      const snapshot = liveSnapshot({ generatedAt });
+      (snapshot.machine as Record<string, unknown>).temperatureC = temperatureC;
+      return snapshot;
+    };
+    const shown = async () =>
+      (await get("/v1/latest", READ)).json<{ generatedAt: string; machine: { temperatureC: number } }>();
+
+    expect((await push(withTemperature(tenMinutesAgo, 40))).status).toBe(204);
+    expect((await push(withTemperature(minuteAgo, 61))).status).toBe(204);
+    expect(await shown()).toMatchObject({ generatedAt: minuteAgo, machine: { temperatureC: 61 } });
+
+    expect((await push(withTemperature(tenMinutesAgo, 40))).status).toBe(204);
+    expect(await shown()).toMatchObject({ generatedAt: minuteAgo, machine: { temperatureC: 61 } });
+    const age = await (await get("/healthz")).json<{ ageSeconds: number }>();
+    expect(age.ageSeconds).toBeGreaterThanOrEqual(60);
+    expect(age.ageSeconds).toBeLessThan(180);
+
+    expect((await push(withTemperature(minuteAgo, 55))).status).toBe(204);
+    expect(await shown()).toMatchObject({ generatedAt: minuteAgo, machine: { temperatureC: 55 } });
+    const justNow = at(0);
+    expect((await push(withTemperature(justNow, 48))).status).toBe(204);
+    expect(await shown()).toMatchObject({ generatedAt: justNow, machine: { temperatureC: 48 } });
+  });
+
   it("keeps a history push out of latest and a live push out of history", async () => {
     await push(historySnapshot());
     expect((await get("/v1/latest", READ)).status).toBe(204);
