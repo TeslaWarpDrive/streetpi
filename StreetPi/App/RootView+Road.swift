@@ -7,6 +7,8 @@ final class CertificateRecovery {
     var reading = PiProbe.Reading(mode: .home)
     var gatewayReply = GatewayProbe.Reply.noAnswer
     var awayHTTP: AwayHTTPClient?
+    /// Shared by the Pi-hole client and the Netdata and Kuma client.
+    var keyLatch = AwayKeyLatch()
     var declinedPin: String?
     var dnsProblem: PiholeProblem?
     var trigger = ConnectionTrigger.launch
@@ -64,6 +66,7 @@ extension RootView {
         // A read or probe still on the old road, away or at home, can no longer speak for the key.
         certificateRecovery.generation += 1
         certificateRecovery.awayHTTP = nil
+        certificateRecovery.keyLatch = AwayKeyLatch()
         try? KeychainSession(store: secretStore).deleteSessionID()
         // The old road may be gone, so the app does not wait on this.
         Task { await previous?.signOut() }
@@ -98,7 +101,11 @@ extension RootView {
 
     var liveRoad: LiveRoad {
         if case .awayLive(let gateway) = mode, let endpoints = LiveEndpoints.away(gateway) {
-            return LiveRoad(endpoints: endpoints, sender: awayRoad.reader(for: gateway), isAway: true)
+            return LiveRoad(
+                endpoints: endpoints,
+                sender: awayRoad.reader(for: gateway, rejection: certificateRecovery.keyLatch),
+                isAway: true
+            )
         }
         return LiveRoad(endpoints: LiveHostStore().load(), sender: liveClient, isAway: false)
     }
@@ -129,7 +136,11 @@ extension RootView {
         }
         let store = secretStore
         let base = gateway.piholeBase ?? LiveEndpoints.house.pihole
-        let http = AwayHTTPClient(settings: gateway, configuration: AwayHTTPClient.piholeConfiguration())
+        let http = AwayHTTPClient(
+            settings: gateway,
+            configuration: AwayHTTPClient.piholeConfiguration(),
+            rejection: certificateRecovery.keyLatch
+        )
         certificateRecovery.awayHTTP = http
         let client = PiholeClient(
             transport: AwayPiholeTransport(base: LivePiholeTransport(http: http, base: base)),
@@ -179,6 +190,7 @@ extension RootView {
         certificateRecovery.generation += 1
         certificateRecovery.gatewayReply = .noAnswer
         certificateRecovery.awayHTTP = nil
+        certificateRecovery.keyLatch = AwayKeyLatch()
         certificateRecovery.trigger = .settingsChanged
         modeCheck += 1
     }

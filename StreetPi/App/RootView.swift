@@ -389,8 +389,8 @@ struct RootView: View {
         _ client: PiholeClient, now: Date, secrets: (any SecretStoring)? = nil
     ) async -> AdBlockerBoard {
         let generation = certificateRecovery.generation
+        // A refused key that arrived before this read stays latched. Refresh used to throw it away here.
         let http = isAwayLive ? certificateRecovery.awayHTTP : nil
-        _ = http?.takeKeyRejection()
         let saved = AdBlockerSecrets.password(in: secrets ?? secretStore).isEmpty == false
         var piAnswered = false
         let board = await readBoard(client, now: now, saved: saved, piAnswered: &piAnswered)

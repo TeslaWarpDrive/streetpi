@@ -82,6 +82,7 @@ final class AwayGatewayTests: XCTestCase {
         XCTAssertEqual(gateway.netdataBase?.absoluteString, "https://gateway.example.test/netdata")
         XCTAssertEqual(gateway.kumaBase?.absoluteString, "https://gateway.example.test/kuma")
         XCTAssertEqual(gateway.healthURL?.absoluteString, "https://gateway.example.test/healthz")
+        XCTAssertEqual(gateway.loginProbeURL?.absoluteString, "https://gateway.example.test/api/info/login")
     }
 
     func testTheStatusPageKeepsSchemeAndPrefixAway() throws {

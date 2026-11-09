@@ -73,7 +73,8 @@ final class RejectedAwayKeyTests: XCTestCase {
         assertNoticeHidden(root)
     }
 
-    func testOnlyHealth200AnswersAndOnly403RejectsKey() async throws {
+    /// Both calls see this one status. The login probe has to be 200 before the road is up.
+    func testOnlyAShared200AnswersAndOnly403RejectsTheKey() async throws {
         for status in [200, 302, 401, 403, 404, 503] {
             let reply = await GatewayProbe().reply(try gateway(), http: ProbeReply(status: status))
             XCTAssertEqual(reply, status == 200 ? .answered : status == 403 ? .rejectedKey : .noAnswer)
@@ -645,7 +646,7 @@ private struct ProbeReply: LiveHTTPSending {
     }
 }
 
-private class RejectedKeyHTTPStub: URLProtocol, @unchecked Sendable {
+class RejectedKeyHTTPStub: URLProtocol, @unchecked Sendable {
     class var rejectsLogin: Bool { true }
 
     override class func canInit(with request: URLRequest) -> Bool { true }
