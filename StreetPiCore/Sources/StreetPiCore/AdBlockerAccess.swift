@@ -132,6 +132,10 @@ public struct AdBlockerAccess: Sendable, Equatable {
     /// Sign-out leaves the latch set. Pull to refresh still asks the ad blocker again.
     public var refreshRefuses: Bool { false }
 
+    /// The query log and the text log wait while this phone is signed out and the desk is not on screen.
+    /// A clear read that puts the desk back opens them. The latch stays set, so the house watch is not started over.
+    public var logsRefuse: Bool { signedOut && displayedDNSProblem != nil }
+
     private var certificatePin: String {
         if let probePin, probePinCovers { return probePin }
         return readPin ?? probePin ?? ""

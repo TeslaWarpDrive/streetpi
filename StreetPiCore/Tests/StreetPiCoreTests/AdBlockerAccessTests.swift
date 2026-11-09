@@ -22,6 +22,46 @@ final class AdBlockerAccessTests: XCTestCase {
         XCTAssertEqual(home.phase, .certificateChanged(pin))
     }
 
+    /// A clear read after sign-out puts the desk back and opens the log readers.
+    /// The latch stays set. A failed read, or a probe pin that still covers the desk, keeps the logs closed.
+    func testClearReadAfterSignOutOpensTheLogReaders() throws {
+        let waiting = state().reduce(.signOut)
+        XCTAssertEqual(waiting.displayedDNSProblem, .needsSignIn)
+        XCTAssertEqual(waiting.phase, .signedOut)
+        XCTAssertTrue(waiting.logsRefuse)
+
+        let desk = waiting.reduce(.boardReported(problem: nil, readPin: nil))
+        XCTAssertEqual(desk, state(signedOut: true))
+        XCTAssertNil(desk.displayedDNSProblem)
+        XCTAssertTrue(desk.signedOut)
+        XCTAssertFalse(desk.logsRefuse)
+        XCTAssertFalse(desk.watchRefuses)
+        XCTAssertFalse(desk.refreshRefuses)
+
+        let failed = waiting.reduce(.boardReported(problem: .offline, readPin: nil))
+        XCTAssertEqual(failed, state(signedOut: true, dnsProblem: .offline))
+        XCTAssertEqual(failed.displayedDNSProblem, .offline)
+        XCTAssertTrue(failed.logsRefuse)
+
+        let covered = state(signedOut: true, probePin: pin, dnsProblem: .needsSignIn)
+            .reduce(.boardReported(problem: nil, readPin: nil))
+        XCTAssertEqual(covered.displayedDNSProblem, .certificateChanged)
+        XCTAssertTrue(covered.signedOut)
+        XCTAssertTrue(covered.logsRefuse)
+
+        let away = try awayLive()
+        let yielded = state(road: away, signedOut: true, probePin: pin, dnsProblem: .needsSignIn)
+            .reduce(.boardReported(problem: nil, readPin: nil))
+        XCTAssertEqual(
+            yielded,
+            state(road: away, signedOut: true, probePin: pin, homeProbeYields: true)
+        )
+        XCTAssertNil(yielded.displayedDNSProblem)
+        XCTAssertTrue(yielded.signedOut)
+        XCTAssertTrue(yielded.homeProbeYields)
+        XCTAssertFalse(yielded.logsRefuse)
+    }
+
     /// Sign-out still says this phone will ask again, and the watch and refresh do ask.
     func testSignOutAsksAgain() {
         let next = state().reduce(.signOut)

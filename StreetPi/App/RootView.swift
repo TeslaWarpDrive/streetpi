@@ -201,9 +201,9 @@ struct RootView: View {
             guard reprobeAsk > 0 else { return }
             await reprobe()
         }
-        .task(id: "\(String(describing: dnsPage))|\(modeCheck)") {
+        .task(id: "\(String(describing: dnsPage))|\(modeCheck)|\(currentAccess.logsRefuse)") {
             guard !LiveGate.usesFixtures, dnsPage == .liveLog, scenePhase == .active, awayBoard == nil else { return }
-            while !Task.isCancelled, dnsPage == .liveLog, scenePhase == .active, signedOut == false {
+            while !Task.isCancelled, dnsPage == .liveLog, scenePhase == .active, currentAccess.logsRefuse == false {
                 await refreshLiveLog()
                 try? await Task.sleep(for: .seconds(4))
             }
@@ -664,7 +664,7 @@ private extension RootView {
     }
 
     private func pullLogs(textFeed: TextLogFeed, queryFeed: LiveLogFeed) async -> LogPull {
-        guard signedOut == false, LiveReaderGate.opensSockets else {
+        guard currentAccess.logsRefuse == false, LiveReaderGate.opensSockets else {
             let note = PiholeProblem.needsSignIn.title
             return LogPull(queries: queryFeed, text: textFeed, liveNote: note, textNote: note)
         }
@@ -673,7 +673,7 @@ private extension RootView {
     }
 
     private func refreshLiveLog() async {
-        guard signedOut == false else { return }
+        guard currentAccess.logsRefuse == false else { return }
         let client = await clientForCurrentSettings()
         let pulled = await LogPull.live(client: client, feed: LiveLogFeed(queries: desk.liveFeed ?? []))
         desk.liveFeed = pulled.feed.queries
