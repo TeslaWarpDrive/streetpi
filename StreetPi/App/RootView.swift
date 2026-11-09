@@ -508,18 +508,6 @@ private extension RootView {
         }
     }
 
-    func readStatusPage() async throws -> StatusPageLoad {
-        let road = liveRoad
-        let address = road.isAway ? road.endpoints.uptimeKuma.absoluteString : statusAddress
-        let slug = road.isAway ? AwayGatewaySettings.statusSlug : statusSlug
-        guard let base = LiveAddress.validated(address, schemes: ["http", "https"]),
-              let endpoint = StatusPageEndpoint.make(base: base, slug: slug)
-        else { throw StatusPageProblem.notUnderstood }
-        let transport = StatusPageLiveTransport(sender: road.sender, base: base)
-        let reader = StatusPageReader(transport: transport, endpoint: endpoint, now: { Date() })
-        return try await reader.load()
-    }
-
     private func saveSetup(_ raw: String) {
         guard raw.isEmpty == false else { return }
         do {
@@ -764,6 +752,18 @@ private extension RootView {
 }
 
 extension RootView {
+    func readStatusPage() async throws -> StatusPageLoad {
+        let road = liveRoad
+        let address = road.isAway ? road.endpoints.uptimeKuma.absoluteString : statusAddress
+        let slug = road.isAway ? AwayGatewaySettings.statusSlug : statusSlug
+        guard let base = LiveAddress.validated(address, schemes: ["http", "https"]),
+              let endpoint = StatusPageEndpoint.make(base: base, slug: slug)
+        else { throw StatusPageProblem.notUnderstood }
+        let transport = StatusPageLiveTransport(sender: road.sender, base: base)
+        let reader = StatusPageReader(transport: transport, endpoint: endpoint, now: { Date() })
+        return try await reader.load()
+    }
+
     func apply(_ meters: NetdataMeters) {
         machine.host = meters.hostName
         machine.modelName = "Raspberry Pi"
