@@ -7,7 +7,7 @@ struct RootView: View {
     @State private var section = AppSection.home
     @State var desk: DNSDesk
     @State private var dnsPage: DNSPage?
-    @State private var machine: MachineDesk
+    @State var machine: MachineDesk
     @State private var machinePage: MachinePage?
     @State var pending: HouseholdAction?
     @State var actionNotice: ActionNotice?
@@ -22,12 +22,12 @@ struct RootView: View {
     @State private var piHost: String
     @State private var committedHost: String
     @State private var hostNote: String?
-    @State private var piNotice: String?
-    @State private var liveReading: MachineReading?
+    @State var piNotice: String?
+    @State var liveReading: MachineReading?
     @State var liveClient: LiveHTTPClient
     @State private var statusAddress: String
     @State private var statusSlug: String
-    @State private var statusBoard: HouseStatusBoard?
+    @State var statusBoard: HouseStatusBoard?
     @State var mode: ConnectionMode
     @State var modeCheck = 0
     @State var dwell = ConnectionDwell()
@@ -303,6 +303,7 @@ struct RootView: View {
     }
 
     /// A pull looks for the Pi again. A new answer restarts the watch on the right road.
+    /// The same road also reads temperature, charts, and monitors, which otherwise wait.
     private func refreshNow() async {
         guard LiveReaderGate.opensSockets else { return }
         guard let next = await probeMode() else { return }
@@ -311,11 +312,21 @@ struct RootView: View {
             modeCheck += 1
             return
         }
-        if case .awayMailbox(let setup) = next {
+        let reads = ManualRefresh.reads(mode: next, signedOut: signedOut)
+        if reads.contains(.mailbox), case .awayMailbox(let setup) = next {
             _ = await pullAway(setup)
             return
         }
-        guard currentAccess.refreshRefuses == false else { return }
+        // The tile set is empty while signed out. The ad blocker still asks.
+        let askBlocker = currentAccess.refreshRefuses == false
+            && (reads.contains(.adBlocker) || signedOut)
+        async let blocker: Void = refreshAdBlocker(askBlocker)
+        async let tiles: Void = refreshHouseTiles(reads)
+        _ = await (blocker, tiles)
+    }
+
+    private func refreshAdBlocker(_ asked: Bool) async {
+        guard asked else { return }
         let client = await clientForCurrentSettings()
         apply(await refresh(client, now: Date()))
     }
@@ -650,14 +661,12 @@ private extension RootView {
             let refresh = PiMeterRefresh(client: road.sender, base: road.endpoints.netdata, isAway: road.isAway)
             guard let result = await refresh.load() else { return }
             if Task.isCancelled { return }
+            presentMeters(result)
             switch result {
             case .success(let meters):
-                apply(meters)
                 failures = meters.reading.hasSignal ? 0 : failures + 1
                 noteRead(worked: true)
-            case .failure(let problem):
-                liveReading = nil
-                piNotice = problem.sentence
+            case .failure:
                 failures += 1
                 noteRead(worked: false)
             }
@@ -673,12 +682,7 @@ private extension RootView {
         var queryFeed = LiveLogFeed()
         var failures = 0
         while !Task.isCancelled {
-            let road = liveRoad
-            let reader = NetdataHistoryReader(
-                transport: NetdataLiveTransport(client: road.sender, base: road.endpoints.netdata, isAway: road.isAway),
-                now: { Date() }
-            )
-            let history = await reader.load()
+            let history = await loadHistory()
             let log = await pullLogs(textFeed: textFeed, queryFeed: queryFeed)
             textFeed = log.text
             queryFeed = log.queries
@@ -708,18 +712,7 @@ private extension RootView {
     }
 
     private func applyLive(history: NetdataHistoryLoad, log: LogPull) {
-        if history.chartNote == nil {
-            machine.series = history.series
-        }
-        machine.chartNote = history.chartNote
-        if history.containerNote == nil {
-            machine.containers = history.containers
-        }
-        machine.containerNote = history.containerNote
-        if history.alertNote == nil {
-            machine.alerts = history.alerts
-        }
-        machine.alertNote = history.alertNote
+        applyHistory(history)
         let merged = LiveLogFeed(queries: desk.liveFeed ?? []).applying(log.queries.queries)
         desk.liveFeed = merged.queries
         desk.liveReadNote = merged.queries.isEmpty ? log.liveNote : nil
@@ -730,28 +723,6 @@ private extension RootView {
             desk.textLogReadNote = nil
         } else {
             desk.textLogReadNote = log.textNote
-        }
-    }
-
-    private func apply(_ meters: NetdataMeters) {
-        machine.host = meters.hostName
-        machine.modelName = "Raspberry Pi"
-        if meters.reading.hasSignal {
-            liveReading = meters.reading
-            piNotice = nil
-        } else {
-            liveReading = nil
-            piNotice = NetdataProblem.notUnderstood.sentence
-        }
-    }
-
-    private func showMachine() {
-        guard var snapshot = screen.snapshot else { return }
-        snapshot.machine = liveReading
-        snapshot.capturedAt = Date()
-        clock = Date()
-        if case .explained(let status, _) = screen {
-            screen = .explained(status, snapshot)
         }
     }
 
@@ -790,4 +761,28 @@ private extension RootView {
         return url
     }
 
+}
+
+extension RootView {
+    func apply(_ meters: NetdataMeters) {
+        machine.host = meters.hostName
+        machine.modelName = "Raspberry Pi"
+        if meters.reading.hasSignal {
+            liveReading = meters.reading
+            piNotice = nil
+        } else {
+            liveReading = nil
+            piNotice = NetdataProblem.notUnderstood.sentence
+        }
+    }
+
+    func showMachine() {
+        guard var snapshot = screen.snapshot else { return }
+        snapshot.machine = liveReading
+        snapshot.capturedAt = Date()
+        clock = Date()
+        if case .explained(let status, _) = screen {
+            screen = .explained(status, snapshot)
+        }
+    }
 }
