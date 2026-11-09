@@ -73,7 +73,7 @@ struct DNSPageBody: View {
         onAllow: @escaping (String) -> Void
     ) -> some View {
         let kept = page == .queryLog
-        DNSLogScreen(
+        return DNSLogScreen(
             title: page.title,
             line: heading.line,
             queries: queries,
