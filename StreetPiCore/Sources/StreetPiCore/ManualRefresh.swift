@@ -3,7 +3,7 @@ import Foundation
 /// What a pull reads when the road on screen stays put.
 /// A different road restarts the watch, so it is not decided here.
 public enum ManualRefresh {
-    public enum Source: Sendable, Equatable, Hashable {
+    public enum Source: Sendable, Equatable, Hashable, CaseIterable {
         case adBlocker
         case mailbox
         case temperature
@@ -106,7 +106,14 @@ public enum ManualRefresh {
         guard reads.contains(source) else { return }
         let started = identity()
         guard let value = await tile.load() else { return }
-        guard Task.isCancelled == false, identity() == started else { return }
+        let current = identity()
+        guard Task.isCancelled == false, current == started else { return }
+        guard mayPaint(source, mode: current.mode, signedOut: current.signedOut) else { return }
         tile.publish(value)
+    }
+
+    /// A pull can finish after sign-out. Paint only what a pull would still read.
+    public static func mayPaint(_ source: Source, mode: ConnectionMode, signedOut: Bool) -> Bool {
+        reads(mode: mode, signedOut: signedOut).contains(source)
     }
 }

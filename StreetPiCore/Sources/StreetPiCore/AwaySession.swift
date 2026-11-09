@@ -33,9 +33,19 @@ public struct AwaySession: Sendable, Equatable {
         return now.timeIntervalSince(historyAskedAt) >= AwayPace.historySeconds
     }
 
+    /// When the day chart is read. The open mailbox waits a minute. A pull does not.
+    public enum ChartRead: Sendable, Equatable {
+        case whenDue
+        case now
+    }
+
     /// Only cancellation throws. A latest failure lands in `problem`.
     /// A history failure lands in `historyProblem` and stays off the badge.
-    public func refreshed<Transport>(using client: MailboxClient<Transport>, now: Date) async throws -> AwaySession {
+    public func refreshed<Transport>(
+        using client: MailboxClient<Transport>,
+        now: Date,
+        charts: ChartRead = .whenDue
+    ) async throws -> AwaySession {
         var next = self
         do {
             next.latest = try await client.latest() ?? latest
@@ -44,7 +54,7 @@ public struct AwaySession: Sendable, Equatable {
             next.problem = failure
             return next
         }
-        guard next.wantsHistory(now: now) else { return next }
+        guard charts == .now || next.wantsHistory(now: now) else { return next }
         next.historyAskedAt = now
         do {
             next.history = try await client.history() ?? history

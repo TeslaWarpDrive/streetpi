@@ -19,6 +19,13 @@ final class ManualRefreshTests: XCTestCase {
         ]
         for row in rows {
             XCTAssertEqual(ManualRefresh.reads(mode: row.mode, signedOut: row.signedOut), row.reads)
+            for source in ManualRefresh.Source.allCases {
+                let paints = row.reads.contains(source)
+                XCTAssertEqual(
+                    ManualRefresh.mayPaint(source, mode: row.mode, signedOut: row.signedOut),
+                    paints
+                )
+            }
         }
     }
 

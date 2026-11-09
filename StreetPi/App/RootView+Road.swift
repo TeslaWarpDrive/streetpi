@@ -151,9 +151,12 @@ extension RootView {
     }
 
     /// False when the read was cancelled.
-    func pullAway(_ setup: MailboxSetup) async -> Bool {
+    /// A pull passes `.now` so the day chart does not wait out the minute.
+    func pullAway(_ setup: MailboxSetup, charts: AwaySession.ChartRead = .whenDue) async -> Bool {
         let client = MailboxClient(transport: mailboxSession, setup: setup)
-        guard let next = try? await awaySession.refreshed(using: client, now: Date()) else { return false }
+        guard let next = try? await awaySession.refreshed(using: client, now: Date(), charts: charts) else {
+            return false
+        }
         awaySession = next
         clock = Date()
         return true

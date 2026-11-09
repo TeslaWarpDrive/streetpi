@@ -87,7 +87,8 @@ public enum ConnectionTrigger: Sendable, Equatable {
     case settingsChanged
 }
 
-/// Keeps the app from flapping. A new road waits out the dwell unless the phone really moved.
+/// Keeps the app from flapping. A new road waits out the dwell unless the phone
+/// moved, saved settings changed, or the person pulled to refresh.
 public struct ConnectionDwell: Sendable, Equatable {
     public static let minimumSeconds: TimeInterval = 10
 
@@ -109,7 +110,8 @@ public struct ConnectionDwell: Sendable, Equatable {
             return probed
         }
         guard probed != current else { return current }
-        guard trigger == .pathChanged || trigger == .settingsChanged || secondsLeft(now: now) == 0 else {
+        let askedNow = trigger == .pathChanged || trigger == .settingsChanged || trigger == .manual
+        guard askedNow || secondsLeft(now: now) == 0 else {
             return current
         }
         adopt(probed, now: now)

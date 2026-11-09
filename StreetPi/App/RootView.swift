@@ -323,7 +323,7 @@ struct RootView: View {
         }
         let reads = ManualRefresh.reads(mode: next, signedOut: signedOut)
         if reads.contains(.mailbox), case .awayMailbox(let setup) = next {
-            _ = await pullAway(setup)
+            _ = await pullAway(setup, charts: .now)
             return
         }
         // The tile set is empty while signed out. The ad blocker still asks.
@@ -337,7 +337,12 @@ struct RootView: View {
     private func refreshAdBlocker(_ asked: Bool) async {
         guard asked else { return }
         let client = await clientForCurrentSettings()
-        apply(await refresh(client, now: Date()))
+        let board = await refresh(client, now: Date())
+        guard ManualRefresh.mayPaint(.adBlocker, mode: mode, signedOut: signedOut) else {
+            if signedOut { dnsSession.signedIn = false }
+            return
+        }
+        apply(board)
     }
 
     func clientForCurrentSettings() async -> PiholeClient {
@@ -670,7 +675,9 @@ private extension RootView {
                 noteRead(worked: true)
             case .failure:
                 failures += 1
-                noteRead(worked: false)
+                if MeterRoad.missAsksForNewRoad() {
+                    noteRead(worked: false)
+                }
             }
             let wait = RefreshPace.waitSeconds(afterFailures: failures)
             try? await Task.sleep(for: .seconds(wait))
