@@ -28,31 +28,13 @@ struct DNSPageBody: View {
         case .statistics:
             DNSStatistics(desk: desk, theme: theme, wide: wide)
         case .queryLog:
-            DNSLogScreen(
-                title: page.title,
+            logScreen(
+                page.logHeading(offersAllow: reachable),
                 queries: desk.queries,
-                emptyTitle: DNSCopy.emptyQueriesTitle,
-                emptyDetail: DNSCopy.emptyQueriesDetail,
-                offersAllow: reachable,
-                failureNote: nil,
-                theme: theme,
-                wide: wide,
-                now: now,
                 onAllow: { onAction(.allowDomain(named: $0)) }
             )
         case .liveLog:
-            DNSLogScreen(
-                title: page.title,
-                queries: desk.liveQueries,
-                emptyTitle: DNSCopy.emptyLiveTitle,
-                emptyDetail: DNSCopy.emptyLiveDetail,
-                offersAllow: false,
-                failureNote: desk.liveReadNote,
-                theme: theme,
-                wide: wide,
-                now: now,
-                onAllow: { _ in }
-            )
+            logScreen(page.logHeading(offersAllow: false), queries: desk.liveQueries, onAllow: { _ in })
         case .services:
             DNSServices(theme: theme, wide: wide)
         case .clients:
@@ -83,5 +65,26 @@ struct DNSPageBody: View {
         case .upkeep:
             DNSUpkeep(desk: desk, theme: theme, wide: wide, now: now, onAction: onAction)
         }
+    }
+
+    private func logScreen(
+        _ heading: DNSLogHeading,
+        queries: [DNSQuery],
+        onAllow: @escaping (String) -> Void
+    ) -> some View {
+        let kept = page == .queryLog
+        DNSLogScreen(
+            title: page.title,
+            line: heading.line,
+            queries: queries,
+            emptyTitle: kept ? DNSCopy.emptyQueriesTitle : DNSCopy.emptyLiveTitle,
+            emptyDetail: kept ? DNSCopy.emptyQueriesDetail : DNSCopy.emptyLiveDetail,
+            offersAllow: heading.offersAllow,
+            failureNote: kept ? nil : desk.liveReadNote,
+            theme: theme,
+            wide: wide,
+            now: now,
+            onAllow: onAllow
+        )
     }
 }

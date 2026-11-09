@@ -151,6 +151,7 @@ final class AwayNoticeRecoveryTests: XCTestCase {
 
     /// A failed ad-blocker poll's desk is empty. Offline keeps pause and the day's counts.
     /// Home still takes that poll. A success while offline stays off the desk too.
+    /// Offline does not record the failure, so a later success is not asked to clear it.
     func testAFailedAdBlockerPollDoesNotEmptyTheDeskWhileOffline() throws {
         var shown = DNSDesk.houseFixture
         shown.blocking = DNSBlocking(
@@ -164,13 +165,19 @@ final class AwayNoticeRecoveryTests: XCTestCase {
         XCTAssertEqual(kept.blocking, shown.blocking)
         XCTAssertEqual(kept.queries, shown.queries)
         XCTAssertFalse(ConnectionMode.offline.takesAdBlockerDesk(pollFailed: true))
+        XCTAssertFalse(ConnectionMode.offline.recordsAdBlockerProblem(pollFailed: true))
+        XCTAssertFalse(ConnectionMode.offline.recordsAdBlockerProblem(pollFailed: false))
 
         let home = shown.applyingAdBlockerPoll(empty, failed: true, mode: .home)
         XCTAssertEqual(home.queries, empty.queries)
         XCTAssertTrue(home.blocking.enabled)
         XCTAssertTrue(ConnectionMode.home.takesAdBlockerDesk(pollFailed: true))
+        XCTAssertTrue(ConnectionMode.home.recordsAdBlockerProblem(pollFailed: true))
+        XCTAssertFalse(ConnectionMode.home.recordsAdBlockerProblem(pollFailed: false))
         XCTAssertTrue(ConnectionMode.awayLive(try gateway()).takesAdBlockerDesk(pollFailed: true))
+        XCTAssertTrue(ConnectionMode.awayLive(try gateway()).recordsAdBlockerProblem(pollFailed: true))
         XCTAssertTrue(ConnectionMode.awayMailbox(try mailbox()).takesAdBlockerDesk(pollFailed: false))
+        XCTAssertTrue(ConnectionMode.awayMailbox(try mailbox()).recordsAdBlockerProblem(pollFailed: true))
         XCTAssertFalse(ConnectionMode.offline.takesAdBlockerDesk(pollFailed: false))
     }
 

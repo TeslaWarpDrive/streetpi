@@ -468,8 +468,10 @@ struct RootView: View {
             status.linkLine = AwayCopy.awayChip
         }
         screen = .explained(status, snapshot)
-        let offered = board.problem == .certificateChanged ? presentedPin : nil
-        store(currentAccess.reduce(.boardReported(problem: board.problem, readPin: offered)))
+        if failed == false || mode.recordsAdBlockerProblem(pollFailed: true) {
+            let offered = board.problem == .certificateChanged ? presentedPin : nil
+            store(currentAccess.reduce(.boardReported(problem: board.problem, readPin: offered)))
+        }
     }
 
     /// A kept pin stays. The same certificate, and a phone that does not trust the Pi yet, must not cover the desk.

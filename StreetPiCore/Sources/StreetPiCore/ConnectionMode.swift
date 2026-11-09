@@ -46,6 +46,12 @@ public enum ConnectionMode: Sendable, Equatable {
         return paintsHouse(readSucceeded: pollFailed == false)
     }
 
+    /// Offline does not cover the Ad blocker tab with "The Pi is not answering."
+    /// A later success on that road is not asked to clear a problem this poll did not write.
+    public func recordsAdBlockerProblem(pollFailed: Bool) -> Bool {
+        pollFailed && self != .offline
+    }
+
     /// The mailbox is view-only. Offline also holds pause, block, and allow, because those
     /// writes would change the house under "Can't reach the Pi". Face ID is `ActionPolicy`.
     public func allows(_ action: HouseholdAction) -> Bool {
