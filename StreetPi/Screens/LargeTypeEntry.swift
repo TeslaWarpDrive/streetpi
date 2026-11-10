@@ -84,7 +84,7 @@ struct LargeTypeLabel: UIViewRepresentable {
     var style: UIFont.TextStyle
     var color: Color
 
-    func makeUIView(context: Context) -> UILabel {
+    func makeUIView(context: Context) -> LargeTypeLine {
         let label = LargeTypeLine()
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         label.setContentCompressionResistancePriority(.required, for: .vertical)
@@ -93,12 +93,11 @@ struct LargeTypeLabel: UIViewRepresentable {
         return label
     }
 
-    func updateUIView(_ label: UILabel, context: Context) {
-        guard let label = label as? LargeTypeLine else { return }
+    func updateUIView(_ label: LargeTypeLine, context: Context) {
         refresh(label)
     }
 
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize? {
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: LargeTypeLine, context: Context) -> CGSize? {
         let font = LargeTypeDrawing.font(style: style, monospaced: monospaced, traits: uiView.traitCollection)
         let limit = LargeTypeDrawing.limit(proposal.width)
         let height = LargeTypeDrawing.height(of: text, font: font, width: limit)
@@ -117,7 +116,7 @@ struct LargeTypeLabel: UIViewRepresentable {
 }
 
 /// Draws a largest-type line with hyphenation off.
-private final class LargeTypeLine: UILabel {
+final class LargeTypeLine: UILabel {
     var source = ""
     var monospaced = false
     var textStyle: UIFont.TextStyle = .body
@@ -165,18 +164,18 @@ private struct LargeTypeEditor: UIViewRepresentable {
     var onBeginEditing: (() -> Void)?
     var onSubmit: (() -> Void)?
 
-    fileprivate func makeCoordinator() -> EntryCoordinator {
+    func makeCoordinator() -> EntryCoordinator {
         EntryCoordinator(text: $text, onBeginEditing: onBeginEditing, onSubmit: onSubmit)
     }
 
-    fileprivate func makeUIView(context: Context) -> WrappingTextView {
+    func makeUIView(context: Context) -> WrappingTextView {
         let view = WrappingTextView()
         view.delegate = context.coordinator
         apply(view)
         return view
     }
 
-    fileprivate func updateUIView(_ view: WrappingTextView, context: Context) {
+    func updateUIView(_ view: WrappingTextView, context: Context) {
         context.coordinator.text = $text
         context.coordinator.onBeginEditing = onBeginEditing
         context.coordinator.onSubmit = onSubmit
@@ -186,7 +185,7 @@ private struct LargeTypeEditor: UIViewRepresentable {
         apply(view)
     }
 
-    fileprivate func sizeThatFits(_ proposal: ProposedViewSize, uiView: WrappingTextView, context: Context) -> CGSize? {
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: WrappingTextView, context: Context) -> CGSize? {
         apply(uiView)
         let limit = LargeTypeDrawing.limit(proposal.width)
         let font = uiView.font ?? UIFont.preferredFont(forTextStyle: .body)
