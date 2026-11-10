@@ -59,7 +59,7 @@ async function push(request: Request, env: Env): Promise<Response> {
   if (kind === "live") {
     await mailbox(env).putLatest(generatedAtMs, body);
   } else {
-    await mailbox(env).addHistory(body);
+    await mailbox(env).addHistory(generatedAtMs, body);
   }
   return empty(204);
 }

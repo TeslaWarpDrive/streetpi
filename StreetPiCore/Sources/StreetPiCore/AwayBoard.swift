@@ -53,7 +53,7 @@ public struct AwayBoard: Sendable, Equatable {
     }
 
     private static func summary(_ part: AwayAdBlocker) -> DNSSummary? {
-        guard part.blocking != .unknown else { return nil }
+        guard part.blocking != .unknown, countsAreCredible(part) else { return nil }
         return DNSSummary(
             blockingEnabled: part.blocking == .enabled,
             queriesToday: part.queriesToday,
@@ -71,8 +71,10 @@ public struct AwayBoard: Sendable, Equatable {
         desk.blocking = DNSBlocking(enabled: part.blocking != .disabled)
         desk.spokenLine = part.blocking == .unknown ? AwayCopy.notSure : nil
         desk.knownClients = part.activeDevices
-        desk.reportedQueries = part.queriesToday
-        desk.reportedBlocked = part.blockedToday
+        if countsAreCredible(part) {
+            desk.reportedQueries = part.queriesToday
+            desk.reportedBlocked = part.blockedToday
+        }
         if let history, let buckets = history.adBlocker?.history {
             desk.day = DayChartBuilder.hours(
                 from: buckets.map {
@@ -82,6 +84,10 @@ public struct AwayBoard: Sendable, Equatable {
             )
         }
         return desk
+    }
+
+    private static func countsAreCredible(_ part: AwayAdBlocker) -> Bool {
+        part.blockedToday <= part.queriesToday
     }
 
     /// Hour averages for the last day, oldest first. The screen's chart reads one point an hour.

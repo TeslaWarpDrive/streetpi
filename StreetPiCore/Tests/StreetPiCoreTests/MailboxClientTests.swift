@@ -95,6 +95,15 @@ final class MailboxClientTests: XCTestCase {
         XCTAssertEqual(transport.log.urls, ["https://mailbox.example.test/v1/history?limit=1"])
     }
 
+    func testHistoryFollowsGeneratedTimeNotArrivalOrder() async throws {
+        let row = try XCTUnwrap(String(data: fixture("away-history"), encoding: .utf8))
+        let older = row.replacingOccurrences(of: "2026-10-19T14:55:00Z", with: "2026-10-19T04:55:00Z")
+        let body = Data("{\"snapshots\":[\(older),\(row)]}".utf8)
+        let transport = Scripted { _ in MailboxReply(status: 200, body: body) }
+        let snapshot = try await client(transport).history()
+        XCTAssertEqual(snapshot?.generatedAt, try XCTUnwrap(KumaClock.parse("2026-10-19T14:55:00Z")))
+    }
+
     func testAnEmptyHistoryIsNil() async throws {
         let transport = Scripted { _ in MailboxReply(status: 200, body: Data("{\"snapshots\":[]}".utf8)) }
         let snapshot = try await client(transport).history()

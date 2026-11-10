@@ -189,6 +189,36 @@ final class AwayBoardTests: XCTestCase {
         XCTAssertEqual(try tile(.backups, in: unknown).tone, .calm)
     }
 
+    func testAFutureBackupDoesNotReadAsRecent() throws {
+        let later = try live {
+            $0.backup?.lastRunAt = $0.generatedAt.addingTimeInterval(3_600)
+        }
+        let backups = try tile(.backups, in: AwayBoard.make(latest: later, history: nil))
+        XCTAssertEqual(backups.summary, "No backup check-in yet.")
+        XCTAssertEqual(backups.tone, .attention)
+        XCTAssertFalse(backups.rows.contains { $0.state == "just now" })
+
+        let skewed = try live {
+            $0.backup?.lastRunAt = $0.generatedAt.addingTimeInterval(60)
+        }
+        let still = try tile(.backups, in: AwayBoard.make(latest: skewed, history: nil))
+        XCTAssertTrue(still.summary.hasPrefix("Last backup:"))
+        XCTAssertEqual(still.tone, .calm)
+    }
+
+    func testBlockedQueriesCannotExceedQueriesToday() throws {
+        let latest = try live {
+            $0.adBlocker?.queriesToday = 10
+            $0.adBlocker?.blockedToday = 11
+        }
+        let board = AwayBoard.make(latest: latest, history: nil)
+        XCTAssertNil(board.snapshot?.dns)
+        XCTAssertNil(board.desk.reportedQueries)
+        XCTAssertNil(board.desk.reportedBlocked)
+        let share = LookupShare.from(desk: board.desk)
+        XCTAssertLessThanOrEqual(share.stopped, share.lookups)
+    }
+
     func testAPartThatFailedIsEmptyNotZero() throws {
         let latest = try live {
             $0.machine = nil
@@ -267,6 +297,25 @@ final class AwayBoardTests: XCTestCase {
         monitors["total"] = 0
         monitors["items"] = [Any]()
         object["monitors"] = monitors
+        return try JSONSerialization.data(withJSONObject: object)
+    }
+
+    private func patchedHistory(uptime: Int, generatedAt: String) throws -> Data {
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "away-history", withExtension: "json"))
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        object["generatedAt"] = generatedAt
+        var machine = try XCTUnwrap(object["machine"] as? [String: Any])
+        machine["uptimeSeconds"] = uptime
+        object["machine"] = machine
+        return try JSONSerialization.data(withJSONObject: object)
+    }
+
+    private func blockedAboveQueries(_ data: Data) throws -> Data {
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var part = try XCTUnwrap(object["adBlocker"] as? [String: Any])
+        part["queriesToday"] = 10
+        part["blockedToday"] = 11
+        object["adBlocker"] = part
         return try JSONSerialization.data(withJSONObject: object)
     }
 
@@ -382,6 +431,40 @@ final class AwayBoardTests: XCTestCase {
         XCTAssertNil(session.latest)
         XCTAssertEqual(session.problem, .notUnderstood)
         XCTAssertNil(session.board.status)
+    }
+
+    func testTheDayChartFollowsTheLaterHistoryTime() async throws {
+        let olderTime = "2026-10-19T04:55:00Z"
+        let newerTime = "2026-10-19T14:55:00Z"
+        let older = try patchedHistory(uptime: 10, generatedAt: olderTime)
+        let newer = try patchedHistory(uptime: 60, generatedAt: newerTime)
+        var transport = try replies()
+        transport.history = MailboxReply(
+            status: 200,
+            body: Data("{\"snapshots\":[".utf8) + older + Data(",".utf8) + newer + Data("]}".utf8)
+        )
+        let session = try await AwaySession().refreshed(using: client(transport), now: now)
+        XCTAssertEqual(session.history?.machine?.uptimeSeconds, 60)
+        let chosen = try XCTUnwrap(session.history)
+        let latest = try live()
+        let shown = AwayBoard.make(latest: latest, history: chosen)
+        XCTAssertEqual(session.board.desk.day, shown.desk.day)
+        XCTAssertEqual(session.board.machine.series, shown.machine.series)
+        let earlier = try JSONDecoder().decode(AwaySnapshot.self, from: older)
+        let missed = AwayBoard.make(latest: latest, history: earlier)
+        XCTAssertNotEqual(session.board.desk.day, missed.desk.day)
+    }
+
+    func testTooManyBlockedQueriesDoNotReplaceTheReport() async throws {
+        let good = try replies()
+        var session = try await AwaySession().refreshed(using: client(good), now: now)
+        let kept = try XCTUnwrap(session.latest?.adBlocker?.queriesToday)
+        var bad = good
+        bad.latest = MailboxReply(status: 200, body: try blockedAboveQueries(good.latest.body))
+        session = try await session.refreshed(using: client(bad), now: now.addingTimeInterval(15))
+        XCTAssertEqual(session.problem, .notUnderstood)
+        XCTAssertEqual(session.latest?.adBlocker?.queriesToday, kept)
+        XCTAssertEqual(session.board.desk.reportedQueries, kept)
     }
 
     func testPartHealthBecomesANote() throws {

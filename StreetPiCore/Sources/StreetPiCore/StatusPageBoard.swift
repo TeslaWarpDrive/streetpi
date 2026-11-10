@@ -424,7 +424,8 @@ private enum StatusBackupTile {
         }
         let summary: String
         let tone: PlainEnglishStatus.Tone
-        if let success = history.successes[monitor.id] {
+        let success = history.successes[monitor.id].flatMap { happened($0.time, now: now) ? $0 : nil }
+        if let success {
             let when = BackupClock.phrase(success.time)
             if now.timeIntervalSince(success.time) >= StatusPageCopy.backupLimit {
                 summary = "No backup in the last 8 days. Last backup: \(when)."
@@ -438,7 +439,7 @@ private enum StatusBackupTile {
             tone = .attention
         }
         var rows = StatusServices.rows(monitors: [monitor], services: services)
-        if let success = history.successes[monitor.id] {
+        if let success {
             rows.append(GroupRow(
                 id: "backup-age",
                 name: "Last successful copy",
@@ -456,11 +457,17 @@ private enum StatusBackupTile {
     }
 
     static func reachability(monitorID: Int, history: StatusHistory, now: Date) -> Reachability {
-        guard let success = history.successes[monitorID] else { return .unknown }
+        guard let success = history.successes[monitorID], happened(success.time, now: now) else { return .unknown }
         if now.timeIntervalSince(success.time) >= StatusPageCopy.backupLimit {
             return .notResponding
         }
         return .responding
+    }
+
+    /// A run dated after now has not happened. The age phrase would otherwise say "just now".
+    /// Two minutes of clock skew still counts, matching the mailbox write window.
+    private static func happened(_ time: Date, now: Date) -> Bool {
+        time <= now.addingTimeInterval(2 * 60)
     }
 }
 
