@@ -34,9 +34,11 @@ final class AwayNoticeRecoveryTests: XCTestCase {
         XCTAssertTrue(ConnectionMode.offline.looksAgain(readFailed: false, keyRejected: false))
     }
 
-    func testHomeAndTheLiveGatewayStayPutOnAGoodRead() throws {
-        for mode in [ConnectionMode.home, .awayLive(try gateway())] {
-            XCTAssertFalse(mode.looksAgain(readFailed: false, keyRejected: false))
-        }
+    func testHomeStaysPutOnAGoodRead() {
+        XCTAssertFalse(ConnectionMode.home.looksAgain(readFailed: false, keyRejected: false))
+    }
+
+    func testAHealthyLiveGatewayKeepsLookingForHome() throws {
+        XCTAssertTrue(ConnectionMode.awayLive(try gateway()).looksAgain(readFailed: false, keyRejected: false))
     }
 }
