@@ -264,6 +264,15 @@ extension RootView {
         guard AdBlockerSecrets.password(in: secretStore).isEmpty == false else { return nil }
         return await clientForCurrentSettings()
     }
+
+    static func houseCharts(_ text: String) -> URL? {
+        guard let url = LiveAddress.validated(text, schemes: ["http", "https"]),
+              let host = url.host?.lowercased(),
+              !host.contains("netdata.cloud"),
+              !host.contains("my-netdata.io")
+        else { return nil }
+        return url
+    }
 }
 
 /// Shared by the Ad blocker board and Settings, including the mailbox fallback.

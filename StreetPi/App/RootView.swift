@@ -457,6 +457,7 @@ struct RootView: View {
 
     func apply(_ board: AdBlockerBoard) {
         if repeatsDeclinedCertificate(board) { return }
+        guard mode.paintsHouse(readSucceeded: board.problem == nil) else { return }
         clock = Date()
         desk = keepingLog(board.desk)
         var snapshot = board.snapshot
@@ -507,7 +508,9 @@ private extension RootView {
         while !Task.isCancelled {
             do {
                 let load = try await readStatusPage()
-                statusBoard = load.board
+                if mode.paintsHouse(readSucceeded: true) {
+                    statusBoard = load.board
+                }
                 failures = 0
             } catch is CancellationError {
                 return
@@ -669,7 +672,6 @@ private extension RootView {
                 failures += 1
                 noteRead(worked: false)
             }
-            showMachine()
             let wait = RefreshPace.waitSeconds(afterFailures: failures)
             try? await Task.sleep(for: .seconds(wait))
         }
@@ -706,23 +708,20 @@ private extension RootView {
         guard currentAccess.logsRefuse == false else { return }
         let client = await clientForCurrentSettings()
         let pulled = await LogPull.live(client: client, feed: LiveLogFeed(queries: desk.liveFeed ?? []))
+        guard mode.paintsHouse(readSucceeded: pulled.note == nil) else { return }
         desk.liveFeed = pulled.feed.queries
         desk.liveReadNote = pulled.feed.queries.isEmpty ? pulled.note : nil
     }
 
     private func applyLive(history: NetdataHistoryLoad, log: LogPull) {
         applyHistory(history)
-        let merged = LiveLogFeed(queries: desk.liveFeed ?? []).applying(log.queries.queries)
-        desk.liveFeed = merged.queries
-        desk.liveReadNote = merged.queries.isEmpty ? log.liveNote : nil
-        desk.textLogLines = log.text.lines
-        if log.textNote == nil {
-            desk.textLogFileEnabled = log.text.fileEnabled
-            desk.textLogKnown = true
-            desk.textLogReadNote = nil
-        } else {
-            desk.textLogReadNote = log.textNote
-        }
+        desk = desk.applyingLiveLog(
+            queries: log.queries,
+            liveNote: log.liveNote,
+            text: log.text,
+            textNote: log.textNote,
+            mode: mode
+        )
     }
 
     private func commitPiHost() {
@@ -750,16 +749,6 @@ private extension RootView {
         piHost = store.netdataText()
         committedHost = piHost
     }
-
-    private static func houseCharts(_ text: String) -> URL? {
-        guard let url = LiveAddress.validated(text, schemes: ["http", "https"]),
-              let host = url.host?.lowercased(),
-              !host.contains("netdata.cloud"),
-              !host.contains("my-netdata.io")
-        else { return nil }
-        return url
-    }
-
 }
 
 extension RootView {
