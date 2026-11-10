@@ -747,16 +747,6 @@ private extension RootView {
         piHost = store.netdataText()
         committedHost = piHost
     }
-
-    private static func houseCharts(_ text: String) -> URL? {
-        guard let url = LiveAddress.validated(text, schemes: ["http", "https"]),
-              let host = url.host?.lowercased(),
-              !host.contains("netdata.cloud"),
-              !host.contains("my-netdata.io")
-        else { return nil }
-        return url
-    }
-
 }
 
 extension RootView {
