@@ -39,10 +39,35 @@ public enum ConnectionMode: Sendable, Equatable {
         self != .offline || readSucceeded == false
     }
 
-    /// Only the mailbox holds actions back. Face ID is decided by `ActionPolicy` in every mode.
+    /// A failed ad-blocker poll builds an empty desk. Offline does not take it, so pause and the
+    /// day's counts stay. A success is already withheld by `paintsHouse`. Every other road takes the poll.
+    public func takesAdBlockerDesk(pollFailed: Bool) -> Bool {
+        if self == .offline, pollFailed { return false }
+        return paintsHouse(readSucceeded: pollFailed == false)
+    }
+
+    /// Offline does not cover the Ad blocker tab with "The Pi is not answering."
+    /// A later success on that road is not asked to clear a problem this poll did not write.
+    public func recordsAdBlockerProblem(pollFailed: Bool) -> Bool {
+        pollFailed && self != .offline
+    }
+
+    /// The mailbox is view-only. Offline also holds pause, block, and allow, because those
+    /// writes would change the house under "Can't reach the Pi". Face ID is `ActionPolicy`.
     public func allows(_ action: HouseholdAction) -> Bool {
-        if case .awayMailbox = self { return AwayGate.allows(action) }
-        return true
+        switch self {
+        case .awayMailbox:
+            return AwayGate.allows(action)
+        case .offline:
+            switch action {
+            case .pauseAdBlocking, .resumeAdBlocking, .blockDomain, .allowDomain:
+                return false
+            case .refresh, .updateBlockLists, .signOutOfAdBlocker:
+                return true
+            }
+        case .home, .awayLive:
+            return true
+        }
     }
 }
 

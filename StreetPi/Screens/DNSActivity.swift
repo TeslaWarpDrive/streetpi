@@ -48,6 +48,7 @@ struct DNSStatistics: View {
 
 struct DNSLogScreen: View {
     var title: String
+    var line: String
     var queries: [DNSQuery]
     var emptyTitle: String
     var emptyDetail: String
@@ -62,7 +63,7 @@ struct DNSLogScreen: View {
 
     var body: some View {
         ControlScreen(wide: wide) {
-            ControlTitle(title: title, line: logLine, theme: theme)
+            ControlTitle(title: title, line: line, theme: theme)
             if queries.isEmpty {
                 if let failureNote {
                     PlainTile(title: failureNote, line: LiveReadCopy.tryAgain, theme: theme)
@@ -75,10 +76,6 @@ struct DNSLogScreen: View {
                 }
             }
         }
-    }
-
-    private var logLine: String {
-        offersAllow ? "Lookups the Pi has kept." : "Lookups as they happen."
     }
 
     /// Largest type breaks after a dot and does not hyphenate a run the row can hold.

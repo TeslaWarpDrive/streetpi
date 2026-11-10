@@ -187,6 +187,7 @@ struct AppShell: View {
             }
             .tint(theme.accent)
             .environment(\.streetPiAway, isAway)
+            .environment(\.streetPiReachable, canReachPi)
             .sheet(
                 isPresented: Binding(
                     get: { showAlerts && still == false },
@@ -241,6 +242,17 @@ struct AppShell: View {
 
     private var offersSetup: Bool {
         SetupCover.offersSetup(passwordSaved: passwordSaved)
+    }
+
+    /// The badge says the Pi is out of reach. Pause, block, and allow wait.
+    private var canReachPi: Bool {
+        guard let awayStatus else { return true }
+        switch awayStatus {
+        case .unreachable, .notSetUp:
+            return false
+        case .reading(_, _, _):
+            return true
+        }
     }
 
     private func page(_ tab: HouseTab) -> some View {
@@ -350,7 +362,7 @@ struct AppShell: View {
             return
         }
         let board = HouseBoard.make(screen: screen, desk: desk, now: now, piNotice: piNotice)
-        guard board.blocker.canPause else { return }
+        guard canReachPi, board.blocker.canPause else { return }
         onPending(.pauseAdBlocking(.thirtySeconds))
     }
 
@@ -489,7 +501,7 @@ struct AppShell: View {
         if let statusBoard {
             board = HouseBoard.applying(status: statusBoard, to: board)
         }
-        if isAway {
+        if isAway || canReachPi == false {
             board.blocker.canPause = false
         }
         if let quiet = awayStatus?.quietHeadline(now: now) {

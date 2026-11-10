@@ -17,6 +17,7 @@ struct AdBlockerOverview<More: View>: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.streetPiStill) private var still
     @Environment(\.streetPiAway) private var away
+    @Environment(\.streetPiReachable) private var reachable
     @Environment(\.dnsActionNotice) private var actionNotice
     @State private var explainer: NumberExplainer?
 
@@ -99,6 +100,10 @@ struct AdBlockerOverview<More: View>: View {
     private var pauseControls: some View {
         if away {
             OnlyAtHomeNote(detail: AwayCopy.pauseDetail, theme: theme)
+        } else if reachable == false {
+            OnlyAtHomeNote(
+                detail: AwayCopy.pauseHeld, theme: theme, title: AwayCopy.notSetUp, symbol: "wifi.slash"
+            )
         } else {
             PausePills(enabled: desk.blocking.enabled, onAction: onAction)
         }

@@ -47,6 +47,11 @@ public enum DNSPage: String, CaseIterable, Sendable, Equatable, Identifiable, Co
         }
     }
 
+    /// The sentence under a log title. Allow is a separate button and does not change the line.
+    public func logHeading(offersAllow: Bool) -> DNSLogHeading {
+        DNSLogHeading(line: blurb, offersAllow: self == .queryLog && offersAllow)
+    }
+
     public var symbolName: String {
         switch self {
         case .today: "chart.bar"
@@ -61,6 +66,17 @@ public enum DNSPage: String, CaseIterable, Sendable, Equatable, Identifiable, Co
         case .localNames: "house"
         case .upkeep: "wrench.and.screwdriver"
         }
+    }
+}
+
+/// Title line for a log page, and whether that page shows Allow. The two do not follow each other.
+public struct DNSLogHeading: Sendable, Equatable {
+    public var line: String
+    public var offersAllow: Bool
+
+    public init(line: String, offersAllow: Bool) {
+        self.line = line
+        self.offersAllow = offersAllow
     }
 }
 

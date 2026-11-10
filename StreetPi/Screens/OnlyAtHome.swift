@@ -5,15 +5,17 @@ import SwiftUI
 struct OnlyAtHomeNote: View {
     var detail: String
     var theme: StreetTheme
+    var title: String = AwayCopy.onlyAtHomeTitle
+    var symbol: String = "house"
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Rhythm.line) {
-            Image(systemName: "house")
+            Image(systemName: symbol)
                 .font(.title3)
                 .foregroundStyle(theme.accent)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Rhythm.tight) {
-                Text(AwayCopy.onlyAtHomeTitle)
+                Text(title)
                     .font(.headline)
                     .foregroundStyle(theme.ink)
                     .fixedSize(horizontal: false, vertical: true)

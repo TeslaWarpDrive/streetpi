@@ -19,6 +19,7 @@ public enum AwayCopy {
     public static let waitingFirstReport = "Away · waiting for the Pi's first report"
     public static let notSetUp = "Can't reach the Pi"
     public static let notSetUpDetail = "Set up Away in Settings to see the house from anywhere."
+    public static let pauseHeld = "Pause, block, and allow wait until the Pi answers."
     public static let someEarlier = "Some readings are from earlier."
     public static let someMissing = "Some readings are missing."
 

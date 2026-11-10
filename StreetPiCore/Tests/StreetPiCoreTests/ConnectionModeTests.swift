@@ -216,13 +216,24 @@ final class ConnectionModeTests: XCTestCase {
         XCTAssertFalse(ConnectionMode.home.looksAgain(readFailed: false, keyRejected: false))
     }
 
-    func testOnlyTheMailboxHoldsActionsBack() throws {
+    func testOfflineHoldsPauseBlockAndAllow() throws {
         let pause = HouseholdAction.pauseAdBlocking(try XCTUnwrap(PauseLength(seconds: 30)))
-        XCTAssertTrue(ConnectionMode.home.allows(pause))
-        XCTAssertTrue(ConnectionMode.offline.allows(pause))
-        XCTAssertTrue(ConnectionMode.awayLive(try gateway()).allows(pause))
-        XCTAssertFalse(ConnectionMode.awayMailbox(try mailbox()).allows(pause))
-        XCTAssertTrue(ConnectionMode.awayMailbox(try mailbox()).allows(.refresh))
+        let held: [HouseholdAction] = [
+            pause, .resumeAdBlocking, .blockDomain(named: "ads.example.test"), .allowDomain(named: "ads.example.test"),
+        ]
+        let gateway = try gateway()
+        let mailbox = try mailbox()
+        for action in held {
+            XCTAssertTrue(ConnectionMode.home.allows(action))
+            XCTAssertTrue(ConnectionMode.awayLive(gateway).allows(action))
+            XCTAssertFalse(ConnectionMode.offline.allows(action))
+            XCTAssertFalse(ConnectionMode.awayMailbox(mailbox).allows(action))
+        }
+        for action in [HouseholdAction.refresh, .updateBlockLists, .signOutOfAdBlocker] {
+            XCTAssertTrue(ConnectionMode.offline.allows(action))
+        }
+        XCTAssertTrue(ConnectionMode.awayMailbox(mailbox).allows(.refresh))
+        XCTAssertFalse(ConnectionMode.awayMailbox(mailbox).allows(.updateBlockLists))
     }
 
     func testFaceIDStaysOnPauseAndGravity() throws {
