@@ -70,6 +70,47 @@ final class AwaySnapshotTests: XCTestCase {
         XCTAssertThrowsError(try decode(json(replacing: "monitors", with: monitors)))
     }
 
+    func testRejectsMonitorUpGreaterThanTotal() throws {
+        let monitors: [String: Any] = [
+            "up": 5, "down": 0, "total": 0, "items": [Any](),
+        ]
+        XCTAssertThrowsError(try decode(json(replacing: "monitors", with: monitors)))
+    }
+
+    func testRejectsAllUpCountsWhileANamedMonitorIsDown() throws {
+        let monitors: [String: Any] = [
+            "up": 2, "down": 0, "total": 2,
+            "items": [
+                ["name": "Ad blocker", "status": "up"],
+                ["name": "Internet", "status": "down"],
+            ],
+        ]
+        XCTAssertThrowsError(try decode(json(replacing: "monitors", with: monitors)))
+    }
+
+    func testAcceptsAShorterMonitorList() throws {
+        let monitors: [String: Any] = [
+            "up": 4, "down": 1, "total": 10,
+            "items": [
+                ["name": "Ad blocker", "status": "up"],
+                ["name": "Internet", "status": "down"],
+            ],
+        ]
+        let snapshot = try decode(json(replacing: "monitors", with: monitors))
+        XCTAssertEqual(snapshot.monitors?.up, 4)
+        XCTAssertEqual(snapshot.monitors?.total, 10)
+        XCTAssertEqual(snapshot.monitors?.items.count, 2)
+    }
+
+    func testAcceptsAllUpCountsWhenNoNamedMonitorIsDown() throws {
+        let monitors: [String: Any] = [
+            "up": 1, "down": 0, "total": 1,
+            "items": [["name": "Ad blocker", "status": "pending"]],
+        ]
+        let snapshot = try decode(json(replacing: "monitors", with: monitors))
+        XCTAssertEqual(snapshot.monitors?.items.first?.status, .pending)
+    }
+
     func testRejectsAnotherSchema() throws {
         XCTAssertThrowsError(try decode(json(replacing: "schema", with: 2)))
     }

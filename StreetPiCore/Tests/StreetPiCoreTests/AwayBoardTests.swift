@@ -132,6 +132,49 @@ final class AwayBoardTests: XCTestCase {
         XCTAssertEqual(try tile(.monitors, in: board).tone, .problem)
     }
 
+    func testANamedDownCheckCannotLookAllUp() throws {
+        let latest = try live {
+            $0.monitors?.items[0].status = .down
+        }
+        let monitors = try tile(.monitors, in: AwayBoard.make(latest: latest, history: nil))
+        XCTAssertEqual(monitors.summary, AwayCopy.noChecks)
+        XCTAssertEqual(monitors.tone, .problem)
+        let down = try XCTUnwrap(monitors.rows.first { $0.name == "Pi-hole DNS" })
+        XCTAssertEqual(down.tone, .problem)
+    }
+
+    func testAnImpossibleMonitorCountIsNotShown() throws {
+        let latest = try live {
+            $0.monitors?.up = 5
+            $0.monitors?.down = 0
+            $0.monitors?.total = 0
+        }
+        let monitors = try tile(.monitors, in: AwayBoard.make(latest: latest, history: nil))
+        XCTAssertEqual(monitors.summary, AwayCopy.noChecks)
+        XCTAssertEqual(monitors.tone, .attention)
+    }
+
+    func testAPendingCheckStillAllowsAnAllUpCount() throws {
+        let latest = try live {
+            $0.monitors?.items[0].status = .pending
+        }
+        let monitors = try tile(.monitors, in: AwayBoard.make(latest: latest, history: nil))
+        XCTAssertEqual(monitors.summary, "8 of 8 up")
+        XCTAssertEqual(monitors.tone, .calm)
+    }
+
+    func testACountedDownStillUsesTheCount() throws {
+        let monitors: [String: Any] = [
+            "up": 2, "down": 1, "total": 2,
+            "items": [["name": "Internet", "status": "down"]],
+        ]
+        let data = try jsonReplacingMonitors(monitors)
+        let snapshot = try JSONDecoder().decode(AwaySnapshot.self, from: data)
+        let tile = try tile(.monitors, in: AwayBoard.make(latest: snapshot, history: nil))
+        XCTAssertEqual(tile.summary, "2 of 2 up")
+        XCTAssertEqual(tile.tone, .problem)
+    }
+
     func testBackupStates() throws {
         let good = AwayBoard.make(latest: try live(), history: nil)
         XCTAssertTrue(try tile(.backups, in: good).summary.hasPrefix("Last backup:"))
@@ -194,6 +237,37 @@ final class AwayBoardTests: XCTestCase {
         let row = try Data(contentsOf: XCTUnwrap(Bundle.module.url(forResource: "away-history", withExtension: "json")))
         let page = Data("{\"snapshots\":[".utf8) + row + Data("]}".utf8)
         return Replies(latest: MailboxReply(status: 200, body: live), history: MailboxReply(status: 200, body: page))
+    }
+
+    private func jsonReplacingMonitors(_ monitors: [String: Any]) throws -> Data {
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: fixtureBody("away-live")) as? [String: Any])
+        object["monitors"] = monitors
+        return try JSONSerialization.data(withJSONObject: object)
+    }
+
+    private func fixtureBody(_ name: String) throws -> Data {
+        try Data(contentsOf: XCTUnwrap(Bundle.module.url(forResource: name, withExtension: "json")))
+    }
+
+    private func markingFirstMonitorDown(_ data: Data) throws -> Data {
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var monitors = try XCTUnwrap(object["monitors"] as? [String: Any])
+        var items = try XCTUnwrap(monitors["items"] as? [[String: Any]])
+        items[0]["status"] = "down"
+        monitors["items"] = items
+        object["monitors"] = monitors
+        return try JSONSerialization.data(withJSONObject: object)
+    }
+
+    private func fiveOfZero(_ data: Data) throws -> Data {
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var monitors = try XCTUnwrap(object["monitors"] as? [String: Any])
+        monitors["up"] = 5
+        monitors["down"] = 0
+        monitors["total"] = 0
+        monitors["items"] = [Any]()
+        object["monitors"] = monitors
+        return try JSONSerialization.data(withJSONObject: object)
     }
 
     private func client(_ transport: Replies) throws -> MailboxClient<Replies> {
@@ -288,6 +362,26 @@ final class AwayBoardTests: XCTestCase {
         let session = try await AwaySession().refreshed(using: client(transport), now: now)
         XCTAssertNil(session.latest)
         XCTAssertNil(session.problem)
+    }
+
+    func testAFalseAllUpPayloadDoesNotReplaceTheReport() async throws {
+        let good = try replies()
+        var session = try await AwaySession().refreshed(using: client(good), now: now)
+        var bad = good
+        bad.latest = MailboxReply(status: 200, body: try markingFirstMonitorDown(good.latest.body))
+        session = try await session.refreshed(using: client(bad), now: now.addingTimeInterval(15))
+        XCTAssertEqual(session.problem, .notUnderstood)
+        let row = try XCTUnwrap(try tile(.monitors, in: session.board).rows.first { $0.name == "Pi-hole DNS" })
+        XCTAssertEqual(row.tone, .calm)
+    }
+
+    func testAnImpossibleCountPayloadPaintsNothing() async throws {
+        var transport = try replies()
+        transport.latest = MailboxReply(status: 200, body: try fiveOfZero(transport.latest.body))
+        let session = try await AwaySession().refreshed(using: client(transport), now: now)
+        XCTAssertNil(session.latest)
+        XCTAssertEqual(session.problem, .notUnderstood)
+        XCTAssertNil(session.board.status)
     }
 
     func testPartHealthBecomesANote() throws {

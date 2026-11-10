@@ -244,9 +244,17 @@ private enum AwayStatusBuilder {
             tile.tone = .attention
             return
         }
-        tile.summary = "\(monitors.up) of \(monitors.total) up"
         let named = Set(monitors.items.map(\.name))
         tile.rows = tile.rows.filter { named.contains($0.name) }
+        let credible = AwayMonitors.countsAreCredible(
+            up: monitors.up, down: monitors.down, total: monitors.total, items: monitors.items
+        )
+        guard credible else {
+            tile.summary = AwayCopy.noChecks
+            tile.tone = monitors.items.contains { $0.status == .down } ? .problem : .attention
+            return
+        }
+        tile.summary = "\(monitors.up) of \(monitors.total) up"
         if monitors.down > 0 {
             tile.tone = .problem
         } else {
