@@ -29,12 +29,16 @@ extension RootView {
         )
     }
 
-    /// A pull can finish after sign-out. Paint the ad blocker only while a pull would still read it.
+    /// A pull can finish after sign-out. A sign-out during the read drops the board.
+    /// A pull that started signed out still paints, because that ask puts the desk back.
     func refreshAdBlocker(_ asked: Bool) async {
         guard asked else { return }
+        let startedSignedOut = signedOut
         let client = await clientForCurrentSettings()
         let board = await refresh(client, now: Date())
-        guard ManualRefresh.mayPaint(.adBlocker, mode: mode, signedOut: signedOut) else {
+        guard ManualRefresh.mayPaintAdBlocker(
+            mode: mode, startedSignedOut: startedSignedOut, signedOut: signedOut
+        ) else {
             if signedOut { dnsSession.signedIn = false }
             return
         }

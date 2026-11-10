@@ -116,4 +116,12 @@ public enum ManualRefresh {
     public static func mayPaint(_ source: Source, mode: ConnectionMode, signedOut: Bool) -> Bool {
         reads(mode: mode, signedOut: signedOut).contains(source)
     }
+
+    /// The ad blocker pull also asks while signed out, because a clear read is what puts the desk back.
+    /// So a pull that started signed out still paints. Only a sign-out that lands during the read drops it.
+    /// The mailbox road never paints it.
+    public static func mayPaintAdBlocker(mode: ConnectionMode, startedSignedOut: Bool, signedOut: Bool) -> Bool {
+        if case .awayMailbox = mode { return false }
+        return signedOut == false || startedSignedOut
+    }
 }
