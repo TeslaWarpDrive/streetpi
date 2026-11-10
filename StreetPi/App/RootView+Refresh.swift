@@ -29,6 +29,22 @@ extension RootView {
         )
     }
 
+    /// A pull can finish after sign-out. A sign-out during the read drops the board.
+    /// A pull that started signed out still paints, because that ask puts the desk back.
+    func refreshAdBlocker(_ asked: Bool) async {
+        guard asked else { return }
+        let startedSignedOut = signedOut
+        let client = await clientForCurrentSettings()
+        let board = await refresh(client, now: Date())
+        guard ManualRefresh.mayPaintAdBlocker(
+            mode: mode, startedSignedOut: startedSignedOut, signedOut: signedOut
+        ) else {
+            if signedOut { dnsSession.signedIn = false }
+            return
+        }
+        apply(board)
+    }
+
     private func loadMeters() async -> Result<NetdataMeters, NetdataProblem>? {
         let road = liveRoad
         let refresh = PiMeterRefresh(client: road.sender, base: road.endpoints.netdata, isAway: road.isAway)

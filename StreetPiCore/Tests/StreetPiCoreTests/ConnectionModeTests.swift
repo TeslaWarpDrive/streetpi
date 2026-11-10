@@ -96,8 +96,16 @@ final class ConnectionModeTests: XCTestCase {
         _ = dwell.settle(.home, trigger: .launch, now: start)
         let away = ConnectionMode.awayLive(try gateway())
         XCTAssertEqual(dwell.settle(away, trigger: .pathChanged, now: start.addingTimeInterval(1)), away)
-        XCTAssertEqual(dwell.settle(.home, trigger: .manual, now: start.addingTimeInterval(2)), away)
+        XCTAssertEqual(dwell.settle(.home, trigger: .foreground, now: start.addingTimeInterval(2)), away)
         XCTAssertEqual(dwell.settle(.home, trigger: .settingsChanged, now: start.addingTimeInterval(2)), .home)
+    }
+
+    func testAPullSkipsTheDwell() throws {
+        var dwell = ConnectionDwell()
+        _ = dwell.settle(.home, trigger: .launch, now: start)
+        let away = ConnectionMode.awayLive(try gateway())
+        XCTAssertEqual(dwell.settle(away, trigger: .manual, now: start.addingTimeInterval(1)), away)
+        XCTAssertEqual(dwell.settle(.home, trigger: .requestFailed, now: start.addingTimeInterval(2)), away)
     }
 
     func testReprobesWaitForCompletionAndCooldown() {

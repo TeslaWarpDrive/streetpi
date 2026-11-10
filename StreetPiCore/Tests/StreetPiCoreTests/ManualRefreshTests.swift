@@ -19,6 +19,31 @@ final class ManualRefreshTests: XCTestCase {
         ]
         for row in rows {
             XCTAssertEqual(ManualRefresh.reads(mode: row.mode, signedOut: row.signedOut), row.reads)
+            for source in ManualRefresh.Source.allCases {
+                let paints = row.reads.contains(source)
+                XCTAssertEqual(
+                    ManualRefresh.mayPaint(source, mode: row.mode, signedOut: row.signedOut),
+                    paints
+                )
+            }
+        }
+    }
+
+    /// A pull while signed out still asks the ad blocker, and a clear read is what puts the desk back.
+    /// Only a sign-out that lands while the read is out keeps the board off the screen.
+    func testAnAdBlockerPullThatStartedSignedOutStillPaints() throws {
+        let live = try gateway()
+        let box = try mailbox()
+        for mode in [ConnectionMode.home, .offline, .awayLive(live)] {
+            XCTAssertTrue(ManualRefresh.mayPaintAdBlocker(mode: mode, startedSignedOut: false, signedOut: false))
+            XCTAssertTrue(ManualRefresh.mayPaintAdBlocker(mode: mode, startedSignedOut: true, signedOut: true))
+            XCTAssertTrue(ManualRefresh.mayPaintAdBlocker(mode: mode, startedSignedOut: true, signedOut: false))
+            XCTAssertFalse(ManualRefresh.mayPaintAdBlocker(mode: mode, startedSignedOut: false, signedOut: true))
+        }
+        for (started, now) in [(false, false), (true, true), (false, true)] {
+            XCTAssertFalse(
+                ManualRefresh.mayPaintAdBlocker(mode: .awayMailbox(box), startedSignedOut: started, signedOut: now)
+            )
         }
     }
 

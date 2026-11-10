@@ -380,6 +380,18 @@ final class AwayBoardTests: XCTestCase {
         XCTAssertNotNil(session.history)
     }
 
+    func testAPullReadsTheDayChartBeforeTheMinute() async throws {
+        let transport = try replies()
+        let client = try client(transport)
+        var session = try await AwaySession().refreshed(using: client, now: now)
+        XCTAssertEqual(transport.historyReads.value, 1)
+        session = try await session.refreshed(using: client, now: now.addingTimeInterval(15), charts: .now)
+        XCTAssertEqual(transport.historyReads.value, 2)
+        XCTAssertNotNil(session.history)
+        session = try await session.refreshed(using: client, now: now.addingTimeInterval(30))
+        XCTAssertEqual(transport.historyReads.value, 2)
+    }
+
     func testAFailedHistoryReadStillWaitsAMinute() async throws {
         var transport = try replies()
         transport.history = MailboxReply(status: 500, body: Data())
