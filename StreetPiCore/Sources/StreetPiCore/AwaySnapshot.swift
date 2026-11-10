@@ -204,10 +204,11 @@ public struct AwayMonitors: Sendable, Equatable, Codable {
         self.items = items
     }
 
-    /// `up` cannot pass `total`. An all-up count cannot sit beside a named check that is down.
+    /// Neither `up` nor `down` can pass `total`. An all-up count (down is 0 and up equals
+    /// total) cannot sit beside a named check that is down, pending, or in maintenance.
     static func countsAreCredible(up: Int, down: Int, total: Int, items: [AwayMonitor]) -> Bool {
-        if up > total { return false }
-        if down == 0, up == total, items.contains(where: { $0.status == .down }) { return false }
+        if up > total || down > total { return false }
+        if down == 0, up == total, items.contains(where: { $0.status != .up }) { return false }
         return true
     }
 }

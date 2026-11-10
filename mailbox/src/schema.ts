@@ -170,9 +170,15 @@ function monitors(value: unknown, path: string): void {
   const down = part.down as number;
   const total = part.total as number;
   if (up > total) reject(`${path}.up`, "cannot be greater than total");
-  const namedDown = (part.items as { status: string }[]).some((item) => item.status === "down");
-  if (down === 0 && up === total && namedDown) {
-    reject(`${path}.items`, "cannot be all up while a named monitor is down");
+  if (down > total) reject(`${path}.down`, "cannot be greater than total");
+  if (down === 0 && up === total) {
+    const statuses = (part.items as { status: string }[]).map((item) => item.status);
+    if (statuses.includes("down")) {
+      reject(`${path}.items`, "cannot be all up while a named monitor is down");
+    }
+    if (statuses.some((status) => status === "pending" || status === "maintenance")) {
+      reject(`${path}.items`, "cannot be all up while a named monitor is pending or in maintenance");
+    }
   }
 }
 
