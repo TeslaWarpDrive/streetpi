@@ -101,7 +101,8 @@ public struct MailboxClient<Transport: MailboxTransport>: Sendable {
 
     public func history() async throws -> AwaySnapshot? {
         guard let body = try await read(Self.historyPath) else { return nil }
-        return try decode(AwayHistoryPage.self, from: body).snapshots.first
+        let snapshots = try decode(AwayHistoryPage.self, from: body).snapshots
+        return snapshots.max { $0.generatedAt < $1.generatedAt }
     }
 
     private func read(_ path: String) async throws -> Data? {

@@ -34,6 +34,8 @@ public struct DNSDesk: Sendable, Equatable, Codable {
     /// Counts from a mailbox report. The hours may be older, so the totals stand on their own.
     public var reportedQueries: Int?
     public var reportedBlocked: Int?
+    /// Why the away day chart is empty. Nil keeps the waiting line, or the hours when they exist.
+    public var dayChartNote: String?
 
     public init(
         textLogFileEnabled: Bool,
@@ -61,7 +63,8 @@ public struct DNSDesk: Sendable, Equatable, Codable {
         textLogKnown: Bool = true,
         liveReadNote: String? = nil,
         textLogReadNote: String? = nil,
-        clientsNote: String? = nil
+        clientsNote: String? = nil,
+        dayChartNote: String? = nil
     ) {
         self.textLogFileEnabled = textLogFileEnabled
         self.blocking = blocking
@@ -89,6 +92,7 @@ public struct DNSDesk: Sendable, Equatable, Codable {
         self.textLogKnown = textLogKnown
         self.liveReadNote = liveReadNote
         self.textLogReadNote = textLogReadNote
+        self.dayChartNote = dayChartNote
     }
 
     public var queriesToday: Int {

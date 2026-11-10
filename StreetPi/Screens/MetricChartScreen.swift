@@ -14,12 +14,13 @@ struct MetricChartScreen: View {
     var body: some View {
         ControlScreen(wide: wide) {
             ControlTitle(title: "Charts", line: intro, theme: theme)
-            if series.isEmpty, note != nil {
+            if note != nil {
                 Text(LiveReadCopy.tryAgain)
                     .font(.body)
                     .foregroundStyle(theme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-            } else {
+            }
+            if !series.isEmpty || note == nil {
                 AfterglowTileGrid(
                     spacing: AfterglowShape.line,
                     minimumColumnWidth: dynamicTypeSize.isAccessibilitySize ? 10_000 : 300,
@@ -33,8 +34,9 @@ struct MetricChartScreen: View {
         }
     }
 
+    /// A note stays up after the saved day is drawn. Waiting copy is stored only while the chart is empty.
     private var intro: String {
-        if let note, series.isEmpty {
+        if let note {
             return note
         }
         return "The last day. Nothing here can be changed."

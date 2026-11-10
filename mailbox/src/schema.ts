@@ -85,6 +85,9 @@ function adBlocker(value: unknown, path: string, kind: SnapshotKind): void {
   oneOf(part.blocking, `${path}.blocking`, ["enabled", "disabled", "unknown"]);
   count(part.queriesToday, `${path}.queriesToday`);
   count(part.blockedToday, `${path}.blockedToday`);
+  if ((part.blockedToday as number) > (part.queriesToday as number)) {
+    reject(`${path}.blockedToday`, "cannot be greater than queries today");
+  }
   percent(part.percentBlocked, `${path}.percentBlocked`);
   count(part.domainsOnLists, `${path}.domainsOnLists`);
   count(part.activeDevices, `${path}.activeDevices`);
@@ -178,9 +181,10 @@ function streamingProxy(value: unknown, path: string): void {
   if (typeof part.healthy !== "boolean") reject(`${path}.healthy`, "expected true or false");
 }
 
-function backup(value: unknown, path: string): void {
+function backup(value: unknown, path: string, nowMs: number): void {
   const part = object(value, path, ["lastRunAt", "ok"]);
-  timestamp(part.lastRunAt, `${path}.lastRunAt`);
+  const lastRunAtMs = timestamp(part.lastRunAt, `${path}.lastRunAt`);
+  if (lastRunAtMs > nowMs + MAX_FUTURE_MS) reject(`${path}.lastRunAt`, "too far in the future");
   if (typeof part.ok !== "boolean") reject(`${path}.ok`, "expected true or false");
 }
 
@@ -217,7 +221,7 @@ function snapshotFields(value: unknown, nowMs: number): Snapshot {
   nullable(root.machine, (present) => machine(present, "machine", kind));
   nullable(root.monitors, (present) => monitors(present, "monitors"));
   streamingProxy(root.streamingProxy, "streamingProxy");
-  nullable(root.backup, (present) => backup(present, "backup"));
+  nullable(root.backup, (present) => backup(present, "backup", nowMs));
 
   const health = sources(root.sources, "sources");
   for (const part of ["adBlocker", "machine", "monitors"]) {

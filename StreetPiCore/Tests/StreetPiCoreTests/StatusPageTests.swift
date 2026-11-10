@@ -119,6 +119,17 @@ final class StatusPageTests: XCTestCase {
         XCTAssertEqual(waiting.tone, .attention)
     }
 
+    func testAFutureBackupDoesNotReadAsRecent() async throws {
+        let future = try await backupLoad(success: now.addingTimeInterval(3_600), latestStatus: 0)
+        XCTAssertEqual(future.summary, "No backup check-in yet.")
+        XCTAssertEqual(future.tone, .attention)
+        XCTAssertFalse(future.rows.contains { $0.state == "just now" })
+
+        let skewed = try await backupLoad(success: now.addingTimeInterval(60), latestStatus: 0)
+        XCTAssertTrue(skewed.summary.hasPrefix("Last backup:"))
+        XCTAssertEqual(skewed.tone, .calm)
+    }
+
     func testTwentyEightMonitors() async throws {
         let monitors = (1...28).map { id in
             #"{"id":\#(id),"name":"Monitor \#(id)","type":"http"}"#
