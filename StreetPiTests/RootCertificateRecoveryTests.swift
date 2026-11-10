@@ -93,6 +93,60 @@ final class RootCertificateRecoveryTests: XCTestCase {
         XCTAssertEqual(root.displayedDNSProblem, .pinKept)
     }
 
+    /// Keep remembers the pin. The next poll can fail as "this phone does not trust the Pi yet."
+    /// That failure still comes back from the read, and applying it must leave the pin and the desk.
+    /// `desk` is @State, so outside a view tree the read stays at the initial value. `apply` writes
+    /// the problem in the same step as the desk, and that problem is what these checks hold still.
+    func testKeepLeavesTheDeskWhenThePhoneDoesNotTrustThePi() async throws {
+        for mode in try fallbackRoads() {
+            let root = RootView(now: .streetFixtureNow, mode: mode)
+            root.certificateRecovery.reading = PiProbe.Reading(mode: mode, presentedPin: fakePin)
+            root.certificateRecovery.dnsProblem = .certificateChanged
+            root.keepSavedPin()
+            XCTAssertEqual(root.certificateRecovery.declinedPin, fakePin)
+            XCTAssertNil(root.certificateRecovery.dnsProblem)
+
+            let board = await root.refresh(
+                untrustedPi(), now: .streetFixtureNow, secrets: MemorySecretStore()
+            )
+            XCTAssertEqual(board.problem, .untrusted)
+            XCTAssertEqual(board.desk.spokenLine, PiholeProblem.untrusted.title)
+            root.apply(board)
+            XCTAssertNil(root.certificateRecovery.dnsProblem)
+            XCTAssertNil(root.displayedDNSProblem)
+            XCTAssertEqual(root.certificateRecovery.declinedPin, fakePin)
+        }
+    }
+
+    func testHomeKeepLeavesThePinWhenThePhoneDoesNotTrustThePi() async throws {
+        let root = RootView(now: .streetFixtureNow)
+        root.certificateRecovery.reading = PiProbe.Reading(mode: .home, presentedPin: fakePin)
+        root.keepSavedPin()
+        XCTAssertEqual(root.certificateRecovery.dnsProblem, .pinKept)
+        XCTAssertEqual(root.displayedDNSProblem, .pinKept)
+
+        let board = await root.refresh(
+            untrustedPi(), now: .streetFixtureNow, secrets: MemorySecretStore()
+        )
+        XCTAssertEqual(board.problem, .untrusted)
+        root.apply(board)
+        XCTAssertEqual(root.certificateRecovery.dnsProblem, .pinKept)
+        XCTAssertEqual(root.displayedDNSProblem, .pinKept)
+        XCTAssertEqual(root.certificateRecovery.declinedPin, fakePin)
+    }
+
+    func testUntrustedPollStillShowsBeforeKeep() async throws {
+        let root = RootView(now: .streetFixtureNow, mode: .awayLive(try gateway()))
+        let board = await root.refresh(
+            untrustedPi(), now: .streetFixtureNow, secrets: MemorySecretStore()
+        )
+        XCTAssertEqual(board.problem, .untrusted)
+        root.apply(board)
+        XCTAssertEqual(root.certificateRecovery.dnsProblem, .untrusted)
+        XCTAssertEqual(root.displayedDNSProblem, .untrusted)
+        XCTAssertNil(root.certificateRecovery.declinedPin)
+    }
+
     func testDeclinePreservesAnUnrelatedGatewayProblem() throws {
         let mode = ConnectionMode.awayLive(try gateway())
         let root = RootView(now: .streetFixtureNow, mode: mode)
@@ -181,6 +235,13 @@ extension RootCertificateRecoveryTests {
     private func changedCertificate() -> PiholeClient {
         PiholeClient(
             transport: ScriptedPiholeTransport(steps: [.fail(.certificateChanged)]),
+            password: { "FAKE_password" }
+        )
+    }
+
+    private func untrustedPi() -> PiholeClient {
+        PiholeClient(
+            transport: ScriptedPiholeTransport(steps: [.fail(.untrusted)]),
             password: { "FAKE_password" }
         )
     }
