@@ -8,32 +8,27 @@ final class AwayHTTPClient: LiveHTTPSending, @unchecked Sendable {
     private let settings: AwayGatewaySettings
     private let session: URLSession
     private let gravitySession: URLSession
-    private let rejectionLock = NSLock()
-    private var rejected = false
+    private let rejection: AwayKeyLatch
 
     /// A refresh consumes this separately from Pi-hole's own error mapping.
+    /// A 403 that arrived earlier stays here until that refresh reads it.
     func takeKeyRejection() -> Bool {
-        rejectionLock.lock()
-        defer { rejectionLock.unlock() }
-        let result = rejected
-        rejected = false
-        return result
+        rejection.take()
     }
 
     private func noteRejection(url: URL, status: Int) {
-        guard AwayKeySignal.isRefusedKey(path: url.path, status: status) else { return }
-        rejectionLock.lock()
-        rejected = true
-        rejectionLock.unlock()
+        rejection.note(path: url.path, status: status)
     }
 
     var trustDelegate: (any URLSessionDelegate)? { session.delegate }
 
     init(
         settings: AwayGatewaySettings,
-        configuration: URLSessionConfiguration = LiveHTTPClient.sessionConfiguration()
+        configuration: URLSessionConfiguration = LiveHTTPClient.sessionConfiguration(),
+        rejection: AwayKeyLatch = AwayKeyLatch()
     ) {
         self.settings = settings
+        self.rejection = rejection
         session = URLSession(configuration: configuration, delegate: RedirectRefusal(), delegateQueue: nil)
         let gravity = Self.gravityConfiguration(configuration)
         gravitySession = URLSession(configuration: gravity, delegate: RedirectRefusal(), delegateQueue: nil)
@@ -113,7 +108,8 @@ extension LiveEndpoints {
     }
 }
 
-/// One quick look for the gateway. Only a 200 counts, and a redirect is never followed.
+/// One quick look for the gateway. The health check goes first, then the login probe.
+/// That later call decides whether the live road is up. A redirect is never followed.
 struct GatewayProbe: Sendable {
     enum Reply: Equatable, Sendable {
         case answered
@@ -138,12 +134,20 @@ struct GatewayProbe: Sendable {
 
     /// Injectable sender keeps probe tests on fixtures, without opening a socket.
     func reply(_ gateway: AwayGatewaySettings, http: any LiveHTTPSending) async -> Reply {
-        guard let url = gateway.healthURL else { return .noAnswer }
-        switch (try? await http.get(url, headers: [:]))?.status {
-        case 200: return .answered
-        case 403: return .rejectedKey
-        default: return .noAnswer
+        let health = await status(of: gateway.healthURL, http: http)
+        let login = await status(of: gateway.loginProbeURL, http: http)
+        if LiveRoadAgreement.isUp(healthStatus: health, piholeStatus: login) {
+            return .answered
         }
+        if LiveRoadAgreement.refusedKey(healthStatus: health, piholeStatus: login) {
+            return .rejectedKey
+        }
+        return .noAnswer
+    }
+
+    private func status(of url: URL?, http: any LiveHTTPSending) async -> Int? {
+        guard let url else { return nil }
+        return (try? await http.get(url, headers: [:]))?.status
     }
 }
 
@@ -158,14 +162,17 @@ struct LiveRoad {
 final class AwayRoadHold {
     private var gateway: AwayGatewaySettings?
     private var reads: AwayHTTPClient?
+    private var rejection: AwayKeyLatch?
 
-    func reader(for settings: AwayGatewaySettings) -> AwayHTTPClient {
-        if let reads, gateway == settings {
+    /// Netdata and Kuma use this client. It shares the Pi-hole latch, so their 403s raise the same notice.
+    func reader(for settings: AwayGatewaySettings, rejection: AwayKeyLatch) -> AwayHTTPClient {
+        if let reads, gateway == settings, self.rejection === rejection {
             return reads
         }
-        let fresh = AwayHTTPClient(settings: settings)
+        let fresh = AwayHTTPClient(settings: settings, rejection: rejection)
         reads = fresh
         gateway = settings
+        self.rejection = rejection
         return fresh
     }
 }

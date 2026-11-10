@@ -55,6 +55,8 @@ public struct AwayGatewaySettings: Sendable, Equatable, CustomStringConvertible,
     public var customMirror: Mirror { Mirror(self, children: []) }
 
     public var healthURL: URL? { URL(string: origin + "/healthz") }
+    /// The login probe. A later call than the health check, on the same origin.
+    public var loginProbeURL: URL? { URL(string: origin + "/api/info/login") }
     /// Pi-hole paths already start with `/api`, so its base is the origin.
     public var piholeBase: URL? { URL(string: origin) }
     public var netdataBase: URL? { URL(string: origin + "/netdata") }
