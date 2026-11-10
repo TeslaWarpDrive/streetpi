@@ -86,7 +86,11 @@ struct LaunchOverlay: View {
         await Task.yield()
         guard !didFinish else { return }
         await playback.play(url: url)
-        guard !Task.isCancelled, !didFinish else { return }
+        guard !didFinish else { return }
+        if Task.isCancelled {
+            respond(to: .sleepCancelled)
+            return
+        }
         poster = SplashFilm.poster()
         playFilm = false
         respond(to: .playbackEnded)
