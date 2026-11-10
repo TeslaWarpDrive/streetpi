@@ -16,6 +16,22 @@ final class AwayStatusTests: XCTestCase {
         AwayFreshness.make(generatedAt: now.addingTimeInterval(-age), now: now)
     }
 
+    private func readingBadge(
+        age: TimeInterval? = nil,
+        problem: MailboxProblem? = nil,
+        note: String? = nil
+    ) -> AwayBadge {
+        readingStatus(age: age, problem: problem, note: note).badge(now: now)
+    }
+
+    private func readingStatus(
+        age: TimeInterval? = nil,
+        problem: MailboxProblem? = nil,
+        note: String? = nil
+    ) -> AwayStatus {
+        AwayStatus.reading(generatedAt: age.map { now.addingTimeInterval(-$0) }, problem: problem, note: note)
+    }
+
     func testFreshUnderAMinute() {
         XCTAssertEqual(freshness(age: 12).line, "Away · updated 12s ago")
         XCTAssertEqual(freshness(age: 59.9).level, .fresh)
@@ -74,6 +90,54 @@ final class AwayStatusTests: XCTestCase {
         XCTAssertTrue(refused.offersSetup)
         let offline = AwayStatus.reading(generatedAt: nil, problem: .offline, note: nil).badge(now: now)
         XCTAssertFalse(offline.offersSetup)
+    }
+
+    func testARefusedTokenKeepsTheReportAndDoesNotOpenSettings() {
+        let held = readingBadge(age: 90, note: AwayCopy.someEarlier)
+        XCTAssertFalse(held.offersSetup)
+        XCTAssertEqual(held.detail, AwayCopy.someEarlier)
+
+        for age in [12.0, 90, 400] {
+            let ageOnly = readingBadge(age: age)
+            let refused = readingBadge(age: age, problem: .refused, note: AwayCopy.someEarlier)
+            XCTAssertFalse(refused.offersSetup, "age \(age)")
+            XCTAssertEqual(refused.line, ageOnly.line)
+            XCTAssertEqual(refused.tone, ageOnly.tone)
+            XCTAssertEqual(refused.symbol, ageOnly.symbol)
+            XCTAssertEqual(refused.detail, "The mailbox refused the read token. Check Settings.")
+            XCTAssertEqual(
+                refused.spoken,
+                "\(ageOnly.spoken) The mailbox refused the read token. Check Settings."
+            )
+        }
+
+        XCTAssertNil(readingStatus(age: 90, problem: .refused).quietHeadline(now: now))
+        XCTAssertEqual(readingStatus(age: 400, problem: .refused).quietHeadline(now: now), AwayCopy.quietHeadline)
+    }
+
+    func testOtherAwayBadgesKeepTheSettingsButtonTheyHaveToday() {
+        XCTAssertTrue(AwayStatus.notSetUp.badge(now: now).offersSetup)
+        XCTAssertFalse(AwayStatus.unreachable.badge(now: now).offersSetup)
+        XCTAssertFalse(readingBadge().offersSetup)
+        XCTAssertTrue(readingBadge(problem: .refused).offersSetup)
+        XCTAssertTrue(readingBadge(problem: .wrongAddress).offersSetup)
+        XCTAssertFalse(readingBadge(problem: .offline).offersSetup)
+        XCTAssertFalse(readingBadge(problem: .notUnderstood).offersSetup)
+
+        let kept: [MailboxProblem?] = [nil, .offline, .wrongAddress, .notUnderstood]
+        for age in [12.0, 90, 400] {
+            for problem in kept {
+                let badge = readingBadge(age: age, problem: problem, note: AwayCopy.someEarlier)
+                XCTAssertFalse(badge.offersSetup, "age \(age) problem \(String(describing: problem))")
+            }
+            let noted = readingBadge(age: age, note: AwayCopy.someEarlier)
+            XCTAssertEqual(noted.detail, AwayCopy.someEarlier)
+            let missed = readingBadge(age: age, problem: .wrongAddress, note: AwayCopy.someEarlier)
+            XCTAssertEqual(missed.detail, "Nothing answered at that mailbox address. Check Settings.")
+            XCTAssertEqual(missed.line, noted.line)
+            XCTAssertEqual(missed.tone, noted.tone)
+            XCTAssertEqual(missed.symbol, noted.symbol)
+        }
     }
 
     func testNotSetUpOffersSetupAndLeavesControlsOpen() {

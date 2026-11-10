@@ -73,7 +73,8 @@ final class RejectedAwayKeyTests: XCTestCase {
         assertNoticeHidden(root)
     }
 
-    func testOnlyHealth200AnswersAndOnly403RejectsKey() async throws {
+    /// Both calls see this one status. The login probe has to be 200 before the road is up.
+    func testOnlyAShared200AnswersAndOnly403RejectsTheKey() async throws {
         for status in [200, 302, 401, 403, 404, 503] {
             let reply = await GatewayProbe().reply(try gateway(), http: ProbeReply(status: status))
             XCTAssertEqual(reply, status == 200 ? .answered : status == 403 ? .rejectedKey : .noAnswer)
@@ -81,13 +82,26 @@ final class RejectedAwayKeyTests: XCTestCase {
     }
 
     func testForbiddenDuringAwayRefreshReachesTheNotice() async throws {
-        try await assertRefreshRejection(protocolClass: RejectedKeyHTTPStub.self)
-        try await assertRefreshRejection(protocolClass: RejectedAfterLoginHTTPStub.self)
+        try await assertAwayRefresh(RejectedKeyHTTPStub.self, problem: .offline, showsNotice: true)
     }
 
-    private func assertRefreshRejection(protocolClass: URLProtocol.Type) async throws {
+    func testALaterForbiddenDuringAwayRefreshIsNotABadKey() async throws {
+        try await assertAwayRefresh(
+            RejectedAfterLoginHTTPStub.self, problem: .refused, showsNotice: false, priorRejection: true
+        )
+    }
+
+    private func assertAwayRefresh(
+        _ protocolClass: URLProtocol.Type,
+        problem: PiholeProblem,
+        showsNotice: Bool,
+        priorRejection: Bool = false
+    ) async throws {
         let gateway = try gateway()
         let root = RootView(now: .streetFixtureNow, mode: .awayLive(gateway))
+        if priorRejection {
+            root.certificateRecovery.gatewayReply = .rejectedKey
+        }
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [protocolClass]
         let http = AwayHTTPClient(settings: gateway, configuration: configuration)
@@ -101,8 +115,12 @@ final class RejectedAwayKeyTests: XCTestCase {
         let secrets = MemorySecretStore()
         try KeychainSession(store: secrets).saveAppPassword("FAKE_password")
         let board = await root.refresh(client, now: .streetFixtureNow, secrets: secrets)
-        XCTAssertEqual(board.problem, .offline)
-        assertNoticeShows(root)
+        XCTAssertEqual(board.problem, problem)
+        if showsNotice {
+            assertNoticeShows(root)
+        } else {
+            assertNoticeHidden(root)
+        }
     }
 
     func testHomeRefreshForbiddenDoesNotClaimAwayKeyWasRejected() async {
@@ -628,7 +646,7 @@ private struct ProbeReply: LiveHTTPSending {
     }
 }
 
-private class RejectedKeyHTTPStub: URLProtocol, @unchecked Sendable {
+class RejectedKeyHTTPStub: URLProtocol, @unchecked Sendable {
     class var rejectsLogin: Bool { true }
 
     override class func canInit(with request: URLRequest) -> Bool { true }

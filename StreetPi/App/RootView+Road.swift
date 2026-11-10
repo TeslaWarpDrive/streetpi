@@ -7,8 +7,12 @@ final class CertificateRecovery {
     var reading = PiProbe.Reading(mode: .home)
     var gatewayReply = GatewayProbe.Reply.noAnswer
     var awayHTTP: AwayHTTPClient?
+    /// Shared by the Pi-hole client and the Netdata and Kuma client.
+    var keyLatch = AwayKeyLatch()
     var declinedPin: String?
     var dnsProblem: PiholeProblem?
+    /// A clear away-live read has happened since the last probe or sign-out.
+    var homeProbeYields = false
     var trigger = ConnectionTrigger.launch
     var retry = 0
     var generation = 0
@@ -43,7 +47,7 @@ extension RootView {
         }
         guard !Task.isCancelled, generation == certificateRecovery.generation else { return nil }
         certificateRecovery.gatewayReply = reply
-        certificateRecovery.reading = reading
+        noteProbe(reading)
         return reading.mode
     }
 
@@ -51,8 +55,36 @@ extension RootView {
         let generation = certificateRecovery.generation
         let reading = await probe()
         guard !Task.isCancelled, generation == certificateRecovery.generation else { return nil }
-        certificateRecovery.reading = reading
+        noteProbe(reading)
         return reading.mode
+    }
+
+    var currentAccess: AdBlockerAccess {
+        AdBlockerAccess(
+            passwordSaved: passwordSaved,
+            signedOut: signedOut,
+            probePin: certificateRecovery.reading.presentedPin,
+            readPin: presentedPin,
+            declinedPin: certificateRecovery.declinedPin,
+            dnsProblem: certificateRecovery.dnsProblem,
+            road: mode,
+            homeProbeYields: certificateRecovery.homeProbeYields
+        )
+    }
+
+    func store(_ next: AdBlockerAccess) {
+        passwordSaved = next.passwordSaved
+        signedOut = next.signedOut
+        presentedPin = next.readPin
+        certificateRecovery.reading.presentedPin = next.probePin
+        certificateRecovery.declinedPin = next.declinedPin
+        certificateRecovery.dnsProblem = next.dnsProblem
+        certificateRecovery.homeProbeYields = next.homeProbeYields
+    }
+
+    func noteProbe(_ reading: PiProbe.Reading) {
+        certificateRecovery.reading = reading
+        store(currentAccess.reduce(.probePresented(pin: reading.presentedPin)))
     }
 
     /// A session id belongs to one road, so a new road drops it and signs in again.
@@ -64,6 +96,7 @@ extension RootView {
         // A read or probe still on the old road, away or at home, can no longer speak for the key.
         certificateRecovery.generation += 1
         certificateRecovery.awayHTTP = nil
+        certificateRecovery.keyLatch = AwayKeyLatch()
         try? KeychainSession(store: secretStore).deleteSessionID()
         // The old road may be gone, so the app does not wait on this.
         Task { await previous?.signOut() }
@@ -98,7 +131,11 @@ extension RootView {
 
     var liveRoad: LiveRoad {
         if case .awayLive(let gateway) = mode, let endpoints = LiveEndpoints.away(gateway) {
-            return LiveRoad(endpoints: endpoints, sender: awayRoad.reader(for: gateway), isAway: true)
+            return LiveRoad(
+                endpoints: endpoints,
+                sender: awayRoad.reader(for: gateway, rejection: certificateRecovery.keyLatch),
+                isAway: true
+            )
         }
         return LiveRoad(endpoints: LiveHostStore().load(), sender: liveClient, isAway: false)
     }
@@ -129,7 +166,11 @@ extension RootView {
         }
         let store = secretStore
         let base = gateway.piholeBase ?? LiveEndpoints.house.pihole
-        let http = AwayHTTPClient(settings: gateway, configuration: AwayHTTPClient.piholeConfiguration())
+        let http = AwayHTTPClient(
+            settings: gateway,
+            configuration: AwayHTTPClient.piholeConfiguration(),
+            rejection: certificateRecovery.keyLatch
+        )
         certificateRecovery.awayHTTP = http
         let client = PiholeClient(
             transport: AwayPiholeTransport(base: LivePiholeTransport(http: http, base: base)),
@@ -179,6 +220,7 @@ extension RootView {
         certificateRecovery.generation += 1
         certificateRecovery.gatewayReply = .noAnswer
         certificateRecovery.awayHTTP = nil
+        certificateRecovery.keyLatch = AwayKeyLatch()
         certificateRecovery.trigger = .settingsChanged
         modeCheck += 1
     }

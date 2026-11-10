@@ -23,10 +23,13 @@ public enum ConnectionMode: Sendable, Equatable {
         return .offline
     }
 
-    /// A good read does not prove the road while nothing answered or the away key is in doubt,
-    /// so those keep looking until a probe says otherwise.
+    /// A good read does not prove the road while the live gateway or the mailbox
+    /// is all that answered, nothing answered, or the away key is in doubt.
+    /// Those keep looking until a probe says otherwise.
     public func looksAgain(readFailed: Bool, keyRejected: Bool) -> Bool {
-        readFailed || keyRejected || self == .offline
+        if case .awayLive = self { return true }
+        if case .awayMailbox = self { return true }
+        return readFailed || keyRejected || self == .offline
     }
 
     /// Only the mailbox holds actions back. Face ID is decided by `ActionPolicy` in every mode.

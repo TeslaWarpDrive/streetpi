@@ -163,6 +163,14 @@ function monitors(value: unknown, path: string): void {
   count(part.down, `${path}.down`);
   count(part.total, `${path}.total`);
   list(part.items, `${path}.items`, monitorItem);
+  const up = part.up as number;
+  const down = part.down as number;
+  const total = part.total as number;
+  if (up > total) reject(`${path}.up`, "cannot be greater than total");
+  const namedDown = (part.items as { status: string }[]).some((item) => item.status === "down");
+  if (down === 0 && up === total && namedDown) {
+    reject(`${path}.items`, "cannot be all up while a named monitor is down");
+  }
 }
 
 function streamingProxy(value: unknown, path: string): void {

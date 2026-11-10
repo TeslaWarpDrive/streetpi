@@ -178,10 +178,28 @@ public struct AwayMonitors: Sendable, Equatable, Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.strictContainer(keyedBy: CodingKeys.self)
-        up = try container.decode(Int.self, forKey: .up)
-        down = try container.decode(Int.self, forKey: .down)
-        total = try container.decode(Int.self, forKey: .total)
-        items = try container.decode([AwayMonitor].self, forKey: .items)
+        let up = try container.decode(Int.self, forKey: .up)
+        let down = try container.decode(Int.self, forKey: .down)
+        let total = try container.decode(Int.self, forKey: .total)
+        let items = try container.decode([AwayMonitor].self, forKey: .items)
+        guard Self.countsAreCredible(up: up, down: down, total: total, items: items) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .up,
+                in: container,
+                debugDescription: "Monitor counts disagree."
+            )
+        }
+        self.up = up
+        self.down = down
+        self.total = total
+        self.items = items
+    }
+
+    /// `up` cannot pass `total`. An all-up count cannot sit beside a named check that is down.
+    static func countsAreCredible(up: Int, down: Int, total: Int, items: [AwayMonitor]) -> Bool {
+        if up > total { return false }
+        if down == 0, up == total, items.contains(where: { $0.status == .down }) { return false }
+        return true
     }
 }
 

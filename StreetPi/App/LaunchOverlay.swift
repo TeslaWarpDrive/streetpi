@@ -1,3 +1,4 @@
+import StreetPiCore
 import SwiftUI
 import UIKit
 
@@ -8,6 +9,7 @@ struct LaunchOverlay: View {
     var handoffPreview = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.streetPiStill) private var still
     @State private var model: SplashPlayerModel?
     @State private var poster: UIImage?
@@ -26,7 +28,7 @@ struct LaunchOverlay: View {
             HomeAura(tone: .calm)
                 .opacity(handingOff || handoffPreview ? 1 : 0)
                 .scaleEffect(reduceMotion || handingOff || handoffPreview ? 1 : 1.15)
-            Button(action: finish) {
+            Button(action: skip) {
                 Color.clear
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .contentShape(Rectangle())
@@ -39,6 +41,9 @@ struct LaunchOverlay: View {
         .statusBarHidden(true)
         .persistentSystemOverlays(.hidden)
         .task { await run() }
+        .onChange(of: scenePhase) { _, phase in
+            respond(to: .scene(.init(phase)))
+        }
         .onDisappear(perform: halt)
     }
 
@@ -65,23 +70,34 @@ struct LaunchOverlay: View {
         do {
             try await Task.sleep(for: SplashFilm.stillHold)
         } catch {
+            respond(to: .sleepCancelled)
             return
         }
-        finish()
+        respond(to: .stillHeld)
     }
 
     private func play() async {
         guard let url = SplashFilm.videoURL() else {
-            finish()
+            respond(to: .missingFilm)
             return
         }
         let playback = SplashPlayerModel()
         model = playback
         await Task.yield()
+        guard !didFinish else { return }
         await playback.play(url: url)
         guard !Task.isCancelled, !didFinish else { return }
         poster = SplashFilm.poster()
         playFilm = false
+        respond(to: .playbackEnded)
+    }
+
+    private func skip() {
+        respond(to: .tap)
+    }
+
+    private func respond(to cue: LaunchFilmCue) {
+        guard LaunchFilmHandoff.step(cue, alreadyFinished: didFinish) == .finish else { return }
         finish()
     }
 
@@ -113,5 +129,20 @@ extension View {
             }
         }
         .animation(.easeInOut(duration: SplashFilm.crossfade), value: isPresented.wrappedValue)
+    }
+}
+
+private extension LaunchFilmCue.Scene {
+    init(_ phase: ScenePhase) {
+        switch phase {
+        case .active:
+            self = .active
+        case .inactive:
+            self = .inactive
+        case .background:
+            self = .background
+        @unknown default:
+            self = .active
+        }
     }
 }
