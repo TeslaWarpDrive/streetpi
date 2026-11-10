@@ -391,19 +391,31 @@ final class AwayBoardTests: XCTestCase {
         XCTAssertEqual(badge.detail, "The mailbox refused the read token. Check Settings.")
     }
 
-    func testASavedReportStillHidesSettingsForOtherMailboxFailures() async throws {
+    func testAWrongAddressKeepsTheReportAndOpensSettings() async throws {
+        let good = try replies()
+        let saved = try await AwaySession().refreshed(using: client(good), now: now)
+        let kept = try XCTUnwrap(saved.latest)
+        var missed = good
+        missed.latest = MailboxReply(status: 404, body: Data())
+        let later = now.addingTimeInterval(15)
+        let session = try await saved.refreshed(using: client(missed), now: later)
+        XCTAssertEqual(session.latest, kept)
+        XCTAssertEqual(session.problem, .wrongAddress)
+        let badge = session.status.badge(now: later)
+        XCTAssertTrue(badge.offersSetup)
+        XCTAssertEqual(badge.detail, "Nothing answered at that mailbox address. Check Settings.")
+    }
+
+    func testASavedReportStillHidesSettingsForAnOfflineMailbox() async throws {
         let good = try replies()
         let saved = try await AwaySession().refreshed(using: client(good), now: now)
         let later = now.addingTimeInterval(15)
-        let failures: [(Int, MailboxProblem)] = [(404, .wrongAddress), (500, .offline)]
-        for (status, problem) in failures {
-            var bad = good
-            bad.latest = MailboxReply(status: status, body: Data())
-            let session = try await saved.refreshed(using: client(bad), now: later)
-            XCTAssertEqual(session.latest, saved.latest)
-            XCTAssertEqual(session.problem, problem)
-            XCTAssertFalse(session.status.badge(now: later).offersSetup)
-        }
+        var bad = good
+        bad.latest = MailboxReply(status: 500, body: Data())
+        let session = try await saved.refreshed(using: client(bad), now: later)
+        XCTAssertEqual(session.latest, saved.latest)
+        XCTAssertEqual(session.problem, .offline)
+        XCTAssertFalse(session.status.badge(now: later).offersSetup)
     }
 
     func testNoReportYetKeepsWaiting() async throws {

@@ -233,7 +233,7 @@ struct RootView: View {
         case .home, .awayLive:
             nil
         case .offline:
-            gatewaySaved && gatewayEnabled ? .unreachable : .notSetUp
+            AwayStatus.offline(gatewaySaved: gatewaySaved, gatewayEnabled: gatewayEnabled)
         case .awayMailbox:
             awaySession.status
         }
