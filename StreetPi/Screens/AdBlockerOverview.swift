@@ -108,6 +108,8 @@ struct AdBlockerOverview<More: View>: View {
     private var hours: some View {
         if desk.hasDayLookups {
             HourBars(samples: desk.day, stopped: share.stopped)
+        } else if away, let note = desk.dayChartNote {
+            EmptyNote(title: note, detail: AwayCopy.keepTrying, theme: theme)
         } else if away {
             EmptyNote(title: AwayCopy.chartWaitingTitle, detail: AwayCopy.chartWaiting, theme: theme)
         } else {

@@ -351,6 +351,8 @@ final class AwayBoardTests: XCTestCase {
         XCTAssertNil(session.problem)
         XCTAssertEqual(session.historyProblem, .offline)
         XCTAssertEqual(session.board.machine.chartNote, AwayCopy.problem(.offline))
+        XCTAssertEqual(session.board.desk.dayChartNote, AwayCopy.problem(.offline))
+        XCTAssertFalse(session.board.desk.hasDayLookups)
         XCTAssertNotNil(session.latest)
         session = try await session.refreshed(using: client, now: now.addingTimeInterval(15))
         XCTAssertEqual(transport.historyReads.value, 1)

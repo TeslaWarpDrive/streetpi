@@ -61,6 +61,38 @@ final class ScriptedMailbox: MailboxTransport, @unchecked Sendable {
     }
 }
 
+/// One open-session row. A history miss is `historyProblem`, never the badge problem.
+private struct OpenRow {
+    var name: String
+    var latest: MailboxAnswer
+    var history: MailboxAnswer?
+    var problem: MailboxProblem?
+    var offersSetup: Bool
+    var hasLatest: Bool
+    var hasHistory: Bool
+    var historyProblem: MailboxProblem?
+
+    init(
+        name: String,
+        latest: MailboxAnswer,
+        history: MailboxAnswer?,
+        problem: MailboxProblem?,
+        offersSetup: Bool,
+        hasLatest: Bool,
+        hasHistory: Bool,
+        historyProblem: MailboxProblem? = nil
+    ) {
+        self.name = name
+        self.latest = latest
+        self.history = history
+        self.problem = problem
+        self.offersSetup = offersSetup
+        self.hasLatest = hasLatest
+        self.hasHistory = hasHistory
+        self.historyProblem = historyProblem
+    }
+}
+
 /// Today's `AwaySession.refreshed` outputs, except the history-miss-while-latest-updates row.
 final class AwaySessionTransitionTests: XCTestCase {
     private let now = Date.streetFixtureNow
@@ -103,27 +135,24 @@ final class AwaySessionTransitionTests: XCTestCase {
 
     // MARK: From an empty session
 
-    private struct OpenRow {
-        var name: String
-        var latest: MailboxAnswer
-        var history: MailboxAnswer?
-        var problem: MailboxProblem?
-        var offersSetup: Bool
-        var hasLatest: Bool
-        var hasHistory: Bool
-    }
-
     func testOpenSessionTransitions() async throws {
         for row in try openRows() {
             let history = row.history.map { [$0] } ?? []
             let (session, transport) = try await refresh(latest: [row.latest], history: history, at: now)
             let badge = session.status.badge(now: now)
             XCTAssertEqual(session.problem, row.problem, row.name)
+            XCTAssertEqual(session.historyProblem, row.historyProblem, row.name)
             XCTAssertEqual(session.latest != nil, row.hasLatest, row.name)
             XCTAssertEqual(session.history != nil, row.hasHistory, row.name)
             XCTAssertEqual(transport.historyReadCount, row.history == nil ? 0 : 1, row.name)
             XCTAssertEqual(badge.offersSetup, row.offersSetup, row.name)
-            XCTAssertEqual(session.board.machine.chartNote, AwayCopy.chartWaiting, row.name)
+            if session.board.machine.series.isEmpty {
+                let note = row.historyProblem.map(AwayCopy.problem) ?? AwayCopy.chartWaiting
+                XCTAssertEqual(session.board.machine.chartNote, note, row.name)
+            } else {
+                XCTAssertNil(session.board.machine.chartNote, row.name)
+            }
+            XCTAssertEqual(session.board.desk.dayChartNote, row.historyProblem.map(AwayCopy.problem), row.name)
             if row.hasLatest {
                 let generatedAt = try XCTUnwrap(session.latest, row.name).generatedAt
                 let freshness = AwayFreshness.make(generatedAt: generatedAt, now: now)
@@ -192,27 +221,32 @@ final class AwaySessionTransitionTests: XCTestCase {
             OpenRow(
                 name: "history offline before the first report",
                 latest: .status(204, Data()), history: .status(500, Data()),
-                problem: .offline, offersSetup: false, hasLatest: false, hasHistory: false
+                problem: nil, offersSetup: false, hasLatest: false, hasHistory: false,
+                historyProblem: .offline
             ),
             OpenRow(
                 name: "history refused before the first report",
                 latest: .status(204, Data()), history: .status(401, Data()),
-                problem: .refused, offersSetup: true, hasLatest: false, hasHistory: false
+                problem: nil, offersSetup: false, hasLatest: false, hasHistory: false,
+                historyProblem: .refused
             ),
             OpenRow(
                 name: "history wrong address before the first report",
                 latest: .status(204, Data()), history: .status(404, Data()),
-                problem: .wrongAddress, offersSetup: true, hasLatest: false, hasHistory: false
+                problem: nil, offersSetup: false, hasLatest: false, hasHistory: false,
+                historyProblem: .wrongAddress
             ),
             OpenRow(
                 name: "history unreadable before the first report",
                 latest: .status(204, Data()), history: .status(200, garbage),
-                problem: .notUnderstood, offersSetup: false, hasLatest: false, hasHistory: false
+                problem: nil, offersSetup: false, hasLatest: false, hasHistory: false,
+                historyProblem: .notUnderstood
             ),
             OpenRow(
                 name: "history timeout before the first report",
                 latest: .status(204, Data()), history: .timeout,
-                problem: .offline, offersSetup: false, hasLatest: false, hasHistory: false
+                problem: nil, offersSetup: false, hasLatest: false, hasHistory: false,
+                historyProblem: .offline
             ),
         ]
     }
@@ -242,7 +276,8 @@ final class AwaySessionTransitionTests: XCTestCase {
         XCTAssertEqual(badge.detail, AwayCopy.problem(.offline))
         XCTAssertEqual(badge.tone, .calm)
         XCTAssertFalse(badge.offersSetup)
-        XCTAssertEqual(session.board.machine.chartNote, AwayCopy.chartWaiting)
+        XCTAssertNil(session.board.machine.chartNote)
+        XCTAssertFalse(session.board.machine.series.isEmpty)
         XCTAssertEqual(session.board.desk.knownClients, 14)
     }
 
@@ -305,7 +340,8 @@ final class AwaySessionTransitionTests: XCTestCase {
         XCTAssertEqual(session.latest?.generatedAt, saved.latest?.generatedAt)
         XCTAssertEqual(session.history?.generatedAt, saved.history?.generatedAt)
         XCTAssertNil(session.status.badge(now: now.addingTimeInterval(30)).detail)
-        XCTAssertEqual(session.board.machine.chartNote, AwayCopy.chartWaiting)
+        XCTAssertNil(session.board.machine.chartNote)
+        XCTAssertFalse(session.board.machine.series.isEmpty)
     }
 
     func testTheReadAfterALatestMissStillFetchesHistory() async throws {
@@ -322,7 +358,8 @@ final class AwaySessionTransitionTests: XCTestCase {
         XCTAssertNil(session.problem)
         XCTAssertNotNil(session.latest)
         XCTAssertNotNil(session.history)
-        XCTAssertEqual(session.board.machine.chartNote, AwayCopy.chartWaiting)
+        XCTAssertNil(session.board.machine.chartNote)
+        XCTAssertFalse(session.board.machine.series.isEmpty)
     }
 
     func testAnEmptyHistoryPageKeepsThePreviousChart() async throws {
@@ -341,7 +378,7 @@ final class AwaySessionTransitionTests: XCTestCase {
         XCTAssertNil(session.problem)
         XCTAssertEqual(session.history?.generatedAt, saved.history?.generatedAt)
         XCTAssertFalse(session.board.machine.series.isEmpty)
-        XCTAssertEqual(session.board.machine.chartNote, AwayCopy.chartWaiting)
+        XCTAssertNil(session.board.machine.chartNote)
     }
 
     func testHistoryIsNotReadAgainInsideAMinute() async throws {
@@ -372,7 +409,8 @@ final class AwaySessionTransitionTests: XCTestCase {
         XCTAssertEqual(transport.historyReadCount, 2)
         XCTAssertNil(session.problem)
         XCTAssertEqual(session.history?.generatedAt, firstChart)
-        XCTAssertEqual(session.board.machine.chartNote, AwayCopy.chartWaiting)
+        XCTAssertNil(session.board.machine.chartNote)
+        XCTAssertFalse(session.board.machine.series.isEmpty)
     }
 
     func testAHistoryMissIsNotAskedAgainInsideAMinute() async throws {

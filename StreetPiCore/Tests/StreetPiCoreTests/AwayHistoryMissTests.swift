@@ -12,6 +12,37 @@ final class AwayHistoryMissTests: XCTestCase {
         var problem: MailboxProblem
     }
 
+    func testAHistoryMissBeforeTheFirstReportStaysOffTheBadge() async throws {
+        let misses = [
+            Miss(name: "offline", answer: .status(500, Data()), problem: .offline),
+            Miss(name: "timeout", answer: .timeout, problem: .offline),
+            Miss(name: "refused", answer: .status(401, Data()), problem: .refused),
+            Miss(name: "wrong address", answer: .status(404, Data()), problem: .wrongAddress),
+            Miss(name: "unreadable", answer: .status(200, Data("{\"schema\":2}".utf8)), problem: .notUnderstood),
+        ]
+        for miss in misses {
+            let (session, transport) = try await refresh(
+                latest: [.status(204, Data())],
+                history: [miss.answer],
+                at: now
+            )
+            XCTAssertEqual(transport.historyReadCount, 1, miss.name)
+            XCTAssertNil(session.latest, miss.name)
+            XCTAssertNil(session.history, miss.name)
+            XCTAssertNil(session.problem, miss.name)
+            XCTAssertEqual(session.historyProblem, miss.problem, miss.name)
+            let badge = session.status.badge(now: now)
+            XCTAssertEqual(badge.line, AwayCopy.waitingFirstReport, miss.name)
+            XCTAssertNil(badge.detail, miss.name)
+            XCTAssertEqual(badge.tone, .attention, miss.name)
+            XCTAssertFalse(badge.offersSetup, miss.name)
+            XCTAssertTrue(session.board.machine.series.isEmpty, miss.name)
+            XCTAssertEqual(session.board.machine.chartNote, AwayCopy.problem(miss.problem), miss.name)
+            XCTAssertFalse(session.board.desk.hasDayLookups, miss.name)
+            XCTAssertEqual(session.board.desk.dayChartNote, AwayCopy.problem(miss.problem), miss.name)
+        }
+    }
+
     func testAHistoryMissStaysOffTheBadgeWhileTheReportUpdates() async throws {
         let misses = [
             Miss(name: "offline", answer: .status(500, Data()), problem: .offline),
@@ -58,6 +89,7 @@ final class AwayHistoryMissTests: XCTestCase {
         session = try await session.refreshed(using: mailbox, now: firstMiss)
         try assertStaysOffTheBadge(session, problem: .wrongAddress, at: firstMiss, name: "first miss")
         XCTAssertEqual(session.history?.generatedAt, savedChart)
+        XCTAssertFalse(session.board.machine.series.isEmpty)
         XCTAssertTrue(session.board.desk.hasDayLookups)
         XCTAssertEqual(
             session.latest?.generatedAt,
@@ -120,7 +152,8 @@ final class AwayHistoryMissTests: XCTestCase {
         XCTAssertNil(session.historyProblem)
         XCTAssertNotNil(session.history)
         XCTAssertNil(session.status.badge(now: now.addingTimeInterval(60)).detail)
-        XCTAssertEqual(session.board.machine.chartNote, AwayCopy.chartWaiting)
+        XCTAssertNil(session.board.machine.chartNote)
+        XCTAssertNil(session.board.desk.dayChartNote)
         XCTAssertFalse(session.board.machine.series.isEmpty)
     }
 
@@ -190,6 +223,11 @@ final class AwayHistoryMissTests: XCTestCase {
         XCTAssertEqual(badge.tone, tone, name, file: file, line: line)
         XCTAssertFalse(badge.offersSetup, name, file: file, line: line)
         XCTAssertEqual(session.board.machine.chartNote, AwayCopy.problem(problem), name, file: file, line: line)
+        if session.board.desk.hasDayLookups {
+            XCTAssertNil(session.board.desk.dayChartNote, name, file: file, line: line)
+        } else {
+            XCTAssertEqual(session.board.desk.dayChartNote, AwayCopy.problem(problem), name, file: file, line: line)
+        }
         XCTAssertEqual(session.board.desk.knownClients, 14, name, file: file, line: line)
     }
 }
