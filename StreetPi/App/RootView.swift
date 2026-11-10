@@ -435,7 +435,8 @@ struct RootView: View {
         }
     }
 
-    private func apply(_ board: AdBlockerBoard) {
+    func apply(_ board: AdBlockerBoard) {
+        if repeatsDeclinedCertificate(board) { return }
         clock = Date()
         desk = keepingLog(board.desk)
         var snapshot = board.snapshot
@@ -447,6 +448,20 @@ struct RootView: View {
         screen = .explained(status, snapshot)
         let offered = board.problem == .certificateChanged ? presentedPin : nil
         store(currentAccess.reduce(.boardReported(problem: board.problem, readPin: offered)))
+    }
+
+    /// The same declined certificate must not cover the away-live desk again.
+    private func repeatsDeclinedCertificate(_ board: AdBlockerBoard) -> Bool {
+        guard isAwayLive, let declined = certificateRecovery.declinedPin else { return false }
+        switch board.problem {
+        case .pinKept:
+            return true
+        case .certificateChanged:
+            let presented = dnsSession.presented?.presented()
+            return presented == nil || presented == declined
+        default:
+            return false
+        }
     }
 
     private func keepingLog(_ next: DNSDesk) -> DNSDesk {
