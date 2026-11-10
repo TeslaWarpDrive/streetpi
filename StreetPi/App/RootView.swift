@@ -213,6 +213,15 @@ struct RootView: View {
         "\(scenePhase)|\(committedHost)|\(certificateRecovery.retry)|\(signedOut)|\(statusAddress)|\(statusSlug)|\(modeCheck)"
     }
 
+    /// The road and settings a pull read has to match before it may publish.
+    func refreshIdentity() -> ManualRefresh.Identity {
+        ManualRefresh.Identity(
+            mode: mode, generation: certificateRecovery.generation, host: committedHost,
+            statusAddress: statusAddress, statusSlug: statusSlug, watch: modeCheck,
+            signedOut: signedOut, retry: certificateRecovery.retry
+        )
+    }
+
     /// Nil at home. Away, the screens read this and the home state waits untouched.
     private var awayBoard: AwayBoard? {
         guard case .awayMailbox = mode else { return nil }
