@@ -1,5 +1,6 @@
-import SwiftUI
 import StreetPiCore
+import SwiftUI
+import UIKit
 
 struct DNSStatistics: View {
     var desk: DNSDesk
@@ -57,6 +58,8 @@ struct DNSLogScreen: View {
     var now: Date
     var onAllow: (String) -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         ControlScreen(wide: wide) {
             ControlTitle(title: title, line: logLine, theme: theme)
@@ -78,12 +81,25 @@ struct DNSLogScreen: View {
         offersAllow ? "Lookups the Pi has kept." : "Lookups as they happen."
     }
 
-    private func queryRow(_ query: DNSQuery) -> some View {
-        VStack(alignment: .leading, spacing: Rhythm.line) {
-            Text(query.domain)
+    /// Largest type breaks after a dot and does not hyphenate a run the row can hold.
+    @ViewBuilder
+    private func domainName(_ domain: String) -> some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            LargeTypeLabel(text: domain, monospaced: true, style: .headline, color: theme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            Text(domain)
                 .font(.headline.monospaced())
                 .foregroundStyle(theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func queryRow(_ query: DNSQuery) -> some View {
+        VStack(alignment: .leading, spacing: Rhythm.line) {
+            domainName(query.domain)
+                .accessibilityLabel(query.domain)
             StatusChip(title: query.outcome.word, tone: query.outcome == .blocked ? .problem : .calm)
             Text("\(query.client) · \(AgePhrase.english(from: query.at, to: now))")
                 .font(.subheadline)

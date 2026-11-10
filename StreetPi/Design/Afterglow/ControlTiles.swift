@@ -1,3 +1,4 @@
+import StreetPiCore
 import SwiftUI
 
 /// Compact Aurora tiles: a big lavender figure and a plain-English line.
@@ -156,16 +157,26 @@ extension View {
 }
 
 /// Lets long names break after a dot so large text stays inside the tile.
+/// Largest type also refuses to hyphenate a run the row can hold.
 private struct WrappingLine: View {
     var text: String
     var font: Font
     var color: Color
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        Text(text.replacingOccurrences(of: ".", with: ".\u{200B}"))
+        Text(shown)
             .font(font)
             .foregroundStyle(color)
             .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var shown: String {
+        if dynamicTypeSize.isAccessibilitySize {
+            return LargeTypeWrap.allowingWrap(text)
+        }
+        return text.replacingOccurrences(of: ".", with: ".\u{200B}")
     }
 }
 

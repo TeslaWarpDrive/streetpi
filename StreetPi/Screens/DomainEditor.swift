@@ -20,11 +20,7 @@ struct DomainEditor: View {
                     line: "This applies to everyone in the house. You will confirm before anything changes.",
                     theme: theme
                 )
-                TextField("example.test", text: $draft, axis: .vertical)
-                    .font(.body.monospaced())
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .keyboardType(.URL)
+                domainField
                     .padding(Rhythm.line)
                     .controlPlate(theme: theme)
                     .accessibilityLabel("Domain name")
@@ -44,6 +40,28 @@ struct DomainEditor: View {
         }
         .tint(theme.accent)
         .preferredColorScheme(.dark)
+    }
+
+    /// The example wraps at the largest text size. The system placeholder was ending in an ellipsis.
+    @ViewBuilder
+    private var domainField: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            LargeTypeEntry(
+                prompt: "example.test",
+                text: $draft,
+                monospaced: true,
+                ink: theme.ink,
+                promptInk: theme.tertiary,
+                onSubmit: nil
+            )
+        } else {
+            TextField("example.test", text: $draft, axis: .vertical)
+                .font(.body.monospaced())
+                .foregroundStyle(theme.ink)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+        }
     }
 
     /// Block or allow. The segmented control stays small, so large text gets two full-width choices.
