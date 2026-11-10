@@ -235,6 +235,32 @@ final class AwayLiveTests: XCTestCase {
         XCTAssertEqual(store.save(address: "http://b.example.test", clientID: "", secret: ""), .badAddress)
     }
 
+    func testTheKeyStampMovesOnlyWhenTheKeyChanges() throws {
+        let store = AwayGatewayStore(store: MemorySecretStore(), defaults: defaults)
+        XCTAssertEqual(store.stamp, 0)
+        XCTAssertEqual(
+            store.save(address: "http://gateway.example.test", clientID: "one.access", secret: secret),
+            .badAddress
+        )
+        XCTAssertEqual(store.stamp, 0)
+        XCTAssertEqual(
+            store.save(address: "https://gateway.example.test", clientID: "one.access", secret: secret),
+            .saved
+        )
+        XCTAssertEqual(store.stamp, 1)
+        XCTAssertEqual(store.save(address: "https://gateway.example.test:8443", clientID: "", secret: ""), .saved)
+        XCTAssertEqual(store.stamp, 1)
+        XCTAssertEqual(store.load()?.clientID, "one.access")
+        XCTAssertEqual(
+            store.save(address: "https://gateway.example.test:8443", clientID: "two.access", secret: secret),
+            .saved
+        )
+        XCTAssertEqual(store.stamp, 2)
+        XCTAssertEqual(store.remove(), .saved)
+        XCTAssertEqual(store.stamp, 3)
+        XCTAssertNil(store.load())
+    }
+
     func testTheSwitchTurnsTheRoadOff() throws {
         let store = AwayGatewayStore(store: MemorySecretStore(), defaults: defaults)
         store.seedIfNeeded(from: try gateway())

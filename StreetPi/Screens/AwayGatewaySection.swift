@@ -9,8 +9,7 @@ struct AwayGatewaySection: View {
     var form: AwayGatewayForm
 
     @State private var address: String
-    @State private var clientID = ""
-    @State private var secret = ""
+    @State private var entry = AwaySectionDraft()
     @State private var note = ""
     @State private var replacingKey: Bool
 
@@ -77,11 +76,16 @@ struct AwayGatewaySection: View {
         .onChange(of: form.address) { _, saved in
             address = saved
         }
+        .onAppear {
+            entry.acknowledge(stamp: form.savedStamp())
+        }
         .onChange(of: form.saved) { _, saved in
             if saved == false {
                 replacingKey = false
             }
         }
+        .onChange(of: entry.clientID) { _, _ in entry.noteTyping(stamp: form.savedStamp()) }
+        .onChange(of: entry.secret) { _, _ in entry.noteTyping(stamp: form.savedStamp()) }
     }
 
     private var enabledBinding: Binding<Bool> {
@@ -99,7 +103,7 @@ struct AwayGatewaySection: View {
                 .accessibilityLabel("Gateway client id and secret saved on this phone")
         }
         if AwayKeyReplace.showsFields(saved: form.saved, replacing: replacingKey) {
-            AwayKeyFields(theme: theme, fill: theme.surface, clientID: $clientID, secret: $secret)
+            AwayKeyFields(theme: theme, fill: theme.surface, clientID: $entry.clientID, secret: $entry.secret)
         }
     }
 
@@ -119,30 +123,33 @@ struct AwayGatewaySection: View {
     }
 
     private func beginReplace() {
-        clientID = ""
-        secret = ""
+        entry.clientID = ""
+        entry.secret = ""
         note = ""
         replacingKey = true
     }
 
     private func cancelReplace() {
-        clientID = ""
-        secret = ""
+        entry.clientID = ""
+        entry.secret = ""
         note = ""
         replacingKey = false
     }
 
     private func save() {
-        guard AwayKeyReplace.canSave(replacing: replacingKey, clientID: clientID, secret: secret) else {
-            note = AwayGatewaySaveResult.missingCredentials.note
-            return
-        }
-        let result = form.onSave(address, clientID, secret)
-        note = result.note
-        if result == .saved {
-            clientID = ""
-            secret = ""
-            replacingKey = false
+        switch entry.save(
+            address: address,
+            replacing: replacingKey,
+            stamp: form.savedStamp,
+            onSave: form.onSave
+        ) {
+        case .kept:
+            note = SettingsDraftSave.keptKeyNote
+        case .wrote(let result):
+            note = result.note
+            if result == .saved {
+                replacingKey = false
+            }
         }
     }
 
@@ -151,8 +158,8 @@ struct AwayGatewaySection: View {
         note = result == .saved ? "Removed." : result.note
         if result == .saved {
             address = ""
-            clientID = ""
-            secret = ""
+            entry.clientID = ""
+            entry.secret = ""
             replacingKey = false
         }
     }

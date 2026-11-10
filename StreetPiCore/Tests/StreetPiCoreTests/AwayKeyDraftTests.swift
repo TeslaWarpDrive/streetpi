@@ -85,6 +85,35 @@ final class AwayKeyDraftTests: XCTestCase {
         XCTAssertEqual(draft, AwayKeyDraft(saved: true))
     }
 
+    func testSaveCatchesTheBasisUpBeforeTheNextPair() {
+        var stamp = 1
+        var card = AwayKeyDraft()
+        card.acknowledge(stamp: stamp)
+        card.clientID = "first.access"
+        card.secret = "first-copy"
+        card.noteTyping(stamp: stamp)
+        let save: (String, String, String) -> AwayGatewaySaveResult = { _, _, _ in
+            stamp += 1
+            return .saved
+        }
+        card.save(address: "https://gateway.example.test", stamp: { stamp }, onSave: save)
+        XCTAssertEqual(card.copy.basis, stamp)
+        XCTAssertEqual(card.clientID, "")
+        XCTAssertEqual(card.secret, "")
+
+        card.clientID = "second.access"
+        card.secret = "second-copy"
+        card.noteTyping(stamp: stamp)
+        XCTAssertEqual(card.copy.basisClientID, "second.access")
+        XCTAssertEqual(card.copy.basisSecret, "second-copy")
+        stamp += 1
+        card.acknowledge(stamp: stamp)
+        XCTAssertEqual(
+            card.copy.decision(clientID: card.clientID, secret: card.secret, stamp: stamp),
+            .keepSaved
+        )
+    }
+
     func testFailedSaveKeepsTheTypedValuesAndSaysWhy() {
         for result in [AwayGatewaySaveResult.badAddress, .missingCredentials, .failed] {
             var draft = AwayKeyDraft(clientID: "new.access", secret: "cfast_FAKE_new")

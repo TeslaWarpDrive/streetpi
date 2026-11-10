@@ -211,7 +211,8 @@ extension RootView {
             onEnabled: { enabled in
                 store.setEnabled(enabled)
                 gatewayChanged()
-            }
+            },
+            savedStamp: { store.stamp }
         )
     }
 
