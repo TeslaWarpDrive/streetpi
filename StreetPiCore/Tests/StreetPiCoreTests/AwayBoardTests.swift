@@ -323,7 +323,7 @@ final class AwayBoardTests: XCTestCase {
         XCTAssertEqual(generatedAt, session.latest?.generatedAt)
     }
 
-    func testARefusedTokenKeepsTheReportAndOpensSettings() async throws {
+    func testARefusedTokenKeepsTheReportAndDoesNotOpenSettings() async throws {
         let good = try replies()
         var session = try await AwaySession().refreshed(using: client(good), now: now)
         let kept = try XCTUnwrap(session.latest)
@@ -336,7 +336,7 @@ final class AwayBoardTests: XCTestCase {
         XCTAssertEqual(session.latest, kept)
         XCTAssertEqual(session.problem, .refused)
         let badge = session.status.badge(now: later)
-        XCTAssertTrue(badge.offersSetup)
+        XCTAssertFalse(badge.offersSetup)
         XCTAssertEqual(badge.detail, "The mailbox refused the read token. Check Settings.")
     }
 

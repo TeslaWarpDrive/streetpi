@@ -92,7 +92,7 @@ final class AwayStatusTests: XCTestCase {
         XCTAssertFalse(offline.offersSetup)
     }
 
-    func testARefusedTokenStillOpensSettingsAfterAReport() {
+    func testARefusedTokenKeepsTheReportAndDoesNotOpenSettings() {
         let held = readingBadge(age: 90, note: AwayCopy.someEarlier)
         XCTAssertFalse(held.offersSetup)
         XCTAssertEqual(held.detail, AwayCopy.someEarlier)
@@ -100,7 +100,7 @@ final class AwayStatusTests: XCTestCase {
         for age in [12.0, 90, 400] {
             let ageOnly = readingBadge(age: age)
             let refused = readingBadge(age: age, problem: .refused, note: AwayCopy.someEarlier)
-            XCTAssertTrue(refused.offersSetup, "age \(age)")
+            XCTAssertFalse(refused.offersSetup, "age \(age)")
             XCTAssertEqual(refused.line, ageOnly.line)
             XCTAssertEqual(refused.tone, ageOnly.tone)
             XCTAssertEqual(refused.symbol, ageOnly.symbol)
