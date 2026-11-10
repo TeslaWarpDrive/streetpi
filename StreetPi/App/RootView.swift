@@ -334,17 +334,6 @@ struct RootView: View {
         _ = await (blocker, tiles)
     }
 
-    private func refreshAdBlocker(_ asked: Bool) async {
-        guard asked else { return }
-        let client = await clientForCurrentSettings()
-        let board = await refresh(client, now: Date())
-        guard ManualRefresh.mayPaint(.adBlocker, mode: mode, signedOut: signedOut) else {
-            if signedOut { dnsSession.signedIn = false }
-            return
-        }
-        apply(board)
-    }
-
     func clientForCurrentSettings() async -> PiholeClient {
         if case .awayLive(let gateway) = mode {
             return awayClient(gateway)

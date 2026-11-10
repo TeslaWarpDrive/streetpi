@@ -29,6 +29,18 @@ extension RootView {
         )
     }
 
+    /// A pull can finish after sign-out. Paint the ad blocker only while a pull would still read it.
+    func refreshAdBlocker(_ asked: Bool) async {
+        guard asked else { return }
+        let client = await clientForCurrentSettings()
+        let board = await refresh(client, now: Date())
+        guard ManualRefresh.mayPaint(.adBlocker, mode: mode, signedOut: signedOut) else {
+            if signedOut { dnsSession.signedIn = false }
+            return
+        }
+        apply(board)
+    }
+
     private func loadMeters() async -> Result<NetdataMeters, NetdataProblem>? {
         let road = liveRoad
         let refresh = PiMeterRefresh(client: road.sender, base: road.endpoints.netdata, isAway: road.isAway)
