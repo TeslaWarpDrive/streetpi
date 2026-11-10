@@ -39,7 +39,6 @@ final class ActionPolicyTests: XCTestCase {
         let sameRoad: [Row] = [
             Row(action: pause, mode: .home, faceID: .notAsked, step: .wait),
             Row(action: pause, mode: .home, faceID: .passed, step: .allow),
-            Row(action: pause, mode: .offline, faceID: .passed, step: .allow),
             Row(action: pause, mode: live, faceID: .passed, step: .allow),
             Row(action: block, mode: .home, faceID: .passed, step: .allow),
             Row(action: allow, mode: .home, faceID: .passed, step: .allow),
@@ -53,6 +52,12 @@ final class ActionPolicyTests: XCTestCase {
         for action in [pause, block, allow] {
             XCTAssertEqual(ActionPolicy.confirmStep(action, mode: box, faceID: .passed), .refuse)
             XCTAssertEqual(ActionPolicy.confirmStep(action, mode: box, faceID: .notAsked), .refuse)
+        }
+        // Face ID does not send these while the Pi is out of reach.
+        let resume = HouseholdAction.resumeAdBlocking
+        for action in [pause, resume, block, allow] {
+            XCTAssertEqual(ActionPolicy.confirmStep(action, mode: .offline, faceID: .passed), .refuse)
+            XCTAssertEqual(ActionPolicy.confirmStep(action, mode: .offline, faceID: .notAsked), .refuse)
         }
     }
 
