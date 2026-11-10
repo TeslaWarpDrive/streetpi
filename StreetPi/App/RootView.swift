@@ -772,18 +772,6 @@ extension RootView {
         return try await reader.load()
     }
 
-    func apply(_ meters: NetdataMeters) {
-        machine.host = meters.hostName
-        machine.modelName = "Raspberry Pi"
-        if meters.reading.hasSignal {
-            liveReading = meters.reading
-            piNotice = nil
-        } else {
-            liveReading = nil
-            piNotice = NetdataProblem.notUnderstood.sentence
-        }
-    }
-
     func showMachine() {
         guard var snapshot = screen.snapshot else { return }
         snapshot.machine = liveReading

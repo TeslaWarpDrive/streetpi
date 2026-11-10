@@ -73,6 +73,18 @@ extension RootView {
         showMachine()
     }
 
+    func apply(_ meters: NetdataMeters) {
+        machine.host = meters.hostName
+        machine.modelName = "Raspberry Pi"
+        if meters.reading.hasSignal {
+            liveReading = meters.reading
+            piNotice = nil
+        } else {
+            liveReading = nil
+            piNotice = NetdataProblem.notUnderstood.sentence
+        }
+    }
+
     /// Charts, and the containers and alarms that arrive in the same read.
     /// A miss keeps the last good rows and says why, the same as the loop.
     /// Offline lands only the halves that missed, by the same `HousePass` rule as the loop.
